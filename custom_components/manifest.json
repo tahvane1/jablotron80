@@ -1,0 +1,10 @@
+{
+	"domain": "jablotron80",
+	"name": "Jablotron 80",
+	"config_flow": true,
+	"documentation": "https://github.com/tahvane1/jablotron80",
+	"issue_tracker": "https://github.com/tahvane1/jablotron80/issues",
+	"dependencies": [],
+	"codeowners": ["@tahvane1"],
+	"requirements": []
+}
