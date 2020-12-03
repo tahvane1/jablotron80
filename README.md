@@ -34,6 +34,9 @@ Home Assistant custom component for JABLOTRON 80 alarm system
 
 Report [issue](https://github.com/tahvane1/jablotron80/issues)
 
+## Supported devices
+
+This integration has been tested with JA-80K central unit, JA-81F keypad and JA82-T usb cable. Tested sensors include door sensors and fire alarms.
 
 ## Credits
 
