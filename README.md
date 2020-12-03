@@ -144,12 +144,6 @@ Example alarm control panel defined in lovelace yaml
                    color: var(--disabled-text-color)
               - <<: *cb_spacer_10px
               - <<: *cb_spacer_10px
-           - type: horizontal-stack
-            cards:
-              - <<: *cb_spacer_10px
-              - <<: *card_mod_margin_mainstyle
-              - <<: *cb_spacer_10px
-
           - type: horizontal-stack
             cards:
               - <<: *cb_spacer_10px
