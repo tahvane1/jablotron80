@@ -1302,6 +1302,7 @@ class JA80CentralUnit(object):
 		else:
 			# source is code
 			# is there need to trigger state for code?
+
 			self._active_codes[source._id] = source
 			source.active = True
 			zone = self._get_zone_via_object(source)
@@ -1332,12 +1333,16 @@ class JA80CentralUnit(object):
 			self._device_tampered(source)
 		elif event_type == 0x41:
 			# entering service mode, source = by which id
-			pass
+			code  = self._get_source(source)
+			code.active = True
 		elif event_type == 0x42:
 			# exiting service mode, source = by which id
-			pass
+			code  = self._get_source(source)
+			code.active = False
 		elif event_type == 0x08:
 			# setting
+			code  = self._get_source(source)
+			code.active = True
 			self._call_zones(function_name="armed",source_id=source)
 		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
 			# alarm or doorm open?, source = device id
@@ -1354,7 +1359,8 @@ class JA80CentralUnit(object):
 			self._call_zones(function_name="disarm",source_id=source)
 		elif event_type == 0x09:
 			# unsetting, source = by which code
-			self._clear_triggers()
+			code  = self._get_source(source)
+			code.active = False
 			self._call_zones(function_name="disarm",source_id=source)
 		elif event_type == 0x0c:
 			# completely set without code
@@ -1362,21 +1368,30 @@ class JA80CentralUnit(object):
 			self._call_zones(function_name="armed",source_id=source)
 		elif event_type == 0x0d:
 			# partial set A
+			code  = self._get_source(source)
+			code.active = True
 			self._call_zone(1,by = source,function_name="armed")
 		elif event_type == 0x21:
 			# partial set A,B
+			code  = self._get_source(source)
+			code.active = True
 			self._call_zone(1,by = source,function_name="armed")
 			self._call_zone(2,by = source,function_name="armed")
 
 		elif event_type == 0x1a:
 			# setting zone A
+			code  = self._get_source(source)
+			code.active = True
 			self._call_zone(1,by = source,function_name="armed")
 		elif event_type == 0x1b:
 			# setting zone B
+			code  = self._get_source(source)
+			code.active = True
 			self._call_zone(2,by = source,function_name="armed")
 		elif event_type == 0x17:
 			# 24 hours code=source
-			pass
+			code  = self._get_source(source)
+			code.active = True
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
@@ -1409,16 +1424,16 @@ class JA80CentralUnit(object):
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
 		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
-			detail = None if activity == 0x10 and detail == 0x00 else detail
+			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(1,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
-			detail = None if activity == 0x10 and detail == 0x00 else detail
+			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(2,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
-			detail = None if activity == 0x10 and detail == 0x00 else detail
+			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zones(detail,function_name="alarm")
 		elif status == JablotronState.ALARM_C_SPLIT:
-			detail = None if activity == 0x10 and detail == 0x00 else detail
+			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(3,by = detail,function_name="alarm")        
 		elif status == JablotronState.DISARMED or status == JablotronState.DISARMED_SPLIT:
 			self.status = JA80CentralUnit.STATUS_NORMAL

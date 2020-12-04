@@ -68,7 +68,7 @@
 			}
 		},
 		"error": {
-			"settings_unavailable": "Could not read settings! Is system disarmed?",
+			"settings_unavailable": "Could not read settings! Is system disarmed?"
 		},
 		"abort": {
 			"already_configured": "Jablotron is already configured",
