@@ -71,7 +71,7 @@ Each sensor has additional state attributes depending in jablotron configuration
 Example alarm control panel defined in lovelace yaml
 
 ```
-  - id:  security
+- id:  security
     icon: mdi:shield-home
     title: Security
     cards:
@@ -160,15 +160,32 @@ Example alarm control panel defined in lovelace yaml
               - <<: *cb_spacer_10px
               - <<: *card_mod_margin_mainstyle
                 type: entities
+                show_state: False
                 entities:
-                  - entity: binary_sensor.doors_downstairs
+                  - type: custom:template-entity-row 
+                    entity: sensor.zone_c
+                    name: > 
+                       {{state_attr('sensor.zone_c','by') }}      set to
+                    icon: "{% if is_state('sensor.zone_c.state','alarm')%}  mdi:hazard-lights  {% else %} mdi:information-outline {% endif %}"
+                    color: "{% if is_state('sensor.zone_c.state','alarm')%}  rgb(255,5,5) {% endif %}"
+                  - type: custom:template-entity-row 
+                    entity: binary_sensor.doors_downstairs
                     name: Downstairs doors
-                  - entity: binary_sensor.doors_upstairs
+                    color: "{% if is_state('binary_sensor.doors_downstairs','on')%}  rgb(255,5,5)  {% else %} rgb(5,255,5) {% endif %}"
+                    state: "{% if is_state('binary_sensor.doors_downstairs','on')%}  open  {% else %} closed {% endif %}"
+                  - type: custom:template-entity-row 
+                    entity: binary_sensor.doors_upstairs
                     name: Upstairs doors
-                  - entity: binary_sensor.firealarm_downstairs
+                    color: "{% if is_state('binary_sensor.doors_upstairs','on')%}  rgb(255,5,5)  {% else %} rgb(5,255,5) {% endif %}"
+                    state: "{% if is_state('binary_sensor.doors_downstairs','on')%}  open  {% else %} closed {% endif %}"
+                  - type: custom:template-entity-row 
+                    entity: binary_sensor.firealarm_downstairs
                     name: Downstairs fire alarm
-                  - entity: binary_sensor.firealarm_upstairs
+                    color: "{% if is_state('binary_sensor.firealarm_downstairs','on')%}  rgb(255,5,5)  {% else %} var(--disabled-text-color) {% endif %}"
+                  - type: custom:template-entity-row 
+                    entity: binary_sensor.firealarm_upstairs
                     name: Upstairs fire alarm
+                    color: "{% if is_state('binary_sensor.firealarm_upstairs','on')%}  rgb(255,5,5)  {% else %} var(--disabled-text-color) {% endif %}"
               - <<: *cb_spacer_10px
 ```
 
@@ -176,6 +193,16 @@ Screenshot of alarm control panel
 
 <img src="examples/mobile_app.png" alt="Alarm control panel" width="200"/>
 
+
+## Troubleshooting
+
+Additional logging can be enabled in configuration.yaml
+
+```
+logger:
+ logs:
+   custom_components.jablotron80: debug
+```
 
 ## Credits
 

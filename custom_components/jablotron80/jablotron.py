@@ -1465,10 +1465,11 @@ class JA80CentralUnit(object):
 			self._call_zone(3,by = detail,function_name="armed")
 		elif status == JablotronState.ARMED_ENTRY_DELAY: 
 			# is detail 2 device id?
-			if not detail_2 == 0x00:
-				device = self.get_device(detail_2)
-				self._get_zone_via_object(device).entering(device)
-				self._activate_source(detail_2)
+			#if not detail_2 == 0x00:
+		#		device = self.get_device(detail_2)
+		#		self._get_zone_via_object(device).entering(device)
+		#		self._activate_source(detail_2)
+			pass
 		elif status == JablotronState.EXIT_DELAY_ABC:
 			self._call_zones(function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
@@ -1910,6 +1911,9 @@ class JA80CentralUnit(object):
 	
 	def disarm(self,code:str,zone:str=None) -> None:
 		self.send_key_press(code)
+		if JablotronState.is_alarm_state(self._last_state):
+			#confirm alarm
+			self.send_key_press("?")
 		
 	async def processing_loop(self) -> None:
 		previous_record = None
