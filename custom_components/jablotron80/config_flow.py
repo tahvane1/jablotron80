@@ -15,6 +15,9 @@ from .const import (
 	CONFIGURATION_DEVICES,
 	CONFIGURATION_CODES,
 	CONFIGURATION_CENTRAL_SETTINGS,
+    CABLE_MODELS,
+    CABLE_MODEL,
+    DEFAULT_CABLE_MODEL,
 	DOMAIN,
 	DEFAULT_SERIAL_PORT,
 	MAX_NUMBER_OF_DEVICES,
@@ -60,12 +63,15 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		# actually create the HA config entry. Note the "title" value is returned by
 		# `validate_input` above.
 		errors = {}
+		cables_by_names = {value:key for key, value in CABLE_MODELS.items()}
 		if user_input is not None:
+			
 			#try:
 			unique_id = user_input[CONFIGURATION_SERIAL_PORT]
 			await self.async_set_unique_id(unique_id)
 			self._abort_if_unique_id_configured()
 			self._config = {
+       			CABLE_MODEL: cables_by_names[user_input[CABLE_MODEL]],
 				CONFIGURATION_SERIAL_PORT: user_input[CONFIGURATION_SERIAL_PORT],
 				CONFIGURATION_PASSWORD: user_input[CONFIGURATION_PASSWORD],
 				CONFIGURATION_NUMBER_OF_DEVICES: user_input[CONFIGURATION_NUMBER_OF_DEVICES],
@@ -104,6 +110,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		return self.async_show_form(
 			step_id="user", data_schema=vol.Schema(
 				{
+        			vol.Required(CABLE_MODEL, default=DEFAULT_CABLE_MODEL): vol.In(list(CABLE_MODELS.values())),
 					vol.Required(CONFIGURATION_SERIAL_PORT, default=DEFAULT_SERIAL_PORT): str,
 					vol.Required(CONFIGURATION_PASSWORD): str,
 					vol.Optional(CONFIGURATION_NUMBER_OF_DEVICES, default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_NUMBER_OF_DEVICES)),

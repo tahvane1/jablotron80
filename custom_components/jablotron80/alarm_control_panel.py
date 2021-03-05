@@ -233,7 +233,7 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 		info = {"identifiers": {(DOMAIN, f'jablotron_panel_{self._main_zone}')},
 			"name": "jablotron panel",
 			"via_device": (DOMAIN, self._cu.serial_port)}
-		info["model"] = "Home Assistant control panel "
+		info["model"] = "Home Assistant control panel"
 		info["manufacturer"] = "Jablotron"
 		return info
 

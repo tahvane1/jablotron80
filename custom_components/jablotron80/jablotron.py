@@ -9,6 +9,7 @@ import threading
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import serial
 import sys
 LOGGER = logging.getLogger(__package__)
 
@@ -39,7 +40,10 @@ if __name__ == "__main__":
 		MANUFACTURER,
 		MAX_NUMBER_OF_DEVICES,
 		CONFIGURATION_DEVICES,
-		CONFIGURATION_CODES
+		CONFIGURATION_CODES,
+		CABLE_MODEL,
+		CABLE_MODEL_JA82T,
+		CABLE_MODEL_JA80T 
 	)
 else:
 	from .const import (
@@ -51,6 +55,9 @@ else:
 		MAX_NUMBER_OF_DEVICES,
 		CONFIGURATION_DEVICES,
 		CONFIGURATION_CODES,
+  		CABLE_MODEL,
+		CABLE_MODEL_JA82T,
+		CABLE_MODEL_JA80T,
 		CONFIGURATION_CENTRAL_SETTINGS,
 		DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM,
 		DEVICE_CONFIGURATION_SYSTEM_MODE,
@@ -553,11 +560,12 @@ class JablotronCommand():
 		s = f'Command name={self.name}'
 		return s
 	
-class JA82TConnection():
+class JablotronConnection():
 
 	# device is mandatory at initiation
-	def __init__(self, device: str) -> None:
-		LOGGER.info('Init JA-82TConnection with device %s', device)
+	def __init__(self, type: str, device: str) -> None:
+		LOGGER.info(f'Init JablotronConnection of type {type} with device {device}')
+		self._type = type
 		self._device = device
 		self._cmd_q = queue.Queue()
 		self._output_q = queue.Queue()
@@ -576,8 +584,16 @@ class JA82TConnection():
 		return self._device
 	
 	def connect(self) -> None:
-		LOGGER.info('Connecting to JA80 via JA-82T using %s...', self._device)
-		self._connection = open(self._device, 'w+b')
+		LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
+		if self._type == CABLE_MODEL_JA82T:
+			self._connection = open(self._device, 'w+b')
+		elif self._type == CABLE_MODEL_JA80T:
+			self._connection = serial.Serial(port=self._device,
+                                    baudrate=9600,
+                                    parity=serial.PARITY_NONE,
+                                    bytesize=serial.EIGHTBITS,
+                                    dsrdtr=True,# stopbits=serial.STOPBITS_ONE
+                                    timeout=1)
 	   
 		
 	def disconnect(self) -> None:
@@ -619,23 +635,31 @@ class JA82TConnection():
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
 		read_buffer = []
 		ret_val = []
-		for i in range(max_package_sections):
+		for j in range(max_package_sections):
 			data = self._connection.read(64)
-		   # if LOGGER.isEnabledFor(logging.DEBUG):
-		   #     formatted_data = " ".join(["%02x" % c for c in data])
-		   #     LOGGER.debug(f'Received raw data {formatted_data}')
-			if  data[0] == 0x82:
-				size = data[1] 
-				read_buffer.append(data[2:2+int(size)])
-				if data[1 + int(size)] == 0xff:
-					# return data received
-					ret_bytes = []
-					for i in b''.join(read_buffer):
-						ret_bytes.append(i)
-						if i == 0xff:
-							ret_val.append(bytearray(ret_bytes))
-							ret_bytes.clear()
-					return ret_val
+			if LOGGER.isEnabledFor(logging.DEBUG):
+				formatted_data = " ".join(["%02x" % c for c in data])
+				LOGGER.debug(f'Received raw data {formatted_data}')
+			if self._type == CABLE_MODEL_JA82T and data[0] == 0x82:
+					size = data[1] 
+					read_buffer.append(data[2:2+int(size)])
+					if data[1 + int(size)] == 0xff:
+						# return data received
+						ret_bytes = []
+						for i in b''.join(read_buffer):
+							ret_bytes.append(i)
+							if i == 0xff:
+								ret_val.append(bytearray(ret_bytes))
+								ret_bytes.clear()
+						return ret_val
+			elif self._type == CABLE_MODEL_JA80T:
+				ret_bytes = []
+				for i in b''.join(read_buffer):
+					ret_bytes.append(i)
+					if i == 0xff:
+						ret_val.append(bytearray(ret_bytes))
+						ret_bytes.clear()
+				return ret_val
 		return ret_val
 	   
 	def read_send_packet_loop(self) -> None:
@@ -1021,7 +1045,7 @@ class JA80CentralUnit(object):
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
-		self._connection = JA82TConnection(config[CONFIGURATION_SERIAL_PORT])
+		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
 		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		if device_count == 0:
 			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
