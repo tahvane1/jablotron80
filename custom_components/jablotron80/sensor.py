@@ -46,6 +46,7 @@ class JablotronSensorEntity(JablotronEntity):
 	@property
 	def device_class(self) -> str:
 		return DEVICE_CLASS_SIGNAL_STRENGTH
+
 	@property
 	def state(self) -> str:
 		"""Return the state of the sensor."""

@@ -36,6 +36,7 @@ Report [issue](https://github.com/tahvane1/jablotron80/issues)
 ## Supported devices
 
 This integration has been tested with JA-80K central unit, JA-81F keypad and JA82-T usb cable. Tested sensors include wired door sensors and wired fire alarms.
+Development for supporting JA80-T cable is WIP (and not yet working).
 
 ## Examples & configuration
 
@@ -203,7 +204,13 @@ logger:
  logs:
    custom_components.jablotron80: debug
 ```
-
+Raw data send by cable can be seen in logs by setting above and uncommentting following lines in jablotron.py (around line number )
+```
+			#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+			#if LOGGER.isEnabledFor(logging.DEBUG):
+			#	formatted_data = " ".join(["%02x" % c for c in data])
+			#	LOGGER.debug(f'Received raw data {formatted_data}')
+```
 ## Credits
 
 Thanks to [kukulich](https://github.com/kukulich/home-assistant-jablotron100), [fwpt](https://github.com/fwpt/HASS-Jablotron80-T/tree/master/custom_components/Jablotron80) and [mattsaxon](https://github.com/mattsaxon/HASS-Jablotron80) for figuring out Jablotron functionality and Home Assistant essentials.

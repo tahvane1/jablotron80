@@ -8,6 +8,7 @@ import binascii
 import threading
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import os
 import logging
 import serial
 import sys
@@ -316,6 +317,7 @@ class JablotronDevice(JablotronCommon):
 	_manufacturer: str = field(default=None,init=False)
 	_serial_number: str = field(default=None,init=False)
 	_tampered: bool = field(default=False,init=False)
+	_battery_low: bool =  field(default=False,init=False)
 	
 	def __post_init__(self) -> None:
 		super().__post_init__()
@@ -340,8 +342,18 @@ class JablotronDevice(JablotronCommon):
 	@model.setter
 	def model(self,model:str) -> None:
 		self._model = model
-		
 	
+	
+	@property	
+	def battery_low(self) -> bool:
+		return self._battery_low
+ 
+	@battery_low.setter
+	@log_change
+	def battery_low(self,state:bool)->None:
+		self._battery_low  = state
+
+
 	@property	
 	def name(self) -> str:
 		if self._name is None:
@@ -384,7 +396,7 @@ class JablotronDevice(JablotronCommon):
 		self._tampered = tampered
 	
 	def __str__(self) -> str:
-		s = f'Device id={self.device_id},model={self.model},reaction={self.reaction},tampered={self.tampered},'
+		s = f'Device id={self.device_id},model={self.model},reaction={self.reaction},tampered={self.tampered},battery_low={self.battery_low}'
 		if not self.name is None:
 			s+=f'name={self.name},'
 		if not self.zone is None:
@@ -586,7 +598,7 @@ class JablotronConnection():
 	def connect(self) -> None:
 		LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
 		if self._type == CABLE_MODEL_JA82T:
-			self._connection = open(self._device, 'w+b')
+			self._connection = open(self._device, 'w+b',buffering=0)
 		elif self._type == CABLE_MODEL_JA80T:
 			self._connection = serial.Serial(port=self._device,
                                     baudrate=9600,
@@ -637,9 +649,10 @@ class JablotronConnection():
 		ret_val = []
 		for j in range(max_package_sections):
 			data = self._connection.read(64)
-			if LOGGER.isEnabledFor(logging.DEBUG):
-				formatted_data = " ".join(["%02x" % c for c in data])
-				LOGGER.debug(f'Received raw data {formatted_data}')
+			#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+			#if LOGGER.isEnabledFor(logging.DEBUG):
+			#	formatted_data = " ".join(["%02x" % c for c in data])
+			#	LOGGER.debug(f'Received raw data {formatted_data}')
 			if self._type == CABLE_MODEL_JA82T and data[0] == 0x82:
 					size = data[1] 
 					read_buffer.append(data[2:2+int(size)])
@@ -1275,6 +1288,10 @@ class JA80CentralUnit(object):
 				zone.tamper()
 		else:
 			self._get_zone_via_object(device).tamper(device)
+
+	def _device_battery_low(self,source: bytes) -> None:
+		device = self.get_device(source)
+		device.battery_low = True
 	
 	def notify_service(self) -> None:
 		for zone in self._zones.values():
@@ -1285,7 +1302,10 @@ class JA80CentralUnit(object):
 			function = getattr(zone,function_name)
 			source = self._get_source(source_id)
 			function(source)
-		
+   
+	def _get_zone(self,zone_id:int)-> JablotronZone:
+		return self._zones[zone_id]
+
 	def _call_zone(self,zone_id: int,function_name: str = None, by: str = None)->None:
 		function = getattr(self._get_zone(zone_id),function_name)
 		source = self._get_source(by)
@@ -1355,6 +1375,10 @@ class JA80CentralUnit(object):
 		elif event_type == 0x06:
 			# Tamper alarm key pad (wrong codes?)
 			self._device_tampered(source)
+		elif event_type == 0x11:
+			# Low battery
+			LOGGER.info(f'Low battery level reportered {source}')
+			self._device_battery_low(source)
 		elif event_type == 0x41:
 			# entering service mode, source = by which id
 			code  = self._get_source(source)
@@ -1447,7 +1471,9 @@ class JA80CentralUnit(object):
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
-		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
+		if status in JablotronState.STATES_DISARMED and activity == 0x09:
+			self._device_battery_low(detail)
+		elif status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
 			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(1,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
