@@ -7,7 +7,7 @@
 				"data": {
 					"serial_port": "Serial port",
 					"cable_model": "Cable model",
-					"password": "Code",
+					"password": "Master code",
 					"number_of_devices": "Number of devices"
 				}
 			},

@@ -667,6 +667,7 @@ class JablotronConnection():
 						return ret_val
 			elif self._type == CABLE_MODEL_JA80T:
 				ret_bytes = []
+				read_buffer.append(data)
 				for i in b''.join(read_buffer):
 					ret_bytes.append(i)
 					if i == 0xff:
@@ -772,6 +773,7 @@ class JablotronMessage():
 	TYPE_EVENT = 'Event'
 	TYPE_EVENT_LIST = 'EventList'
 	TYPE_SETTINGS = 'Settings'
+	TYPE_GSM_SETTINGS = 'GSMSettings'
 	TYPE_STATE_DETAIL = 'StateDetail'
 	TYPE_KEYPRESS = 'KeyPress'
 	TYPE_BEEP = 'Beep'
@@ -783,6 +785,8 @@ class JablotronMessage():
 		0xe4: TYPE_EVENT_LIST,
 		0xe5: TYPE_SETTINGS,
 		0xe6: TYPE_SETTINGS,
+  		#JA-82Y?. ef 42 00 00 00 00 00 00 00 1b ff
+		0xef: TYPE_GSM_SETTINGS,
 		# what is this exactly 03 fire alarm, 0D/0C codes section 0E/0C service mode
 		0xe8: TYPE_STATE_DETAIL,
 		0xe9: TYPE_SETTINGS,
@@ -795,6 +799,7 @@ class JablotronMessage():
 		0xe3: 9,
 		0xe4: 9,
 		0xe5: 7,
+		0xef: 10,
 	  #  0xe6: 6,
 		0xe8: 4,
 		0xe9: 6,

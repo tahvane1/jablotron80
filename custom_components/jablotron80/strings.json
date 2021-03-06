@@ -6,7 +6,7 @@
 				"description": "To enable devices support insert administrator's code and total number of devices",
 				"data": {
 					"serial_port": "Serial port",
-					"password": "Code",
+					"password": "Master code",
 					"cable_model": "Cable model",
 					"number_of_devices": "Number of devices"
 				}
