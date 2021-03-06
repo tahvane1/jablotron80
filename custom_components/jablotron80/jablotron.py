@@ -1503,7 +1503,7 @@ class JA80CentralUnit(object):
 			elif activity == 0x00:
 				# clear active statuses
 				self._clear_triggers()
-			elif activity == 0x11:
+			elif activity == 0x09:
 				self._device_battery_low(detail)
 		elif status == JablotronState.ARMED_ABC:
 			self._call_zones(function_name="armed")
