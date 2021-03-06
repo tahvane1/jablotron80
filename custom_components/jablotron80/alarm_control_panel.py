@@ -105,6 +105,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 	async def async_alarm_disarm(self, code=None) -> None:
 		if not self.code_disarm_required : 
 			code = self._cu._master_code
+		if code == None:
+			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			# just one zone so input code without any "kinks"
 			# todo check if you can get disarming from serial line
@@ -118,10 +120,12 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			code = ""
 		elif not self.code_arm_required : 
 			code = self._cu._master_code
+		if code == None:
+			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
 			self._cu.arm(code,"A")
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT:
-			if self.main_zone == 0:
+			if self._main_zone == 0:
 				self._cu.arm(code,"A")
 			else:
 				self._cu.arm(code,"B")
@@ -131,6 +135,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			code = ""
 		elif not self.code_arm_required : 
 			code = self._cu._master_code
+		if code == None:
+			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			# just one zone so input code without any "kinks"
 			self._cu.arm(code)
@@ -142,6 +148,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			code = ""
 		elif not self.code_arm_required : 
 			code = self._cu._master_code
+		if code == None:
+			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
 			self._cu.arm(code,"B")
 
@@ -176,17 +184,17 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT and len(self._zones) == 3:
 			zone_home = self._zones[self._main_zone]
 			zone_away  = self._zones[2]
-			for zone in [zone for zone in [zone_home.status,zone_away.status] if zone.status == JablotronZone.STATUS_ALARM]:
+			for zone in [zone for zone in [zone_home,zone_away] if zone.status == JablotronZone.STATUS_ALARM]:
 				return zone
-			for zone in [zone for zone in [zone_home.status,zone_away.status] if zone.status == JablotronZone.STATUS_ENTRY_DELAY]:
+			for zone in [zone for zone in [zone_home,zone_away] if zone.status == JablotronZone.STATUS_ENTRY_DELAY]:
 				return zone
 			if zone_away.status == JablotronZone.STATUS_ARMED:
 				return zone_away
 			elif zone_home.status == JablotronZone.STATUS_ARMED:
 				return zone_home
-			for zone in [zone for zone in [zone_home.status,zone_away.status] if zone.status ==  JablotronZone.STATUS_ARMING]:
+			for zone in [zone for zone in [zone_home,zone_away] if zone.status ==  JablotronZone.STATUS_ARMING]:
 				return zone
-			for zone in [zone for zone in [zone_home.status,zone_away.status] if zone.status ==  JablotronZone.STATUS_DISARMED]:
+			for zone in [zone for zone in [zone_home,zone_away] if zone.status ==  JablotronZone.STATUS_DISARMED]:
 				return zone
 	@property
 	def state(self) -> str:

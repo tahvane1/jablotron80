@@ -1272,7 +1272,7 @@ class JA80CentralUnit(object):
 			self._codes[id_] = JablotronCode(id_)
 		return self._codes[id_]
 	
-	def get_zone(self,id_: int) -> JablotronZone:
+	def get_zone(self,id_: str) -> JablotronZone:
 		if self.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			return self._zones[JablotronSettings.ZONE_UNSPLIT]
 		if not id_ in self._zones:
@@ -1471,9 +1471,7 @@ class JA80CentralUnit(object):
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
-		if status in JablotronState.STATES_DISARMED and activity == 0x09:
-			self._device_battery_low(detail)
-		elif status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
+		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
 			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(1,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
@@ -1485,7 +1483,7 @@ class JA80CentralUnit(object):
 		elif status == JablotronState.ALARM_C_SPLIT:
 			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(3,by = detail,function_name="alarm")        
-		elif status == JablotronState.DISARMED or status == JablotronState.DISARMED_SPLIT:
+		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
 			if activity == 0x10:
@@ -1500,6 +1498,8 @@ class JA80CentralUnit(object):
 			elif activity == 0x00:
 				# clear active statuses
 				self._clear_triggers()
+			elif activity == 0x11:
+				self._device_battery_low(detail)
 		elif status == JablotronState.ARMED_ABC:
 			self._call_zones(function_name="armed")
 		elif status == JablotronState.ARMED_A:
