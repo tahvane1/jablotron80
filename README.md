@@ -170,6 +170,11 @@ Example alarm control panel defined in lovelace yaml
                     icon: "{% if is_state('sensor.zone_c.state','alarm')%}  mdi:hazard-lights  {% else %} mdi:information-outline {% endif %}"
                     color: "{% if is_state('sensor.zone_c.state','alarm')%}  rgb(255,5,5) {% endif %}"
                   - type: custom:template-entity-row 
+                    entity: binary_sensor.ja_81f
+                    name: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %} Keypad battery low {% else %} Keypad battery {% endif %}"
+                    icon: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %}  mdi:hazard-lights  {% else %} mdi:information-outline {% endif %}"
+                    color: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %}  rgb(255,5,5) {% endif %}"
+                  - type: custom:template-entity-row 
                     entity: binary_sensor.doors_downstairs
                     name: Downstairs doors
                     color: "{% if is_state('binary_sensor.doors_downstairs','on')%}  rgb(255,5,5)  {% else %} rgb(5,255,5) {% endif %}"
