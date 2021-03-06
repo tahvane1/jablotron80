@@ -1,7 +1,7 @@
 {
 	"domain": "jablotron80",
 	"name": "Jablotron 80",
-	"version": 0.11,
+	"version": 0.12,
 	"config_flow": true,
 	"documentation": "https://github.com/tahvane1/jablotron80",
 	"issue_tracker": "https://github.com/tahvane1/jablotron80/issues",
