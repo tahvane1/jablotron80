@@ -52,6 +52,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 		async_add_entities([Jablotron80AlarmControl(cu,cu.zones,0)], True)
 		async_add_entities([Jablotron80AlarmControl(cu,cu.zones,1)], True)
 
+def check_zone_status(zone: JablotronZone, status:str)->bool:
+	if zone is not None and zone.status == status:
+		return True
+	return False
 
 class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
@@ -158,6 +162,7 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 	async  def async_alarm_arm_custom_bypass(self, code=None) -> None:
 		raise NotImplementedError()
+	
 
 
 	def get_active_zone(self) -> JablotronZone:
@@ -167,35 +172,37 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			zone_home = self._zones[0]
 			zone_night = self._zones[1]
 			zone_away  = self._zones[2]
-			for zone in [zone for zone in self._zones if zone.status == JablotronZone.STATUS_ALARM]:
+			for zone in [zone for zone in self._zones if check_zone_status(zone ,JablotronZone.STATUS_ALARM)]:
 				return zone
-			for  zone in [zone for zone in self._zones if zone.status == JablotronZone.STATUS_ENTRY_DELAY]:
+			for  zone in [zone for zone in self._zones if check_zone_status(zone ,JablotronZone.STATUS_ENTRY_DELAY)]:
 				return zone
-			if zone_away.status == JablotronZone.STATUS_ARMED:
+			if check_zone_status(zone_away,JablotronZone.STATUS_ARMED):
 				return zone_away
-			elif zone_night.status == JablotronZone.STATUS_ARMED:
+			elif check_zone_status(zone_night,JablotronZone.STATUS_ARMED):
 				return zone_night
-			elif zone_home.status == JablotronZone.STATUS_ARMED:
+			elif check_zone_status(zone_home,JablotronZone.STATUS_ARMED):
 				return zone_home
-			for zone in [zone for zone in self._zones if zone.status == JablotronZone.STATUS_ARMING]:
+			for zone in [zone for zone in self._zones if check_zone_status(zone ,JablotronZone.STATUS_ARMING)]:
 				return zone
-			for zone in [zone for zone in self._zones if zone.status == JablotronZone.STATUS_DISARMED]:
+			for zone in [zone for zone in self._zones if check_zone_status(zone ,JablotronZone.STATUS_DISARMED)]:
 				return zone
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT and len(self._zones) == 3:
 			zone_home = self._zones[self._main_zone]
 			zone_away  = self._zones[2]
-			for zone in [zone for zone in [zone_home,zone_away] if zone.status == JablotronZone.STATUS_ALARM]:
+			for zone in [zone for zone in [zone_home,zone_away] if check_zone_status(zone ,JablotronZone.STATUS_ALARM)]:
 				return zone
-			for zone in [zone for zone in [zone_home,zone_away] if zone.status == JablotronZone.STATUS_ENTRY_DELAY]:
+			for zone in [zone for zone in [zone_home,zone_away] if check_zone_status(zone ,JablotronZone.STATUS_ENTRY_DELAY)]:
 				return zone
-			if zone_away.status == JablotronZone.STATUS_ARMED:
+			if  check_zone_status(zone_away,JablotronZone.STATUS_ARMED):
 				return zone_away
-			elif zone_home.status == JablotronZone.STATUS_ARMED:
+			elif check_zone_status(zone_home,JablotronZone.STATUS_ARMED):
 				return zone_home
-			for zone in [zone for zone in [zone_home,zone_away] if zone.status ==  JablotronZone.STATUS_ARMING]:
+			for zone in [zone for zone in [zone_home,zone_away] if check_zone_status(zone ,JablotronZone.STATUS_ARMING)]:
 				return zone
-			for zone in [zone for zone in [zone_home,zone_away] if zone.status ==  JablotronZone.STATUS_DISARMED]:
+			for zone in [zone for zone in [zone_home,zone_away] if check_zone_status(zone ,JablotronZone.STATUS_DISARMED)]:
 				return zone
+		return self._zones[0]
+
 	@property
 	def state(self) -> str:
 		zone = self.get_active_zone()

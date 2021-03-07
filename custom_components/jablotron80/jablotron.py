@@ -469,8 +469,10 @@ class JablotronZone(JablotronCommon):
 	@status.setter
 	@log_change
 	def status(self,status: str) -> None:
+		if self._status == JablotronZone.STATUS_ARMED and status == JablotronZone.STATUS_ARMING:
+			return
 		self._status = status
-	   
+	
 		
 	def __str__(self) -> str:
 		s = f'Zone id={self._id},name={self.name},active={self.active},'
@@ -1304,17 +1306,20 @@ class JA80CentralUnit(object):
  
 	def _call_zones(self,source_id:bytes = None, function_name: str = None) -> None:
 		for zone in self._zones.values():
-			function = getattr(zone,function_name)
-			source = self._get_source(source_id)
-			function(source)
+			if zone is not None:
+				function = getattr(zone,function_name)
+				source = self._get_source(source_id)
+				function(source)
    
 	def _get_zone(self,zone_id:int)-> JablotronZone:
 		return self._zones[zone_id]
 
 	def _call_zone(self,zone_id: int,function_name: str = None, by: str = None)->None:
-		function = getattr(self._get_zone(zone_id),function_name)
-		source = self._get_source(by)
-		function(source)
+		zone = self._get_zone(zone_id)
+		if zone is not None:
+			function = getattr(zone,function_name)
+			source = self._get_source(by)
+			function(source)
 		
 	#devices  can be set to different zones even if system is unsplit
 	def _get_zone_via_object(self,object: JablotronCommon) -> JablotronZone:
@@ -1505,6 +1510,10 @@ class JA80CentralUnit(object):
 				self._clear_triggers()
 			elif activity == 0x09:
 				self._device_battery_low(detail)
+			elif activity == 0x07:
+				#some pir activity
+				#ed 40 07 06 11 00 00 00 3b ff
+				self._activate_source(detail)
 		elif status == JablotronState.ARMED_ABC:
 			self._call_zones(function_name="armed")
 		elif status == JablotronState.ARMED_A:
@@ -1560,7 +1569,8 @@ class JA80CentralUnit(object):
 			
 		if JablotronState.is_armed_state(status):
 			if activity == 0x00:
-				# normal state
+				# normal state 
+				#this might be needed for PIR clearing. What are effects to other sensors like doors?
 				#self._clear_triggers()
 				pass
 			elif activity == 0x06:
@@ -1586,6 +1596,10 @@ class JA80CentralUnit(object):
 			elif activity == 0x0c:
 				# 
 				pass
+			elif activity == 0x12:
+				#pir movement
+				#example ed 43 12 3d 0f 04 00 3c 59 ff for device 4
+				self._activate_source(detail_2)
 			else:
 				LOGGER.error(f'Unknown activity received data={packet_data}')
 		elif JablotronState.is_service_state(status):
