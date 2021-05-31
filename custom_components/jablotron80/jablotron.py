@@ -655,7 +655,7 @@ class JablotronConnection():
 			#if LOGGER.isEnabledFor(logging.DEBUG):
 			#	formatted_data = " ".join(["%02x" % c for c in data])
 			#	LOGGER.debug(f'Received raw data {formatted_data}')
-			if self._type == CABLE_MODEL_JA82T and data[0] == 0x82:
+			if self._type == CABLE_MODEL_JA82T and len(data) > 0 and data[0] == 0x82:
 					size = data[1] 
 					read_buffer.append(data[2:2+int(size)])
 					if data[1 + int(size)] == 0xff:
