@@ -19,16 +19,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
 from homeassistant.const import (
-	CONF_PASSWORD,
-	EVENT_HOMEASSISTANT_STOP,
-	STATE_ALARM_DISARMED,
-	STATE_ALARM_ARMED_AWAY,
-	STATE_ALARM_ARMED_NIGHT,
-	STATE_ALARM_ARMING,
-	STATE_ALARM_PENDING,
-	STATE_ALARM_TRIGGERED,
-	STATE_OFF,
-	STATE_ON,
+	EVENT_HOMEASSISTANT_STOP
 )
 
 
