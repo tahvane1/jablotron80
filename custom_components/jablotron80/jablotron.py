@@ -1061,7 +1061,7 @@ class JA80CentralUnit(object):
 
 
 	def __init__(self, hass: HomeAssistant,  config: Dict[str, Any], options: Dict[str, Any] = None) -> None:
-		self._hass: core.HomeAssistant = hass
+		self._hass: HomeAssistant.core = hass
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
@@ -1255,7 +1255,7 @@ class JA80CentralUnit(object):
 				zone.enabled = False
 
 	
-	def _get_source(self,source:bytes ) ->[JablotronDevice,JablotronCode,None]:
+	def _get_source(self,source:bytes ) -> Union[JablotronDevice,JablotronCode,None]:
 		if source is None:
 			return None
 		if source < 0x40:
@@ -1461,8 +1461,8 @@ class JA80CentralUnit(object):
 			self.send_detail_command()
 			
 	def _confirm_device_query(self)->None:
-		 self._device_query_pending = False
-  
+		self._device_query_pending = False
+
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		status = data[1]
 		activity = data[2]
@@ -1932,9 +1932,9 @@ class JA80CentralUnit(object):
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
-			 LOGGER.warning(
+			LOGGER.warning(
 				f'Trying to enter elevated mode but not reliable status yet')
-			 return False
+			return False
 		else:
 			LOGGER.error(
 				f'Trying to enter elevated mode but state is {self._last_state:x}')
