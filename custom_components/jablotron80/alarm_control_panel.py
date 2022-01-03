@@ -167,7 +167,7 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 	def get_active_zone(self) -> JablotronZone:
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT and len(self._zones) == 1:
- 			return self._zones[0]
+			return self._zones[0]
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL and len(self._zones) == 3:
 			zone_home = self._zones[0]
 			zone_night = self._zones[1]

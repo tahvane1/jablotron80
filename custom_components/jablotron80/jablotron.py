@@ -1466,7 +1466,7 @@ class JA80CentralUnit(object):
 		self.led_alarm = (leds & 0x10) == 0x10
 		detail_2 = data[5]
 		field_2 = data[6]
-		# this is probably rf strenght 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
+		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
 		self.rf_level = int(data[7]) / 40.0 * 100.0
 		#crc = data[8]
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
