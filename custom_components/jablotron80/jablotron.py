@@ -460,8 +460,9 @@ class JablotronZone(JablotronCommon):
 	@status.setter
 	@log_change
 	def status(self,status: str) -> None:
-		if self._status == JablotronZone.STATUS_ARMED and status == JablotronZone.STATUS_ARMING:
-			return
+		# TODO: Review is this is still needed. If it is, it needs a comment
+		#if self._status == JablotronZone.STATUS_ARMED and status == JablotronZone.STATUS_ARMING:
+		#	return
 		self._status = status
 	
 		
@@ -1392,7 +1393,7 @@ class JA80CentralUnit(object):
 			# setting
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zones(function_name="armed",source_id=source)
+			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
 			# alarm or doorm open?, source = device id
 			# 0x01 motion?
@@ -1414,29 +1415,29 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0c:
 			# completely set without code
 			# self._zones[JablotronSettings.ZONE_UNSPLIT].armed(source)
-			self._call_zones(function_name="armed",source_id=source)
+			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x0d:
 			# partial set A
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x21:
 			# partial set A,B
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
-			self._call_zone(2,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
+			self._call_zone(2,by = source,function_name="arming")
 
 		elif event_type == 0x1a:
 			# setting zone A
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x1b:
 			# setting zone B
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(2,by = source,function_name="armed")
+			self._call_zone(2,by = source,function_name="arming")
 		elif event_type == 0x17:
 			# 24 hours code=source
 			code  = self._get_source(source)
