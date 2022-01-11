@@ -19,16 +19,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
 from homeassistant.const import (
-	CONF_PASSWORD,
-	EVENT_HOMEASSISTANT_STOP,
-	STATE_ALARM_DISARMED,
-	STATE_ALARM_ARMED_AWAY,
-	STATE_ALARM_ARMED_NIGHT,
-	STATE_ALARM_ARMING,
-	STATE_ALARM_PENDING,
-	STATE_ALARM_TRIGGERED,
-	STATE_OFF,
-	STATE_ON,
+	EVENT_HOMEASSISTANT_STOP
 )
 
 
@@ -469,8 +460,9 @@ class JablotronZone(JablotronCommon):
 	@status.setter
 	@log_change
 	def status(self,status: str) -> None:
-		if self._status == JablotronZone.STATUS_ARMED and status == JablotronZone.STATUS_ARMING:
-			return
+		# TODO: Review is this is still needed. If it is, it needs a comment
+		#if self._status == JablotronZone.STATUS_ARMED and status == JablotronZone.STATUS_ARMING:
+		#	return
 		self._status = status
 	
 		
@@ -1061,7 +1053,7 @@ class JA80CentralUnit(object):
 
 
 	def __init__(self, hass: HomeAssistant,  config: Dict[str, Any], options: Dict[str, Any] = None) -> None:
-		self._hass: core.HomeAssistant = hass
+		self._hass: HomeAssistant.core = hass
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
@@ -1255,7 +1247,7 @@ class JA80CentralUnit(object):
 				zone.enabled = False
 
 	
-	def _get_source(self,source:bytes ) ->[JablotronDevice,JablotronCode,None]:
+	def _get_source(self,source:bytes ) -> Union[JablotronDevice,JablotronCode,None]:
 		if source is None:
 			return None
 		if source < 0x40:
@@ -1401,7 +1393,7 @@ class JA80CentralUnit(object):
 			# setting
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zones(function_name="armed",source_id=source)
+			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
 			# alarm or doorm open?, source = device id
 			# 0x01 motion?
@@ -1423,29 +1415,29 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0c:
 			# completely set without code
 			# self._zones[JablotronSettings.ZONE_UNSPLIT].armed(source)
-			self._call_zones(function_name="armed",source_id=source)
+			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x0d:
 			# partial set A
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x21:
 			# partial set A,B
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
-			self._call_zone(2,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
+			self._call_zone(2,by = source,function_name="arming")
 
 		elif event_type == 0x1a:
 			# setting zone A
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="armed")
+			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x1b:
 			# setting zone B
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(2,by = source,function_name="armed")
+			self._call_zone(2,by = source,function_name="arming")
 		elif event_type == 0x17:
 			# 24 hours code=source
 			code  = self._get_source(source)
@@ -1461,8 +1453,8 @@ class JA80CentralUnit(object):
 			self.send_detail_command()
 			
 	def _confirm_device_query(self)->None:
-		 self._device_query_pending = False
-  
+		self._device_query_pending = False
+
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		status = data[1]
 		activity = data[2]
@@ -1475,7 +1467,7 @@ class JA80CentralUnit(object):
 		self.led_alarm = (leds & 0x10) == 0x10
 		detail_2 = data[5]
 		field_2 = data[6]
-		# this is probably rf strenght 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
+		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
 		self.rf_level = int(data[7]) / 40.0 * 100.0
 		#crc = data[8]
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
@@ -1932,9 +1924,9 @@ class JA80CentralUnit(object):
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
-			 LOGGER.warning(
+			LOGGER.warning(
 				f'Trying to enter elevated mode but not reliable status yet')
-			 return False
+			return False
 		else:
 			LOGGER.error(
 				f'Trying to enter elevated mode but state is {self._last_state:x}')
