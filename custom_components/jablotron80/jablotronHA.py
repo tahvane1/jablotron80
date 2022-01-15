@@ -45,7 +45,7 @@ class JablotronEntity(Entity):
 
 
 	@property
-	def device_state_attributes(self) -> Optional[Dict[str, Any]]:
+	def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
 		attr ={}
 		if not self._object is None and not self._object.type is None:
 			if self._object.type in DEVICES:
