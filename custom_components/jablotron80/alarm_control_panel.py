@@ -254,8 +254,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 
 	@property
-	def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
-		attr = super().extra_state_attributes
+	def device_state_attributes(self) -> Optional[Dict[str, Any]]:
+		attr = super().device_state_attributes
 		return attr
 
 	@property 
