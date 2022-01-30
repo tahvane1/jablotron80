@@ -786,6 +786,9 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
+		0xb4: TYPE_BEEP,
+		0xba: TYPE_BEEP,
+		0xc6: TYPE_BEEP,
 		0xec: TYPE_SAVING # seen when saving took really long
 	}
 	_LENGTHS ={ 
