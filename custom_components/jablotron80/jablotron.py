@@ -1389,7 +1389,7 @@ class JA80CentralUnit(object):
 			self._device_tampered(source)
 		elif event_type == 0x11:
 			# Low battery
-			LOGGER.info(f'Low battery level reported {source}')
+			LOGGER.info(f'Low battery level reportered {source}')
 			self._device_battery_low(source)
 		elif event_type == 0x41:
 			# entering service mode, source = by which id
