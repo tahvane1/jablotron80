@@ -1292,7 +1292,11 @@ class JA80CentralUnit(object):
 			for zone in self._zones.values():
 				zone.tamper()
 		else:
-			self._get_zone_via_object(device).tamper(device)
+			zone = self._get_zone_via_object(device)
+			if zone is not None:
+				zone.tamper(device)
+			else:
+				LOGGER.info("Tampered device not configured in Home Assistant")
 
 	def _device_battery_low(self,source: bytes) -> None:
 		device = self.get_device(source)
