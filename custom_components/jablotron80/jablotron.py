@@ -593,6 +593,9 @@ class JablotronConnection():
 		LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
 		if self._type == CABLE_MODEL_JA82T:
 			self._connection = open(self._device, 'w+b',buffering=0)
+			LOGGER.debug('Sending startup message')
+			self._connection.write(b'\x00\x00\x01\x01')
+			LOGGER.debug('Successfully sent startup message')
 		elif self._type == CABLE_MODEL_JA80T:
 			self._connection = serial.Serial(port=self._device,
                                     baudrate=9600,
