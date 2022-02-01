@@ -1289,6 +1289,7 @@ class JA80CentralUnit(object):
 		return self._zones[id_]
 
 	def _device_tampered(self,source: bytes) -> None:
+		LOGGER.warn(f"Device tampered: {source}")
 		device = self.get_device(source)
 		device.tampered = True
 		if source == 0x00:
@@ -1387,9 +1388,13 @@ class JA80CentralUnit(object):
 		elif event_type == 0x06:
 			# Tamper alarm key pad (wrong codes?)
 			self._device_tampered(source)
+		elif event_type == 0x50:
+			#end of tampering
+			# source is 0 when all tamper alarms have gone
+			LOGGER.info(f'End of tampering')
 		elif event_type == 0x11:
 			# Low battery
-			LOGGER.info(f'Low battery level reportered {source}')
+			LOGGER.warn(f'Low battery level reported {source}')
 			self._device_battery_low(source)
 		elif event_type == 0x41:
 			# entering service mode, source = by which id
