@@ -1410,6 +1410,9 @@ class JA80CentralUnit(object):
 			# exiting service mode, source = by which id
 			code  = self._get_source(source)
 			code.active = False
+		elif event_type == 0x44:
+			# ARC message sent
+			LOGGER.info(f'Data sent to ARC')
 		elif event_type == 0x08:
 			# setting
 			code  = self._get_source(source)
