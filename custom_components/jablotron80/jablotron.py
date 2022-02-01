@@ -791,10 +791,12 @@ class JablotronMessage():
 		0xa0: TYPE_BEEP,
 		0xb4: TYPE_BEEP,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
+		0xb8: TYPE_BEEP, # on setup
 		0xba: TYPE_BEEP,
 		0xc6: TYPE_BEEP,
 		0xe7: TYPE_EVENT,
-		0xec: TYPE_SAVING # seen when saving took really long
+		0xec: TYPE_SAVING, # seen when saving took really long
+		0xfe: TYPE_BEEP, # on setup
 	}
 	_LENGTHS ={ 
 		0xed: 10,
