@@ -790,8 +790,10 @@ class JablotronMessage():
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
 		0xb4: TYPE_BEEP,
+		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xba: TYPE_BEEP,
 		0xc6: TYPE_BEEP,
+		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING # seen when saving took really long
 	}
 	_LENGTHS ={ 
@@ -803,6 +805,7 @@ class JablotronMessage():
 	  #  0xe6: 6,
 		0xe8: 4,
 		0xe9: 6,
+		0xe7: 9,
 		0xec: 10,
 	}
 	_RECORD_E6_LENGTHS = {
@@ -1034,7 +1037,7 @@ class JA80CentralUnit(object):
 	
 	
 	# Statuses
-	STATUS_MAINTENANCE = 'Maintence'
+	STATUS_MAINTENANCE = 'Maintenance'
 	STATUS_SERVICE = 'Service'
 	STATUS_NORMAL = 'Normal'
 	STATUS_ELEVATED = [STATUS_SERVICE, STATUS_MAINTENANCE]
@@ -1085,6 +1088,7 @@ class JA80CentralUnit(object):
   					"ALARM":self._create_led(4,"alarm","alarm led"),
   					"POWER":self._create_led(5,"power","power led")}
 
+		self._last_event_data = None
   
 		self._master_code = config[CONFIGURATION_PASSWORD]
 		# this is in scale 0 - 40, 0 - 100% ?
@@ -1403,8 +1407,8 @@ class JA80CentralUnit(object):
 		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
 			# alarm or doorm open?, source = device id
 			# 0x01 motion?
-			# 0x02 door/natuarl
-			# 0x03  fire alarm
+			# 0x02 door/natural
+			# 0x03 fire alarm
 			# can source be also code? Now assuming it is device.
 			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 			self._activate_source(source)
@@ -1860,7 +1864,11 @@ class JA80CentralUnit(object):
 		if message_type == JablotronMessage.TYPE_STATE:
 			self._process_state(data, packet_data)
 		elif message_type == JablotronMessage.TYPE_EVENT or message_type == JablotronMessage.TYPE_EVENT_LIST:
-			self._process_event(data, packet_data)
+			# only process an event once
+			if self._last_event_data != packet_data[3:21]:
+				self._last_event_data = packet_data[3:21]
+				LOGGER.debug(f'Last Event: {self._last_event_data}')
+				self._process_event(data, packet_data)
 		elif message_type == JablotronMessage.TYPE_SETTINGS:
 			# service or master code needed to get these
 			self._process_settings(data, packet_data)
