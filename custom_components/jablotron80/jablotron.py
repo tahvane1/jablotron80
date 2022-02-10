@@ -1497,7 +1497,6 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 		log = f'Date={date_time_obj},event_type={event_name}, {source}:{self.get_device(source).name}'
-		warn = True
 		if warn:
 			LOGGER.warn(log)
 		else:
