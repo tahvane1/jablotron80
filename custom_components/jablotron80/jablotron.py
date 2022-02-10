@@ -3,6 +3,7 @@ import queue
 import time
 import datetime
 from dataclasses import dataclass, field
+import traceback
 from typing import List,Any,Type,Optional,Union
 import binascii
 import threading
@@ -74,7 +75,11 @@ def log_change(func):
 				if prev is None:
 					LOGGER.info(f'{args[0].__class__.__name__}({_id}): initializing {var_name} to {cur}')
 				else:
-					LOGGER.info(f'{args[0].__class__.__name__}({_id}): {var_name} changed from {prev} to {cur}')
+					if args[0].__class__.__name__ == "JablotronSensor" and _id == 1:
+						# RF value changed frequently, only log this as debug
+						LOGGER.debug(f'{args[0].__class__.__name__}({_id}): {var_name} changed from {prev} to {cur}')
+					else:
+						LOGGER.info(f'{args[0].__class__.__name__}({_id}): {var_name} changed from {prev} to {cur}')
 				if hasattr(args[0],"publish_updates"):
 					update_op = getattr(args[0], "publish_updates", None)
 					if callable(update_op):
@@ -725,7 +730,7 @@ class JablotronConnection():
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 				#await asyncio.sleep(0)
 			except Exception as ex:
-				LOGGER.error('Unexpected error: %s', format(ex) )
+				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
 		
 class JablotronKeyPress():
@@ -751,7 +756,7 @@ class JablotronKeyPress():
 	
 	_BEEP_OPTIONS = {
 		# happens when warning appears on keypad (e.g. after alarm)
-		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x8: {'val': 'in', 'desc': 'Infinite beeping triggered'}
+		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x7: {'val': '0', 'desc': 'no audible beep'}, 0x8: {'val': 'in', 'desc': 'Infinite beeping triggered'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
 	}
 	@staticmethod
 	def get_key_command(key):
@@ -774,6 +779,7 @@ class JablotronMessage():
 	TYPE_STATE_DETAIL = 'StateDetail'
 	TYPE_KEYPRESS = 'KeyPress'
 	TYPE_BEEP = 'Beep'
+	TYPE_PING = 'Ping' # regular events that have no clear meaning (perhaps yet)
 	TYPE_SAVING = 'Saving'
 	# e8,e9,e5,
 	_MESSAGE_MAIN_TYPES = {
@@ -789,10 +795,10 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
-		0xb4: TYPE_BEEP,
+		0xb4: TYPE_PING,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
-		0xba: TYPE_BEEP,
+		0xba: TYPE_PING,
 		0xc6: TYPE_BEEP,
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING, # seen when saving took really long
@@ -852,7 +858,7 @@ class JablotronMessage():
 			pass
 		
 		if length is None:
-			if main_type in [JablotronMessage.TYPE_BEEP,JablotronMessage.TYPE_KEYPRESS]:
+			if main_type in [JablotronMessage.TYPE_BEEP,JablotronMessage.TYPE_KEYPRESS, JablotronMessage.TYPE_PING]:
 				return 2
 			else:
 				#settings
@@ -1080,9 +1086,10 @@ class JA80CentralUnit(object):
 		self._zones[3] = JablotronZone(3)  
 		self.central_device = JablotronDevice(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
-		self.central_device.name = f'{CENTRAL_UNIT_MODEL} tamper'
+		# device that receives fault alerts such as tamper alarms and communication failures
+		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control Panel'
 		self.central_device.manufacturer = MANUFACTURER
-		self.central_device.type = "tamper alarm"
+		self.central_device.type = "Control Panel"
 		self._leds = {
       				"A":self._create_led(1,"zone A armed","armed led"),
   					"B":self._create_led(2,"zone B armed","armed led"),
@@ -1291,7 +1298,6 @@ class JA80CentralUnit(object):
 		return self._zones[id_]
 
 	def _device_tampered(self,source: bytes) -> None:
-		LOGGER.warn(f"Device tampered: {source}")
 		device = self.get_device(source)
 		device.tampered = True
 		if source == 0x00:
@@ -1362,7 +1368,7 @@ class JA80CentralUnit(object):
 			zone = self._get_zone_via_object(source)
 			if not zone is None:
 				zone.device_activated(source)
-		else:
+		elif isinstance(source,JablotronCode):
 			# source is code
 			# is there need to trigger state for code?
 
@@ -1371,7 +1377,8 @@ class JA80CentralUnit(object):
 			zone = self._get_zone_via_object(source)
 			if not zone is None:
 				zone.code_activated(source)
-
+		else:
+			LOGGER.warn(f'Unknown source type {source_id}')
 	
 	def _alarm_via_source(self,source_id: bytes) -> None:
 		source  = self._get_source(source_id)
@@ -1385,40 +1392,49 @@ class JA80CentralUnit(object):
 	def _process_event(self, data: bytearray, packet_data: str) -> None:
 		date_time_obj = self._get_timestamp(data[1:5])
 		event_type = data[5]
+		event_name = "Unknown"
+		warn = False
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
 		if event_type == 0x05:
-			#tampering
+			event_name = "Tampering"
 			# entering service mode, source = by which id
 			self._device_tampered(source)
+			warn = True
 		elif event_type == 0x06:
-			# Tamper alarm key pad (wrong codes?)
+			event_name = "Tampering key pad (wrong code?)"
+			warn = True
 			self._device_tampered(source)
+		elif event_type == 0x07:
+			# after coming out of Service mode
+			event_name = "Fault"
+			warn = True
 		elif event_type == 0x50:
-			#end of tampering
+			event_name = "End of Tampering"
 			# source is 0 when all tamper alarms have gone
-			LOGGER.info(f'End of tampering')
 		elif event_type == 0x11:
-			# Low battery
-			LOGGER.warn(f'Low battery level reported {source}')
+			event_name = "Low Battery"
+			warn = True
 			self._device_battery_low(source)
 		elif event_type == 0x41:
+			event_name = "Service Mode Entered"
 			# entering service mode, source = by which id
 			code  = self._get_source(source)
 			code.active = True
 		elif event_type == 0x42:
+			event_name = "Service Mode Exited"
 			# exiting service mode, source = by which id
 			code  = self._get_source(source)
 			code.active = False
 		elif event_type == 0x44:
-			# ARC message sent
-			LOGGER.info(f'Data sent to ARC')
+			event_name = "Data sent to ARC"
 		elif event_type == 0x08:
-			# setting
+			event_name = "Setting"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
+			event_name = "Sensor Activated"
 			# alarm or doorm open?, source = device id
 			# 0x01 motion?
 			# 0x02 door/natural
@@ -1427,50 +1443,65 @@ class JA80CentralUnit(object):
 			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 			self._activate_source(source)
 		elif event_type == 0x4e:
+			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
 			self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
 		elif event_type == 0x09:
+			event_name = "Unsetting"
 			# unsetting, source = by which code
 			code  = self._get_source(source)
 			code.active = False
 			self._call_zones(function_name="disarm",source_id=source)
 		elif event_type == 0x0c:
-			# completely set without code
+			event_name = "Completely set without code"
 			# self._zones[JablotronSettings.ZONE_UNSPLIT].armed(source)
 			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x0d:
-			# partial set A
+			event_name = "Partial Set A"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x21:
-			# partial set A,B
+			event_name = "Partial Set A,B"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 			self._call_zone(2,by = source,function_name="arming")
 
 		elif event_type == 0x1a:
-			# setting zone A
+			event_name = "Setting Zone A"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x1b:
-			# setting zone B
+			event_name = "Setting Zone B"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(2,by = source,function_name="arming")
 		elif event_type == 0x17:
+			event_name = "24 hours"
 			# 24 hours code=source
 			code  = self._get_source(source)
 			code.active = True
+		elif event_type == 0x5a:
+			event_name = "Unconfirmed alarm"
+			warn = True
+		elif event_type == 0x0e:
+			event_name = "Lost communication"
+			warn = True
+		elif event_type == 0x51:
+			event_name = "No issues reported"
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
-		LOGGER.info(
-			f'Date={date_time_obj},event_type={event_type},source={source}')
+		log = f'Date={date_time_obj},event_type={event_name}, {source}:{self.get_device(source).name}'
+		warn = True
+		if warn:
+			LOGGER.warn(log)
+		else:
+			LOGGER.info(log)
 
 	def _send_device_query(self)->None:
 		if not self._device_query_pending:
@@ -1480,6 +1511,8 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
+		warn = False
+		activity_name = "Unknown"
 		status = data[1]
 		activity = data[2]
 		detail = data[3]
@@ -1498,21 +1531,23 @@ class JA80CentralUnit(object):
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
 		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
-			detail = detail if activity == 0x10 and not detail == 0x00 else None
+#			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(1,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
-			detail = detail if activity == 0x10 and not detail == 0x00 else None
+#			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(2,by = detail,function_name="alarm")
 		elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
-			detail = detail if activity == 0x10 and not detail == 0x00 else None
+#			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zones(detail,function_name="alarm")
 		elif status == JablotronState.ALARM_C_SPLIT:
-			detail = detail if activity == 0x10 and not detail == 0x00 else None
+#			detail = detail if activity == 0x10 and not detail == 0x00 else None
 			self._call_zone(3,by = detail,function_name="alarm")        
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
 			if activity == 0x10:
+				warn = True
+				activity_name = 'Activity'
 				# something is active
 				if detail == 0x00:
 					# no details... ask..
@@ -1592,12 +1627,20 @@ class JA80CentralUnit(object):
 			elif activity == 0x06:
 				# sensor active,
 				# detail = sensor id
+				warn = True
+				activity_name = 'Activity Confirmed (1)'
 				self._activate_source(detail)
 				#self._get_zone_via_device(detail).alarm(detail)
 			elif activity == 0x04:
 				# key pressed
 				pass
+			elif activity == 0x08:
+				# "Fault" (on keypad), "lost communication with device" in logs
+				activity_name = 'Lost communication with device'
+				self._activate_source(detail)
 			elif activity == 0x10:
+				warn = True
+				activity_name = 'Activity Confirmed (2)'
 				# something is active
 				if detail == 0x00:
 					# no details... ask..
@@ -1613,9 +1656,16 @@ class JA80CentralUnit(object):
 				# 
 				pass
 			elif activity == 0x12:
+				warn = True
+				activity_name = 'Activity Confirmed (3)'
 				#pir movement
 				#example ed 43 12 3d 0f 04 00 3c 59 ff for device 4
 				self._activate_source(detail_2)
+			elif activity == 0x14:
+				# Unconfirmed alarm
+				warn = True
+				activity_name = 'Unconfirmed alarm'
+				self._activate_source(detail)
 			else:
 				LOGGER.error(f'Unknown activity received data={packet_data}')
 		elif JablotronState.is_service_state(status):
@@ -1628,6 +1678,8 @@ class JA80CentralUnit(object):
 				#self._deactivate_source(detail)
 				pass
 			elif activity == 0x10:
+				warn = True
+				activity_name = 'Activity Confirmed'
 					# something is active
 				if detail == 0x00:
 					# no details... ask..
@@ -1658,6 +1710,14 @@ class JA80CentralUnit(object):
 		elif JablotronState.is_entering_delay_state(status):
 			# device activation?
 			pass
+
+		#if activity != 0x00:
+		#	log = f'Status: {activity_name}, {detail}:{self.get_device(detail).name}'
+		#	if warn:
+		#		LOGGER.warn(log)
+		#	else:
+		#		#LOGGER.info(log)
+		#		pass
 
 		# LOGGER.info(f'{self}')
 	def _get_timestamp(self, data: bytearray) -> None:
@@ -1892,12 +1952,15 @@ class JA80CentralUnit(object):
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
 		elif message_type == JablotronMessage.TYPE_BEEP:
-			#beep = JablotronMessage.get_beep_option(data[0]& 0x0f)
+			beep = JablotronKeyPress.get_beep_option(data[0]& 0x0f)
+			LOGGER.info("Keypad Beep: " + hex(data[0]) + ", " + str(beep['desc']))
 			#A4 incorrect?
 			#A0 "received"?
 			#A1 correct?
 			pass
-	   
+		elif message_type == JablotronMessage.TYPE_PING:
+			LOGGER.debug("Ping Message: " + hex(data[0]))
+			pass
 
 	def __str__(self) -> str:
 		s = f'System status={self.system_status},rf={self.rf_level.value}, system mode={self._mode}\n'
@@ -2015,7 +2078,7 @@ class JA80CentralUnit(object):
 							self._process_message(record)
 				await asyncio.sleep(1)
 			except Exception as ex:
-				LOGGER.error('Unexpected error: %s', format(ex) )
+				LOGGER.error(f'Unexpected error:{record}:  {traceback.format_exc()}')
 			
 	# this is just for console testing
 	async def status_loop(self) -> None:
