@@ -3,6 +3,7 @@ import queue
 import time
 import datetime
 from dataclasses import dataclass, field
+from tkinter import messagebox
 import traceback
 from typing import List,Any,Type,Optional,Union
 import binascii
@@ -779,7 +780,8 @@ class JablotronMessage():
 	TYPE_STATE_DETAIL = 'StateDetail'
 	TYPE_KEYPRESS = 'KeyPress'
 	TYPE_BEEP = 'Beep'
-	TYPE_PING = 'Ping' # regular events that have no clear meaning (perhaps yet)
+	TYPE_PING = 'Ping' # regular messages that have no clear meaning (perhaps yet)
+	TYPE_PING_OR_OTHER = 'Ping or Other' # message that have no payload or otherwise the payload is a message of other type
 	TYPE_SAVING = 'Saving'
 	# e8,e9,e5,
 	_MESSAGE_MAIN_TYPES = {
@@ -795,10 +797,10 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
-		0xb4: TYPE_PING,
+		0xb4: TYPE_PING_OR_OTHER,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
-		0xba: TYPE_PING,
+		0xba: TYPE_PING_OR_OTHER,
 		0xc6: TYPE_BEEP,
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING, # seen when saving took really long
@@ -904,7 +906,10 @@ class JablotronMessage():
 					f'Unknown message type {record[0]} with data {packet_data} received')
 			return None
 		else:
-			if JablotronMessage.validate_length(message_type,record) and JablotronMessage.check_crc(record):
+			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
+				# don't validate length for a PING_OR_OTHER as it's may contains it's own message
+				return message_type
+			elif JablotronMessage.validate_length(message_type,record) and JablotronMessage.check_crc(record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
@@ -1950,6 +1955,11 @@ class JA80CentralUnit(object):
 		elif message_type == JablotronMessage.TYPE_KEYPRESS:
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
+		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
+			LOGGER.warn(f"Ping or Other: {packet_data}")
+			if len(data) != 2:
+				# process message without the ping prefix
+				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
 			beep = JablotronKeyPress.get_beep_option(data[0]& 0x0f)
 			LOGGER.info("Keypad Beep: " + hex(data[0]) + ", " + str(beep['desc']))
