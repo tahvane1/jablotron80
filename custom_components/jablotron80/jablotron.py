@@ -3,7 +3,6 @@ import queue
 import time
 import datetime
 from dataclasses import dataclass, field
-from tkinter import messagebox
 import traceback
 from typing import List,Any,Type,Optional,Union
 import binascii
