@@ -1631,7 +1631,7 @@ class JA80CentralUnit(object):
 				# sensor active,
 				# detail = sensor id
 				warn = True
-				activity_name = 'Activity Confirmed (1)'
+				activity_name = 'Activity Detected (1)'
 				self._activate_source(detail)
 				#self._get_zone_via_device(detail).alarm(detail)
 			elif activity == 0x04:
@@ -1643,7 +1643,7 @@ class JA80CentralUnit(object):
 				self._activate_source(detail)
 			elif activity == 0x10:
 				warn = True
-				activity_name = 'Activity Confirmed (2)'
+				activity_name = 'Activity Detected (2)'
 				# something is active
 				if detail == 0x00:
 					# no details... ask..
@@ -1660,14 +1660,14 @@ class JA80CentralUnit(object):
 				pass
 			elif activity == 0x12:
 				warn = True
-				activity_name = 'Activity Confirmed (3)'
+				activity_name = 'Activity Detected (3)'
 				#pir movement
 				#example ed 43 12 3d 0f 04 00 3c 59 ff for device 4
 				self._activate_source(detail_2)
 			elif activity == 0x14:
 				# Unconfirmed alarm
 				warn = True
-				activity_name = 'Unconfirmed alarm'
+				activity_name = 'Activity Detected (4)'
 				self._activate_source(detail)
 			else:
 				LOGGER.error(f'Unknown activity received data={packet_data}')
@@ -1682,7 +1682,7 @@ class JA80CentralUnit(object):
 				pass
 			elif activity == 0x10:
 				warn = True
-				activity_name = 'Activity Confirmed'
+				activity_name = 'Activity Detected (5)'
 					# something is active
 				if detail == 0x00:
 					# no details... ask..
@@ -1708,19 +1708,24 @@ class JA80CentralUnit(object):
 			elif activity == 0x04:
 				# key pressed
 				pass
+			elif activity == 0x14:
+				# Unconfirmed alarm
+				warn = True
+				activity_name = 'Activity Detected (6)'
+				self._activate_source(detail)
 			else:
 				LOGGER.error(f'Unknown activity received data={packet_data}')
 		elif JablotronState.is_entering_delay_state(status):
 			# device activation?
 			pass
 
-		#if activity != 0x00:
-		#	log = f'Status: {activity_name}, {detail}:{self.get_device(detail).name}'
-		#	if warn:
-		#		LOGGER.warn(log)
-		#	else:
-		#		#LOGGER.info(log)
-		#		pass
+		if activity != 0x00:
+			log = f'Status: {activity_name}, {detail}:{self.get_device(detail).name}'
+			if warn:
+				LOGGER.warn(log)
+			else:
+				LOGGER.debug(log)
+
 
 		# LOGGER.info(f'{self}')
 	def _get_timestamp(self, data: bytearray) -> None:
@@ -1955,8 +1960,8 @@ class JA80CentralUnit(object):
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
 		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
-			LOGGER.warn(f"Ping or Other: {packet_data}")
 			if len(data) != 2:
+				LOGGER.warn(f"Embedded Ping: {packet_data}")
 				# process message without the ping prefix
 				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
