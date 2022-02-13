@@ -1111,7 +1111,8 @@ class JA80CentralUnit(object):
   					"POWER":self._create_led(5,"power","power led")}
 
 		self._last_event_data = None
-  
+		self._message = ""
+
 		self._master_code = config[CONFIGURATION_PASSWORD]
 		# this is in scale 0 - 40, 0 - 100% ?
 		self._rf_level = JablotronSensor(1)
@@ -1517,6 +1518,7 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 		log = f'Date={date_time_obj},event_type={event_name}, {source}:{self.get_device(source).name}'
+
 		if warn:
 			LOGGER.warn(log)
 		else:
@@ -1686,11 +1688,16 @@ class JA80CentralUnit(object):
 
 		if activity != 0x00:
 			log = f'Activity: {activity}, {activity_name}, {detail}:{self.get_device(detail).name}'
-			if warn:
-				LOGGER.warn(log)
-			else:
-				LOGGER.info(log)
 
+			# log a warning/info message only once
+			if self._message == log:
+				LOGGER.debug(log)
+			else:
+				self._message = log
+				if warn:
+					LOGGER.warn(log)
+				else:
+					LOGGER.info(log)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
