@@ -996,7 +996,8 @@ class JablotronState():
 
 	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_B, ARMED_ENTRY_DELAY_C]
 	#STATES_ELEVATED = [SERVICE,MAINTENANCE]
-		
+
+	
 	@staticmethod
 	def is_armed_state(status):
 		return status in JablotronState.STATES_ARMED
@@ -1432,7 +1433,7 @@ class JA80CentralUnit(object):
 			event_name = "End of Tampering"
 			# source is 0 when all tamper alarms have gone
 		elif event_type == 0x11:
-			event_name = "Low Battery"
+			event_name = "Discharged battery"
 			warn = True
 			self._device_battery_low(source)
 		elif event_type == 0x41:
@@ -1588,7 +1589,6 @@ class JA80CentralUnit(object):
 		#		self._get_zone_via_object(device).entering(device)
 		#		self._activate_source(detail_2)
 			pass
-
 		elif status == JablotronState.EXIT_DELAY_ABC:
 			self._call_zones(function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
@@ -1653,7 +1653,7 @@ class JA80CentralUnit(object):
 
 		elif activity == 0x09:
 			warn = True
-			activity_name = 'Low battery'
+			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
 
 		elif activity == 0x0c:
