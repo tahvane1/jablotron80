@@ -1548,29 +1548,11 @@ class JA80CentralUnit(object):
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
-			if activity == 0x10:
-				activity_name = 'Triggered detector'
-				# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					warn = True
-					# set device active
-					self._confirm_device_query()
-					#self._activate_source(detail)
-			elif activity == 0x00:
+
+			if activity == 0x00:
 				# clear active statuses
 				self._clear_triggers()
-			elif activity == 0x09:
-				activity_name = 'Low battery'
-				self._device_battery_low(detail)
-			elif activity == 0x07:
-				warn = True
-				activity_name = "Tamper alarm"
-				#some pir activity
-				#ed 40 07 06 11 00 00 00 3b ff
-				#self._activate_source(detail)
+
 		elif status == JablotronState.ARMED_ABC:
 			self._call_zones(function_name="armed")
 		elif status == JablotronState.ARMED_A:
@@ -1608,7 +1590,7 @@ class JA80CentralUnit(object):
 			# detail = device id
 			self.notify_service()
 		elif status == JablotronState.BYPASS:
-				# detail = device id
+			# detail = device id
 			self.notify_service()
 		elif status == JablotronState.SERVICE_LOADING_SETTINGS:
 			self.notify_service()
@@ -1625,107 +1607,79 @@ class JA80CentralUnit(object):
 			
 			
 		if JablotronState.is_armed_state(status):
-			if activity == 0x00:
-				# normal state 
-				#this might be needed for PIR clearing. What are effects to other sensors like doors?
-				#self._clear_triggers()
-				pass
-			elif activity == 0x06:
-				# sensor active,
-				# detail = sensor id
-				warn = True
-				activity_name = 'Triggered detector'
-				#self._activate_source(detail)
-				#self._get_zone_via_device(detail).alarm(detail)
-			elif activity == 0x04:
-				# key pressed
-				pass
-			elif activity == 0x08:
-				# "Fault" (on keypad), "lost communication with device" in logs
-				activity_name = 'Fault'
-				#self._activate_source(detail)
-			elif activity == 0x10:
-				activity_name = 'Triggered detector'
-				# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					warn = True
-					# set device active
-					self._confirm_device_query()
-					#self._activate_source(detail)
-			elif activity == 0x0d:
-				# 
-				pass
-			elif activity == 0x0c:
-				# 
-				pass
-			elif activity == 0x12:
-				warn = True
-				activity_name = 'Triggered detector'
-				#pir movement
-				#example ed 43 12 3d 0f 04 00 3c 59 ff for device 4
-				#self._activate_source(detail_2)
-			elif activity == 0x14:
-				# Unconfirmed alarm
-				warn = True
-				activity_name = 'Triggered detector'
-				#self._activate_source(detail)
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			pass
 		elif JablotronState.is_service_state(status):
 			self.status = JA80CentralUnit.STATUS_SERVICE
 		elif JablotronState.is_maintenance_state(status):
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
 		elif JablotronState.is_exit_delay_state(status):
-			if activity == 0x0c:
-				# normal state?
-				#self._deactivate_source(detail)
-				pass
-			elif activity == 0x10:
-				activity_name = 'Triggered detector'
-					# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					warn = True
-					# set device active
-					self._confirm_device_query()
-					#self._activate_source(detail)
-			elif activity == 0x04:
-				# key pressed, is this possible?
-				pass
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			pass
 		elif JablotronState.is_alarm_state(status):
-			if activity == 0x00:
-				# no reason yet
-				pass
-			elif activity == 0x06:
-				warn = True
-				activity_name = 'Triggered detector'
-				# sensor causing alarm,
-				# detail = sensor id
-				# also something in detail_2
-				#self._activate_source(detail)
-			elif activity == 0x04:
-				# key pressed
-				pass
-			elif activity == 0x14:
-				# Unconfirmed alarm
-				warn = True
-				activity_name = 'Triggered detector'
-				#self._activate_source(detail)
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			pass
 		elif JablotronState.is_entering_delay_state(status):
-			# device activation?
 			pass
 
+		if activity == 0x00:
+			pass
+
+		if activity == 0x01:
+			activity_name ="Service Mode"
+
+		if activity == 0x02:
+			activity_name ="Maintenence Mode"
+
+		elif activity == 0x04:
+			activity_name ="key pressed"
+
+		elif activity == 0x06:
+			# trigger during testing, e.g. maintenance mode
+			warn = True
+			activity_name = 'Alarm'
+
+		elif activity == 0x07:
+			warn = True
+			activity_name = "Tamper alarm"
+
+		elif activity == 0x08:
+			# "Fault" (on keypad), "lost communication with device" in logs
+			warn = True
+			activity_name = 'Fault'
+
+		elif activity == 0x09:
+			warn = True
+			activity_name = 'Low battery'
+			self._device_battery_low(detail)
+
+		elif activity == 0x0c:
+			activity_name = 'Exit delay'
+
+		elif activity == 0x0d:
+			activity_name = 'Entrance delay'
+			pass
+
+		elif activity == 0x10:
+			# trigger during standard (unset) mode, e.g. a door open detector
+			activity_name = 'Triggered detector'
+				# something is active
+			if detail == 0x00:
+				# no details... ask..
+				self._send_device_query()
+			else:
+				warn = True
+				# set device active
+				self._confirm_device_query()
+
+		elif activity == 0x12:
+			warn = True
+			activity_name = 'Triggered detector'
+
+		elif activity == 0x14:
+			# Unconfirmed alarm
+			warn = True
+			activity_name = 'Unconfired alarm'
+
 		if activity != 0x00:
-			log = f'Status: {activity}, {activity_name}, {detail}:{self.get_device(detail).name}'
+			log = f'Activity: {activity}, {activity_name}, {detail}:{self.get_device(detail).name}'
 			if warn:
 				LOGGER.warn(log)
 			else:
