@@ -1430,7 +1430,7 @@ class JA80CentralUnit(object):
 			event_name = "Fault"
 			warn = True
 		elif event_type == 0x50:
-			event_name = "End of Tampering"
+			event_name = "End of Tamper alarm"
 			# source is 0 when all tamper alarms have gone
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
