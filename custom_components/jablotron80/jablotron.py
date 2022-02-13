@@ -987,8 +987,9 @@ class JablotronState():
 	STATES_ALARM = [ALARM_A,ALARM_B,ALARM_C,ALARM_WITHOUT_ARMING,
 					ALARM_A_SPLIT,ALARM_B_SPLIT,ALARM_C_SPLIT,ALARM_WITHOUT_ARMING_SPLIT]
 	
-	
+	ARMED_ENTRY_DELAY_2 = 0x4a	
 	ARMED_ENTRY_DELAY = 0x4b
+
 	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY]
 	STATES_ELEVATED = [SERVICE,MAINTENANCE]
 		
@@ -1417,7 +1418,7 @@ class JA80CentralUnit(object):
 			event_name = "End of Tampering"
 			# source is 0 when all tamper alarms have gone
 		elif event_type == 0x11:
-			event_name = "Low Battery"
+			event_name = "Discharged battery"
 			warn = True
 			self._device_battery_low(source)
 		elif event_type == 0x41:
@@ -1573,6 +1574,8 @@ class JA80CentralUnit(object):
 		#		self._get_zone_via_object(device).entering(device)
 		#		self._activate_source(detail_2)
 			pass
+		elif status == JablotronState.ARMED_ENTRY_DELAY_2:
+			pass
 		elif status == JablotronState.EXIT_DELAY_ABC:
 			self._call_zones(function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
@@ -1601,6 +1604,7 @@ class JA80CentralUnit(object):
 			self.notify_service()
 		elif status == JablotronState.SERVICE:
 			self.notify_service()
+
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
@@ -1647,7 +1651,7 @@ class JA80CentralUnit(object):
 
 		elif activity == 0x09:
 			warn = True
-			activity_name = 'Low battery'
+			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
 
 		elif activity == 0x0c:
