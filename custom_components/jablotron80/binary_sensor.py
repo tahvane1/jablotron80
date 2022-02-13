@@ -64,7 +64,7 @@ class JablotronDeviceSensorEntity(JablotronEntity,BinarySensorEntity):
 				return DEVICE_CLASS_SMOKE
 			elif "code" == self._object.type:
 				return DEVICE_CLASS_MOTION
-			elif "tamper alarm" == self._object.type:
+			elif "Control Panel" == self._object.type:
 				return DEVICE_CLASS_PROBLEM
 			elif "power led" == self._object.type:
 				return DEVICE_CLASS_POWER
@@ -73,7 +73,7 @@ class JablotronDeviceSensorEntity(JablotronEntity,BinarySensorEntity):
 		if self._object.type == DEVICE_MOTION_DETECTOR:
 			return DEVICE_CLASS_MOTION
 		if self._object.type == DEVICE_KEYPAD:
-    			return DEVICE_CLASS_PROBLEM
+			return DEVICE_CLASS_PROBLEM
 		if self._object.type == DEVICE_WINDOW_OPENING_DETECTOR:
 			return DEVICE_CLASS_WINDOW
 
