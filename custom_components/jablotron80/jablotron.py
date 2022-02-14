@@ -1498,7 +1498,9 @@ class JA80CentralUnit(object):
 			event_name = "Lost communication"
 			warn = True
 		elif event_type == 0x51:
-			event_name = "No issues reported"
+			event_name = "Fault no longer present"
+		elif event_type == 0x52:
+			event_name = "Battery OK"
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
