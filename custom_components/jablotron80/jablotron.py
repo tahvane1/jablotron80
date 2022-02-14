@@ -1950,6 +1950,11 @@ class JA80CentralUnit(object):
 		elif message_type == JablotronMessage.TYPE_KEYPRESS:
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
+		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
+			if len(data) != 2:
+				LOGGER.debug(f"Embedded Ping: {packet_data}")
+				# process message without the ping prefix
+				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
 			beep = JablotronKeyPress.get_beep_option(data[0]& 0x0f)
 			LOGGER.info("Keypad Beep: " + hex(data[0]) + ", " + str(beep['desc']))
