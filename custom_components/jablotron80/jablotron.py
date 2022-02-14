@@ -913,6 +913,7 @@ class JablotronMessage():
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
+				# likely a corrupt message
 				LOGGER.debug(f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
