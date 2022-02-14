@@ -1934,7 +1934,7 @@ class JA80CentralUnit(object):
 			pass
 		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
 			if len(data) != 2:
-				LOGGER.warn(f"Embedded Ping: {packet_data}")
+				LOGGER.debug(f"Embedded Ping: {packet_data}")
 				# process message without the ping prefix
 				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
