@@ -21,7 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class JablotronZoneSensorEntity(JablotronEntity):
 	def __init__(self, zone: JablotronZone,cu: JA80CentralUnit) -> None:
-    		super().__init__(cu, zone) 
+		super().__init__(cu, zone) 
 
 	@property
 	def state(self) -> str:
