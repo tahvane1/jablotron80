@@ -482,7 +482,8 @@ class JablotronZone(JablotronCommon):
 	@check_active     
 	def device_activated(self,device: JablotronDevice ) -> None:
 		if self.status == JablotronZone.STATUS_ARMED or device.reaction == JablotronConstants.REACTION_FIRE_ALARM:
-			self.alarm(device)
+			#self.alarm(device)
+			pass
 			
 	@check_active     
 	def device_deactivated(self,device: JablotronDevice)-> None:
@@ -492,18 +493,17 @@ class JablotronZone(JablotronCommon):
 
 	@check_active     
 	def code_activated(self,code: JablotronCode ) -> None:
-		pass
-		#if self.status == JablotronZone.STATUS_ARMED or code.reaction == JablotronConstants.REACTION_FIRE_ALARM:
-		#	self.alarm(code)
+		if self.status == JablotronZone.STATUS_ARMED or code.reaction == JablotronConstants.REACTION_FIRE_ALARM:
+			#self.alarm(code)
+			pass
 			
 	@check_active     
 	def code_deactivated(self,device: JablotronDevice)-> None:
-		pass
-  		#if self.status == JablotronZone.STATUS_ALARM:
-		#	#self.disarm()
-		#	pass
+		if self.status == JablotronZone.STATUS_ALARM:
+			#self.disarm()
+			pass
 
-			
+	
 	@check_active      
 	def tamper(self,by: Optional[JablotronDevice]  = None) -> None:
 		self.alarm(by)
