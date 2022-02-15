@@ -506,7 +506,8 @@ class JablotronZone(JablotronCommon):
 	
 	@check_active      
 	def tamper(self,by: Optional[JablotronDevice]  = None) -> None:
-		self.alarm(by)
+		#self.alarm(by)
+		pass
 		
 	@check_active
 	def clear(self,by: Optional[JablotronCode] = None) -> None:
