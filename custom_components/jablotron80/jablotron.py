@@ -1517,7 +1517,7 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
-		log = f'Date={date_time_obj},event_type={event_name}, {source}:{self.get_device(source).name}'
+		log = f'Alarm:{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
 
 		if warn:
 			LOGGER.warn(log)
@@ -1533,6 +1533,7 @@ class JA80CentralUnit(object):
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		warn = False
+		log = True
 		activity_name = "Unknown"
 		status = data[1]
 		activity = data[2]
@@ -1640,7 +1641,7 @@ class JA80CentralUnit(object):
 			activity_name ="key pressed"
 
 		elif activity == 0x06:
-			# trigger during testing, e.g. maintenance mode
+			# trigger during testing, i.e. maintenance mode
 			warn = True
 			activity_name = 'Alarm'
 
@@ -1670,37 +1671,41 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector'
 				# something is active
 			if detail == 0x00:
+				log = False
 				# no details... ask..
 				self._send_device_query()
 			else:
 				warn = True
 				# set device active
 				self._confirm_device_query()
+				self._activate_source(detail)
 
 		elif activity == 0x12:
 			warn = True
-			activity_name = 'Triggered detector'
+			activity_name = 'Triggered detector (2)'
 
 		elif activity == 0x14:
 			# Unconfirmed alarm
 			warn = True
-			activity_name = 'Unconfired alarm'
-
+			activity_name = 'Unconfirmed alarm'
+			
 		if activity != 0x00:
 			if activity_name != "Unknown":
-				log = f'{activity_name}, {detail}:{self.get_device(detail).name}'
+				message = f'{activity_name}, {detail}:{self._get_source(detail).name}'
 			else:
-				log = f'Unknown Activity:{activity}, {detail}:{self.get_device(detail).name}'
+				message = f'Unknown Activity:{activity}, {detail}:{self._get_source(detail).name}'
 
 			# log a warning/info message only once
-			if self._message == log:
-				LOGGER.debug(log)
+			if self._message == message:
+				LOGGER.debug(message)
 			else:
-				self._message = log
-				if warn:
-					LOGGER.warn(log)
-				else:
-					LOGGER.info(log)
+				if log:
+					self._message = message
+					if warn:
+						LOGGER.warn(message)
+						self._activate_source(detail)
+					else:
+						LOGGER.info(message)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
