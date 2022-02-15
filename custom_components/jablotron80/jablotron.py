@@ -756,7 +756,7 @@ class JablotronKeyPress():
 	
 	_BEEP_OPTIONS = {
 		# happens when warning appears on keypad (e.g. after alarm)
-		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x7: {'val': '0', 'desc': 'no audible beep'}, 0x8: {'val': 'in', 'desc': 'Infinite beeping triggered'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
+		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'}, 0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
 	}
 	@staticmethod
 	def get_key_command(key):
