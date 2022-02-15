@@ -1678,6 +1678,10 @@ class JA80CentralUnit(object):
 			# Unconfirmed alarm
 			warn = True
 			activity_name = 'Unconfired alarm'
+			
+			# An uncofirmed alarm on control panel (as reported on keypad) reported detail 0x51
+			if detail == 0x51:
+				detail = 0
 
 		if activity != 0x00:
 			log = f'Activity: {activity}, {activity_name}, {detail}:{self.get_device(detail).name}'
