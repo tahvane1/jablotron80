@@ -1597,30 +1597,16 @@ class JA80CentralUnit(object):
 			self._call_zone(2,by = detail,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_C:
 			self._call_zone(3,by = detail,function_name="arming")
-		elif status == JablotronState.ENROLLMENT:
-			# detail = device id
-			self.notify_service()
-		elif status == JablotronState.BYPASS:
-			# detail = device id
-			self.notify_service()
-		elif status == JablotronState.SERVICE_LOADING_SETTINGS:
-			self.notify_service()
-		elif status == JablotronState.MAINTENANCE_LOADING_SETTINGS:
-			self.notify_service()
-		elif status == JablotronState.MAINTENANCE:
-			# at least activity 02
-			self.notify_service()
-		elif status == JablotronState.SERVICE:
-			self.notify_service()
-
 
 			
 		if JablotronState.is_armed_state(status):
 			pass
 		elif JablotronState.is_service_state(status):
 			self.status = JA80CentralUnit.STATUS_SERVICE
+			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
+			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
 			pass
 		elif JablotronState.is_alarm_state(status):
@@ -1632,8 +1618,7 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
-			
-
+		
 
 		if activity == 0x00:
 			pass
