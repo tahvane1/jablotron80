@@ -394,12 +394,12 @@ class JablotronDevice(JablotronCommon):
 	def __str__(self) -> str:
 		s = f'Device id={self.device_id},model={self.model},reaction={self.reaction},tampered={self.tampered},battery_low={self.battery_low}'
 		if not self.name is None:
-			s+=f'name={self.name},'
+			s+=f',name={self.name}'
 		if not self.zone is None:
-			s+=f'zone={self.zone.name},'
+			s+=f',zone={self.zone.name}'
 		if not self.serial_number is None:
-			s += f'serial={self.serial_number},'
-		s += f'active={self._active}'
+			s += f',serial={self.serial_number}'
+		s += f',active={self._active}'
 		return s
 
 
