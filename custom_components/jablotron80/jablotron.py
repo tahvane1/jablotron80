@@ -757,7 +757,7 @@ class JablotronKeyPress():
 	
 	_BEEP_OPTIONS = {
 		# happens when warning appears on keypad (e.g. after alarm)
-		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'}, 0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
+		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x6: {'val': '?1', 'desc': 'Unknown beep(s) triggered(1)'} , 0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'}, 0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'}, 0xe: {'val': '?2', 'desc': 'unknown beep(s) triggered(2)'}
 	}
 	@staticmethod
 	def get_key_command(key):
@@ -1510,7 +1510,7 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
-		log = f'Alarm:{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
+		log = f'Last Event:{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
 
 		if warn:
 			LOGGER.warn(log)
@@ -1527,6 +1527,8 @@ class JA80CentralUnit(object):
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		warn = False
 		log = True
+		message = None
+
 		activity_name = "Unknown"
 		status = data[1]
 		activity = data[2]
@@ -1658,7 +1660,8 @@ class JA80CentralUnit(object):
 
 		elif activity == 0x0d:
 			activity_name = 'Entrance delay'
-			pass
+			warn = True
+			message = f'{activity_name}, {detail}:{self._get_source(detail).name}, Detail2:{detail_2}'
 
 		elif activity == 0x10:
 			# trigger during standard (unset) mode, e.g. a door open detector
@@ -1682,12 +1685,17 @@ class JA80CentralUnit(object):
 			# Unconfirmed alarm
 			warn = True
 			activity_name = 'Unconfirmed alarm'
-			
+
+			# Activity 51 is "Control Panel" according to my keypad!
+			if detail == 0x51:
+				detail = 0
+
 		if activity != 0x00:
-			if activity_name != "Unknown":
-				message = f'{activity_name}, {detail}:{self._get_source(detail).name}'
-			else:
-				message = f'Unknown Activity:{activity}, {detail}:{self._get_source(detail).name}'
+			if message is None:
+				if activity_name != "Unknown":
+					message = f'Warning: {activity_name}, {detail}:{self._get_source(detail).name}'
+				else:
+					message = f'Unknown Warning:{activity}, {detail}:{self._get_source(detail).name}'
 
 			# log a warning/info message only once
 			if self._message == message:
