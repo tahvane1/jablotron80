@@ -991,10 +991,14 @@ class JablotronState():
 					ALARM_A_SPLIT,ALARM_B_SPLIT,ALARM_C_SPLIT,ALARM_WITHOUT_ARMING_SPLIT]
 	
 	ARMED_ENTRY_DELAY_A = 0x49
-	ARMED_ENTRY_DELAY_B = 0x4a	
-	ARMED_ENTRY_DELAY_C = 0x4b
+	ARMED_ENTRY_DELAY_AB = 0x4a	
+	ARMED_ENTRY_DELAY_ABC = 0x4b
+	ARMED_ENTRY_DELAY_A_SPLIT = 0x69
+	ARMED_ENTRY_DELAY_B_SPLIT = 0x6a
+	ARMED_ENTRY_DELAY_C_SPLIT = 0x6b
 
-	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_B, ARMED_ENTRY_DELAY_C]
+	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_AB, ARMED_ENTRY_DELAY_ABC,
+								ARMED_ENTRY_DELAY_A_SPLIT, ARMED_ENTRY_DELAY_B_SPLIT, ARMED_ENTRY_DELAY_C_SPLIT]
 	#STATES_ELEVATED = [SERVICE,MAINTENANCE]
 
 	
@@ -1292,6 +1296,15 @@ class JA80CentralUnit(object):
 			# TODO convert bytes to int (1-50)
 			return self.get_code(source - 64)
 	
+	def _get_source_name(self, source:bytes) -> str:
+		if source is None:
+			return "Unknown"
+		source_obj = self._get_source(source)
+		if source_obj is None:
+			return "Unknown"
+		else:
+			return source_obj.name
+
 	def get_device(self, id_: int) -> JablotronDevice:
 		if id_ == 0:
 			return self.central_device
@@ -1555,17 +1568,18 @@ class JA80CentralUnit(object):
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
 		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(1,by = detail,function_name="alarm")
+			by = detail if detail != 0x00 else None
+			self._call_zone(1,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(2,by = detail,function_name="alarm")
+			by = detail if detail != 0x00 else None
+			self._call_zone(2,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zones(detail,function_name="alarm")
+			by = detail if detail != 0x00 else None
+			self._call_zones(by,function_name="alarm")
 		elif status == JablotronState.ALARM_C_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(3,by = detail,function_name="alarm")        
+			by = detail if detail != 0x00 else None
+			self._call_zone(3,by = by,function_name="alarm")        
+
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
@@ -1587,13 +1601,23 @@ class JA80CentralUnit(object):
 			self._call_zone(2,by = detail,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_C:
 			self._call_zone(3,by = detail,function_name="armed")
-		elif status == JablotronState.ARMED_ENTRY_DELAY_C: 
-			# is detail 2 device id?
-			#if not detail_2 == 0x00:
-		#		device = self.get_device(detail_2)
-		#		self._get_zone_via_object(device).entering(device)
-		#		self._activate_source(detail_2)
-			pass
+
+
+		elif status == JablotronState.ARMED_ENTRY_DELAY_ABC:
+			self._call_zones(by = detail,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_A:
+			self._call_zone(1,by = detail,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_AB:
+			self._call_zone(1,by = detail,function_name="entering")
+			self._call_zone(2,by = detail,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_A_SPLIT:
+			self._call_zone(1,by = detail,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_B_SPLIT:
+			self._call_zone(2,by = detail,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_C_SPLIT:
+			self._call_zone(3,by = detail,function_name="entering")
+
+
 		elif status == JablotronState.EXIT_DELAY_ABC:
 			self._call_zones(function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
@@ -1662,12 +1686,10 @@ class JA80CentralUnit(object):
 			self._device_battery_low(detail)
 
 		elif activity == 0x0c:
-			activity_name = 'Exit delay'
+			activity_name = 'Exit delay (beeps)'
 
 		elif activity == 0x0d:
-			activity_name = 'Entrance delay'
-			warn = True
-			message = f'{activity_name}, {detail}:{self._get_source(detail).name}, Detail2:{detail_2}'
+			activity_name = 'Entrance (delay)'
 
 		elif activity == 0x10:
 			# trigger during standard (unset) mode, e.g. a door open detector
@@ -1692,16 +1714,19 @@ class JA80CentralUnit(object):
 			warn = True
 			activity_name = 'Unconfirmed alarm'
 
-			# Activity 51 is "Control Panel" according to my keypad!
-			if detail == 0x51:
-				detail = 0
-
 		if activity != 0x00:
 			if message is None:
-				if activity_name != "Unknown":
-					message = f'Warning: {activity_name}, {detail}:{self._get_source(detail).name}'
+
+				# Activity 51 is "Control Panel" according to my keypad!
+				if detail != 51:
+					name = self._get_source_name(detail)
 				else:
-					message = f'Unknown Warning:{activity}, {detail}:{self._get_source(detail).name}'
+					name = self._get_source_name(0)
+
+				if activity_name != "Unknown":
+					message = f'Warning: {activity_name}, {detail}:{name}'
+				else:
+					message = f'Unknown Warning:{activity}, {detail}:{name}'
 
 			# log a warning/info message only once
 			if self._message == message:
@@ -1919,7 +1944,7 @@ class JA80CentralUnit(object):
 			# ???
 			pass
 		elif detail == 0x0b:
-				# ???
+			# ???
 			pass
 		elif detail == 0x0d:
 			# ???
