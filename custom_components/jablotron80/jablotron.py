@@ -1545,9 +1545,10 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
-		warn = False
-		log = True
+		warn = False # should a warning message be logged
+		log = True # should a message be logged at all
 		message = None
+		activate = False # should the sensor be activated
 
 		activity_name = "Unknown"
 		status = data[1]
@@ -1669,10 +1670,12 @@ class JA80CentralUnit(object):
 		elif activity == 0x06:
 			# trigger during testing, i.e. maintenance mode
 			warn = True
+			activate = True
 			activity_name = 'Alarm'
 
 		elif activity == 0x07:
 			warn = True
+			activate = True
 			activity_name = "Tamper alarm"
 
 		elif activity == 0x08:
@@ -1689,7 +1692,7 @@ class JA80CentralUnit(object):
 			activity_name = 'Exit delay (beeps)'
 
 		elif activity == 0x0d:
-			activity_name = 'Entrance (delay)'
+			activity_name = 'Entrance delay (beeps)'
 
 		elif activity == 0x10:
 			# trigger during standard (unset) mode, e.g. a door open detector
@@ -1701,17 +1704,19 @@ class JA80CentralUnit(object):
 				self._send_device_query()
 			else:
 				warn = True
+				activate = True
 				# set device active
 				self._confirm_device_query()
-				self._activate_source(detail)
 
 		elif activity == 0x12:
 			warn = True
+			activate = True
 			activity_name = 'Triggered detector (2)'
 
 		elif activity == 0x14:
 			# Unconfirmed alarm
 			warn = True
+			activate = True
 			activity_name = 'Unconfirmed alarm'
 
 		if activity != 0x00:
@@ -1736,9 +1741,11 @@ class JA80CentralUnit(object):
 					self._message = message
 					if warn:
 						LOGGER.warn(message)
-						self._activate_source(detail)
 					else:
 						LOGGER.info(message)
+
+			if activate:
+				self._activate_source(detail)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
@@ -1940,6 +1947,9 @@ class JA80CentralUnit(object):
 		elif detail == 0x03:
 			# fire alarm /should this alarm all zones?
 			pass
+		elif detail == 0x08:
+			# comes at least when trying to enter service mode while already in service mode
+			pass
 		elif detail == 0x0e:
 			# ???
 			pass
@@ -1952,9 +1962,7 @@ class JA80CentralUnit(object):
 		elif detail == 0x0c:
 			# ???
 			pass
-		elif detail == 0x08:
-			# comes at least when trying to enter service mode while already in service mode
-			pass
+
 		else:
 			LOGGER.error(f'Unknown state detail received data={packet_data}')
 
