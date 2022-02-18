@@ -795,7 +795,8 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
-		0xb4: TYPE_PING,
+		0xb3: TYPE_PING_OR_OTHER,
+		0xb4: TYPE_PING_OR_OTHER,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
 		0xba: TYPE_PING,
