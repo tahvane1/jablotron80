@@ -957,16 +957,16 @@ class JablotronState():
 	STATES_ARMED = [ ARMED_SPLIT_A, ARMED_SPLIT_B, ARMED_SPLIT_C,ARMED_A, ARMED_AB, ARMED_ABC]
 	ENROLLMENT = 0x01
 	SERVICE = 0x00
-	SERVICE_LOADING_SETTINGS = 0x05
-	SERVICE_EXITING= 0x08
-	STATES_SERVICE = [ENROLLMENT,
-					SERVICE, SERVICE_LOADING_SETTINGS, SERVICE_EXITING]
+	#SERVICE_LOADING_SETTINGS = 0x05
+	#SERVICE_EXITING= 0x08
+	#STATES_SERVICE = [ENROLLMENT,
+	#				SERVICE, SERVICE_LOADING_SETTINGS, SERVICE_EXITING]
 	MAINTENANCE = 0x20
-	BYPASS = 0x21
-	MAINTENANCE_LOADING_SETTINGS = 0x25
-	MAINTENANCE_EXITING= 0x28
-	STATES_MAINTENANCE = [MAINTENANCE,
-						MAINTENANCE_LOADING_SETTINGS, BYPASS, MAINTENANCE_EXITING]
+	#BYPASS = 0x21
+	#MAINTENANCE_LOADING_SETTINGS = 0x25
+	#MAINTENANCE_EXITING= 0x28
+	#STATES_MAINTENANCE = [MAINTENANCE,
+	#					MAINTENANCE_LOADING_SETTINGS, BYPASS, MAINTENANCE_EXITING]
 	
 	#partial
 	ALARM_A = 0x45
@@ -1014,11 +1014,13 @@ class JablotronState():
 	
 	@staticmethod
 	def is_service_state(status):
-		return status in JablotronState.STATES_SERVICE
+		return not status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
+		#return status in JablotronState.STATES_SERVICE
 	
 	@staticmethod
 	def is_maintenance_state(status):
-		return status in JablotronState.STATES_MAINTENANCE
+		return status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
+		#return status in JablotronState.STATES_MAINTENANCE
 	
 	@staticmethod
 	def is_alarm_state(status):
@@ -1324,6 +1326,13 @@ class JA80CentralUnit(object):
 		for zone in self._zones.values():
 			zone.status = JablotronZone.STATUS_SERVICE
  
+	def is_elevated(self) -> bool:
+		for zone in self._zones.values():
+			if zone.status == JablotronZone.STATUS_SERVICE:
+				return True
+
+		return False
+
 	def _call_zones(self,source_id:bytes = None, function_name: str = None) -> None:
 		for zone in self._zones.values():
 			if zone is not None:
@@ -1894,6 +1903,11 @@ class JA80CentralUnit(object):
 				pass
 
 	def _process_state_detail(self, data: bytearray, packet_data: str) -> None:
+
+		# if we are in elevated mode, don't process the detail
+		if self.is_elevated():
+			return
+
 		detail = data[1]
 		#crc = data[2]
 		if detail == 0x00:
