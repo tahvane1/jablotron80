@@ -1647,6 +1647,7 @@ class JA80CentralUnit(object):
 		elif JablotronState.is_alarm_state(status):
 			pass
 		elif JablotronState.is_entering_delay_state(status):
+			activity_name = 'Entrance delay (beeps)'
 			pass
 		elif JablotronState.is_disarmed_state(status):
 			pass
@@ -1719,7 +1720,7 @@ class JA80CentralUnit(object):
 			activate = True
 			activity_name = 'Unconfirmed alarm'
 
-		if activity != 0x00:
+		if activity != 0x00 or activity_name != "Unknown":
 			if message is None:
 
 				# Activity 51 is "Control Panel" according to my keypad!
