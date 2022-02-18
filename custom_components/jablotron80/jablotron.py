@@ -797,6 +797,7 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
+		0xb3: TYPE_PING_OR_OTHER,
 		0xb4: TYPE_PING_OR_OTHER,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
@@ -1642,6 +1643,7 @@ class JA80CentralUnit(object):
 		elif JablotronState.is_alarm_state(status):
 			pass
 		elif JablotronState.is_entering_delay_state(status):
+			activity_name = 'Entrance delay (beeps)'
 			pass
 		elif JablotronState.is_disarmed_state(status):
 			pass
@@ -1714,7 +1716,7 @@ class JA80CentralUnit(object):
 			activate = True
 			activity_name = 'Unconfirmed alarm'
 
-		if activity != 0x00:
+		if activity != 0x00 or activity_name != "Unknown":
 			if message is None:
 
 				# Activity 51 is "Control Panel" according to my keypad!
