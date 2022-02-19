@@ -36,7 +36,7 @@ import logging
 LOGGER = logging.getLogger(__package__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
-	cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON]
+	cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON] # type: JA80CentralUnit
 	async_add_entities([JablotronDeviceSensorEntity(device,cu) for device in cu.devices], True)
 	async_add_entities([JablotronDeviceSensorEntity(led,cu) for led in cu.leds], True)
 	async_add_entities([JablotronDeviceSensorEntity(code,cu) for code in cu.codes], True)

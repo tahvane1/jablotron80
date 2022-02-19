@@ -1095,13 +1095,15 @@ class JA80CentralUnit(object):
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
-		self._zones[3] = JablotronZone(3)  
+		self._zones[3] = JablotronZone(3)
 		self.central_device = JablotronDevice(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
 		# device that receives fault alerts such as tamper alarms and communication failures
 		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control Panel'
 		self.central_device.manufacturer = MANUFACTURER
 		self.central_device.type = "Control Panel"
+		self._devices = {}
+		self._devices[0] = self.central_device # add central device as a device so it gets an entity 
 		self._leds = {
       				"A":self._create_led(1,"zone A armed","armed led"),
   					"B":self._create_led(2,"zone B armed","armed led"),
@@ -1120,11 +1122,10 @@ class JA80CentralUnit(object):
 		self.last_state = None
 		self.system_status = None
 
-		self._devices = {}
+
 		self._active_devices = {}
 		self._active_codes = {}
 		self._codes = {}
-		self._devices = {}
 		self._device_query_pending = False
 		self._last_state = None
 		self._mode = None
@@ -1181,7 +1182,7 @@ class JA80CentralUnit(object):
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
-		return [self.get_device(i) for i in range(1,self._max_number_of_devices+1)]
+		return [self.get_device(i) for i in range(0,self._max_number_of_devices+1)]
 
 	@property
 	def zones(self) -> List[JablotronZone]:
