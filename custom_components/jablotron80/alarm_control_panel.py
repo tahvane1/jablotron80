@@ -91,13 +91,9 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 	@property
 	def code_arm_required(self) -> bool:
-		if self._cu.is_code_required_for_arm():
-			if CONFIGURATION_REQUIRE_CODE_TO_ARM in self._cu._options:
-				return self._cu._options[CONFIGURATION_REQUIRE_CODE_TO_ARM]
-			return True
-		else:
-			return False
-
+		if CONFIGURATION_REQUIRE_CODE_TO_ARM in self._cu._options:
+			return self._cu._options[CONFIGURATION_REQUIRE_CODE_TO_ARM]
+		return False
 
 	@property
 	def code_disarm_required(self) -> bool:
@@ -120,10 +116,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			self._cu.disarm(code)
 
 	async def async_alarm_arm_home(self, code=None) -> None:
-		if not self._cu.is_code_required_for_arm():
+		if not self.code_arm_required : 
 			code = ""
-		elif not self.code_arm_required : 
-			code = self._cu._master_code
 		if code == None:
 			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
@@ -135,10 +129,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 				self._cu.arm(code,"B")
 	
 	async def async_alarm_arm_away(self, code=None) -> None:
-		if not self._cu.is_code_required_for_arm():
+		if not self.code_arm_required : 
 			code = ""
-		elif not self.code_arm_required : 
-			code = self._cu._master_code
 		if code == None:
 			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
@@ -148,10 +140,8 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			self._cu.arm(code,"C")
 
 	async def async_alarm_arm_night(self, code=None) -> None:
-		if not self._cu.is_code_required_for_arm():
+		if not self.code_arm_required : 
 			code = ""
-		elif not self.code_arm_required : 
-			code = self._cu._master_code
 		if code == None:
 			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
@@ -162,8 +152,6 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 	async  def async_alarm_arm_custom_bypass(self, code=None) -> None:
 		raise NotImplementedError()
-	
-
 
 	def get_active_zone(self) -> JablotronZone:
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT and len(self._zones) == 1:

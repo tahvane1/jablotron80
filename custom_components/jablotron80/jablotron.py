@@ -98,15 +98,10 @@ class JablotronSettings:
 	SERIAL_SLEEP_COMMAND = 0
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
- 
-	#these are known settings
-	SETTING_ARM_WITHOUT_CODE = "Arm without code"
 		
 	def __init__(self) -> None:
 		#these are parsed settings from central unit
 		self._settings = {}
-		# default values
-		self._settings[JablotronSettings.SETTING_ARM_WITHOUT_CODE] = False
 
 	def add_setting(self,name: str,value: str) -> None:
 		self._settings[name] = value
@@ -1120,7 +1115,6 @@ class JA80CentralUnit(object):
 		self._stop = threading.Event()
 		if CONFIGURATION_CENTRAL_SETTINGS in config:
 			self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
-			self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, not config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM])
 		else:
 			self.mode = self.SYSTEM_MODE_UNSPLIT
 		devices = {}
@@ -1158,14 +1152,6 @@ class JA80CentralUnit(object):
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
 		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
 		LOGGER.info(f"initialization done.")
-
-
-		
-
-		
-	def is_code_required_for_arm(self) -> bool:
-		value = self._settings.get_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE)
-		return  value is None or value == False
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
@@ -1756,11 +1742,6 @@ class JA80CentralUnit(object):
 			# 0x01 = checked
 			# 0x00 = unchecked
 			setting_value = data[3]
-			if index == 0x00:
-				if setting_value == 0x01:
-					self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE,True)
-				else:
-					self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE,False)
 			# crc = data[4]
 		elif setting_type_1 == 0x04:
 			# some general settings

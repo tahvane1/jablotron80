@@ -80,7 +80,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			cu = JA80CentralUnit(None, self._config, None)
 			await cu.initialize()
 			result = await cu.read_settings()
-			self._config[CONFIGURATION_CENTRAL_SETTINGS] = {DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM:cu.is_code_required_for_arm(),
+			self._config[CONFIGURATION_CENTRAL_SETTINGS] = {DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM:DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_ARM,
                                     DEVICE_CONFIGURATION_SYSTEM_MODE:cu.mode}
 			await asyncio.sleep(5)
 			cu.shutdown()
