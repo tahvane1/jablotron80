@@ -1482,8 +1482,23 @@ class JA80CentralUnit(object):
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
-		elif event_type == 0x21:
-			event_name = "Partial Set A,B"
+		elif event_type == 0x0e:
+			event_name = "Lost communication"
+			warn = True
+		elif event_type == 0x0f:
+			event_name = "Fault (CP)"
+			warn = True
+		elif event_type == 0x10:
+			# on control panel
+			event_name = "Discharged battery (CP)"
+			warn = True
+		elif event_type == 0x11:
+			event_name = "Discharged battery"
+			warn = True
+			self._device_battery_low(source)
+		elif event_type == 0x17:
+			event_name = "24 hours"
+			# 24 hours code=source
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
