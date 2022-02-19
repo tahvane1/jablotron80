@@ -305,8 +305,6 @@ class JablotronCode(JablotronCommon):
 		return s
 	
 
-	
-
 @dataclass(order=True)
 class JablotronDevice(JablotronCommon):
 	_model: str = field(default=None,init=False)
@@ -402,6 +400,22 @@ class JablotronDevice(JablotronCommon):
 		s += f'active={self._active}'
 		return s
 
+
+@dataclass
+class JablotronControlPanel(JablotronDevice):
+	_status: str = field(default="",init=False)
+
+	def __post_init__(self) -> None:
+		super().__post_init__()
+
+	@property	
+	def status(self) -> str:
+		return self._status
+ 
+	@status.setter
+	@log_change
+	def status(self,status:str)->None:
+		self._status  = status
 
 def check_active(func):
 	def wrapper(*args, **kwargs):
@@ -1096,7 +1110,7 @@ class JA80CentralUnit(object):
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
 		self._zones[3] = JablotronZone(3)
-		self.central_device = JablotronDevice(0)
+		self.central_device = JablotronControlPanel(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
 		# device that receives fault alerts such as tamper alarms and communication failures
 		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control Panel'
