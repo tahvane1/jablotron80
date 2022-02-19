@@ -1432,7 +1432,17 @@ class JA80CentralUnit(object):
 		warn = False
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
-		if event_type == 0x05:
+
+		if event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
+			event_name = "Sensor Activated"
+			# alarm or doorm open?, source = device id
+			# 0x01 motion?
+			# 0x02 door/natural
+			# 0x03 fire alarm
+			# can source be also code? Now assuming it is device.
+			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
+			self._activate_source(source)
+		elif event_type == 0x05:
 			event_name = "Tamper alarm"
 			# entering service mode, source = by which id
 			self._device_tampered(source)
@@ -1445,51 +1455,17 @@ class JA80CentralUnit(object):
 			# after coming out of Service mode
 			event_name = "Fault"
 			warn = True
-		elif event_type == 0x50:
-			event_name = "End of Tamper alarm"
-			# source is 0 when all tamper alarms have gone
-		elif event_type == 0x11:
-			event_name = "Discharged battery"
-			warn = True
-			self._device_battery_low(source)
-		elif event_type == 0x41:
-			event_name = "Service Mode Entered"
-			# entering service mode, source = by which id
-			code  = self._get_source(source)
-			code.active = True
-		elif event_type == 0x42:
-			event_name = "Service Mode Exited"
-			# exiting service mode, source = by which id
-			code  = self._get_source(source)
-			code.active = False
-		elif event_type == 0x44:
-			event_name = "Data sent to ARC"
 		elif event_type == 0x08:
 			event_name = "Setting"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zones(function_name="arming",source_id=source)
-		elif event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
-			event_name = "Sensor Activated"
-			# alarm or doorm open?, source = device id
-			# 0x01 motion?
-			# 0x02 door/natural
-			# 0x03 fire alarm
-			# can source be also code? Now assuming it is device.
-			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
-			self._activate_source(source)
-		elif event_type == 0x4e:
-			event_name = "Alarm Cancelled"
-			# alarm cancelled / disarmed, source = by which code
-			self._clear_triggers()
-			#code is specific to zone or master TODO
-			self._call_zones(function_name="disarm",source_id=source)
 		elif event_type == 0x09:
 			event_name = "Unsetting"
 			# unsetting, source = by which code
 			code  = self._get_source(source)
-			code.active = False
 			self._call_zones(function_name="disarm",source_id=source)
+			code.active = False
 		elif event_type == 0x0c:
 			event_name = "Completely set without code"
 			# self._zones[JablotronSettings.ZONE_UNSPLIT].armed(source)
@@ -1499,13 +1475,22 @@ class JA80CentralUnit(object):
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
-		elif event_type == 0x21:
-			event_name = "Partial Set A,B"
+		elif event_type == 0x0e:
+			event_name = "Lost communication"
+			warn = True
+		elif event_type == 0x10:
+			# on control panel
+			event_name = "Discharged battery (CP)"
+			warn = True
+		elif event_type == 0x11:
+			event_name = "Discharged battery"
+			warn = True
+			self._device_battery_low(source)
+		elif event_type == 0x17:
+			event_name = "24 hours"
+			# 24 hours code=source
 			code  = self._get_source(source)
 			code.active = True
-			self._call_zone(1,by = source,function_name="arming")
-			self._call_zone(2,by = source,function_name="arming")
-
 		elif event_type == 0x1a:
 			event_name = "Setting Zone A"
 			code  = self._get_source(source)
@@ -1516,21 +1501,31 @@ class JA80CentralUnit(object):
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(2,by = source,function_name="arming")
-		elif event_type == 0x17:
-			event_name = "24 hours"
-			# 24 hours code=source
+
+		elif event_type == 0x21:
+			event_name = "Partial Set A,B"
 			code  = self._get_source(source)
 			code.active = True
-		elif event_type == 0x5a:
-			event_name = "Unconfirmed alarm"
-			warn = True
-		elif event_type == 0x0e:
-			event_name = "Lost communication"
-			warn = True
+			self._call_zone(1,by = source,function_name="arming")
+			self._call_zone(2,by = source,function_name="arming")
+
+		elif event_type == 0x4e:
+			event_name = "Alarm Cancelled"
+			# alarm cancelled / disarmed, source = by which code
+			self._clear_triggers()
+			#code is specific to zone or master TODO
+			self._call_zones(function_name="disarm",source_id=source)
+
+		elif event_type == 0x50:
+			event_name = "End of Tamper alarm"
+			# source is 0 when all tamper alarms have gone
 		elif event_type == 0x51:
 			event_name = "Fault no longer present"
 		elif event_type == 0x52:
 			event_name = "Battery OK"
+		elif event_type == 0x5a:
+			event_name = "Unconfirmed alarm"
+			warn = True
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
@@ -1551,7 +1546,7 @@ class JA80CentralUnit(object):
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		warn = False # should a warning message be logged
 		log = True # should a message be logged at all
-		message = None
+		message = None # message text (attempting to get close to keypad text) 
 		activate = False # should the sensor be activated
 
 		activity_name = "Unknown"
@@ -1563,9 +1558,8 @@ class JA80CentralUnit(object):
 		self.led_b = (leds & 0x04) == 0x04
 		self.led_c = (leds & 0x02) == 0x02
 		self.led_power  = (leds & 0x01) == 0x01
-		self.led_alarm = (leds & 0x10) == 0x10
-		# THe warning triangle is solid
-		self.led_solid_alarm = (leds & 0x20) == 0x20
+		self.led_alarm = (leds & 0x10) == 0x10 # warning triagle may be flashing or solid
+		self.led_solid_alarm = (leds & 0x20) == 0x20 # The warning triangle is solid
 		detail_2 = data[5]
 		field_2 = data[6]
 		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
@@ -1725,6 +1719,12 @@ class JA80CentralUnit(object):
 			warn = True
 			activate = True
 			activity_name = 'Unconfirmed alarm'
+
+		elif activity == 0x41:
+			pass
+
+		elif activity == 0x4c:
+			pass
 
 		if activity != 0x00 or activity_name != "Unknown":
 			if message is None:
@@ -1953,6 +1953,9 @@ class JA80CentralUnit(object):
 			pass
 		elif detail == 0x03:
 			# fire alarm /should this alarm all zones?
+			pass
+		elif detail == 0x05:
+			# battery flat on backup battery
 			pass
 		elif detail == 0x08:
 			# comes at least when trying to enter service mode while already in service mode
