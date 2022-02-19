@@ -1723,7 +1723,11 @@ class JA80CentralUnit(object):
 			activate = True
 			activity_name = 'Unconfirmed alarm'
 
-		elif activity == 0x41:
+		# the next 3 activities are some sort of status code on arming/disarming
+		elif activity == 0x40:
+			pass
+
+		elif activity == 0x44:
 			pass
 
 		elif activity == 0x4c:
