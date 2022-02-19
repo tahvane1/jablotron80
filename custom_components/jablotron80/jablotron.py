@@ -1478,6 +1478,9 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0e:
 			event_name = "Lost communication"
 			warn = True
+		elif event_type == 0x0f:
+			event_name = "Fault (CP)"
+			warn = True
 		elif event_type == 0x10:
 			# on control panel
 			event_name = "Discharged battery (CP)"
