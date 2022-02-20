@@ -1380,7 +1380,12 @@ class JA80CentralUnit(object):
 		for device in self.devices:
 			if device.tampered:
 				device.tampered = False
- 
+
+	def _clear_battery(self) -> None:
+		for device in self.devices:
+			if device.battery_low:
+				device.battery_low = False
+
 	def _activate_source(self,source_id:bytes ,type=None) -> None:
 		source  = self._get_source(source_id)
 		if isinstance(source,JablotronDevice):
@@ -1522,6 +1527,7 @@ class JA80CentralUnit(object):
 			event_name = "Fault no longer present"
 		elif event_type == 0x52:
 			event_name = "Battery OK"
+			self._clear_battery
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
