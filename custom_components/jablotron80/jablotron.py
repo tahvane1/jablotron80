@@ -1120,7 +1120,11 @@ class JA80CentralUnit(object):
 		self.last_state = None
 		self.system_status = None
 
-		self._devices = {}
+		self._warning = JablotronSensor(2)
+		self._warning.name = f'{CENTRAL_UNIT_MODEL} Warning'
+		self._warning.manufacturer = MANUFACTURER
+		self._warning.type = "warning"
+
 		self._active_devices = {}
 		self._active_codes = {}
 		self._codes = {}
@@ -1248,6 +1252,14 @@ class JA80CentralUnit(object):
 	@rf_level.setter
 	def rf_level(self,rf_level: int) -> None:
 		self._rf_level.value= rf_level
+
+	@property
+	def warning(self) -> JablotronSensor:
+		return self._warning
+	
+	@warning.setter
+	def warning(self,warning: str) -> None:
+		self._warning.value= warning
 
 	@property
 	def system_status(self) -> str:
@@ -1541,6 +1553,14 @@ class JA80CentralUnit(object):
 		self.led_power  = (leds & 0x01) == 0x01
 		self.led_alarm = (leds & 0x10) == 0x10 # warning triagle may be flashing or solid
 		self.led_solid_alarm = (leds & 0x20) == 0x20 # The warning triangle is solid
+		
+		if self.led_solid_alarm:
+			self.warning = "Fault"
+		elif self.led_alarm:
+			self.warning = "Alarm"
+		else:
+			self.warning = "OK"
+
 		detail_2 = data[5]
 		field_2 = data[6]
 		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
