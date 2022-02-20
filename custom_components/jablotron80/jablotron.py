@@ -13,6 +13,8 @@ import os
 import logging
 import serial
 import sys
+
+from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
 
 from typing import Any, Dict, Optional, Union,Callable
@@ -1113,9 +1115,9 @@ class JA80CentralUnit(object):
 		self.central_device = JablotronControlPanel(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
 		# device that receives fault alerts such as tamper alarms and communication failures
-		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control Panel'
+		self.central_device.name = "Control panel"
 		self.central_device.manufacturer = MANUFACTURER
-		self.central_device.type = "Control Panel"
+		self.central_device.type = DEVICE_CONTROL_PANEL
 		self._devices = {}
 		self._devices[0] = self.central_device # add central device as a device so it gets an entity 
 		self._leds = {

@@ -28,6 +28,7 @@ from .const import (
  	DEVICE_KEYPAD,
 	DEVICE_SIREN_INDOOR,
     DEVICE_BUTTON,
+	DEVICE_CONTROL_PANEL
 )
 from .jablotron import JA80CentralUnit, JablotronDevice,JablotronConstants
 from .jablotronHA import JablotronEntity
@@ -64,7 +65,7 @@ class JablotronDeviceSensorEntity(JablotronEntity,BinarySensorEntity):
 				return DEVICE_CLASS_SMOKE
 			elif "code" == self._object.type:
 				return DEVICE_CLASS_MOTION
-			elif "Control Panel" == self._object.type:
+			elif DEVICE_CONTROL_PANEL == self._object.type:
 				return DEVICE_CLASS_PROBLEM
 			elif "power led" == self._object.type:
 				return DEVICE_CLASS_POWER
