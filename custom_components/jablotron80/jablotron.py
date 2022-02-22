@@ -801,7 +801,7 @@ class JablotronMessage():
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
 		0xba: TYPE_PING_OR_OTHER,
-		0xc6: TYPE_BEEP,
+		0xc6: TYPE_PING,
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING, # seen when saving took really long
 		0xfe: TYPE_BEEP, # on setup
