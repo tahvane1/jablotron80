@@ -1666,6 +1666,16 @@ class JA80CentralUnit(object):
 				warn = True
 				activity_name = 'Unconfirmed alarm'
 				self._activate_source(detail)
+			
+			# the next 3 activities are some sort of status code on arming/disarming
+			elif activity == 0x40:
+				pass
+
+			elif activity == 0x44:
+				pass
+
+			elif activity == 0x4c:
+				pass
 			else:
 				LOGGER.error(f'Unknown activity received data={packet_data}')
 		elif JablotronState.is_service_state(status):
