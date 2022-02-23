@@ -962,14 +962,16 @@ class JablotronState():
 	STATES_ARMED = [ ARMED_SPLIT_A, ARMED_SPLIT_B, ARMED_SPLIT_C,ARMED_A, ARMED_AB, ARMED_ABC]
 	ENROLLMENT = 0x01
 	SERVICE = 0x00
-	SERVICE_LOADING_SETTINGS = 0x05
-	STATES_SERVICE = [ENROLLMENT,
-					SERVICE, SERVICE_LOADING_SETTINGS]
+	#SERVICE_LOADING_SETTINGS = 0x05
+	#SERVICE_EXITING= 0x08
+	#STATES_SERVICE = [ENROLLMENT,
+	#				SERVICE, SERVICE_LOADING_SETTINGS, SERVICE_EXITING]
 	MAINTENANCE = 0x20
-	BYPASS = 0x21
-	MAINTENANCE_LOADING_SETTINGS = 0x25
-	STATES_MAINTENANCE = [MAINTENANCE,
-						MAINTENANCE_LOADING_SETTINGS, BYPASS]
+	#BYPASS = 0x21
+	#MAINTENANCE_LOADING_SETTINGS = 0x25
+	#MAINTENANCE_EXITING= 0x28
+	#STATES_MAINTENANCE = [MAINTENANCE,
+	#					MAINTENANCE_LOADING_SETTINGS, BYPASS, MAINTENANCE_EXITING]
 	
 	#partial
 	ALARM_A = 0x45
@@ -988,10 +990,12 @@ class JablotronState():
 	STATES_ALARM = [ALARM_A,ALARM_B,ALARM_C,ALARM_WITHOUT_ARMING,
 					ALARM_A_SPLIT,ALARM_B_SPLIT,ALARM_C_SPLIT,ALARM_WITHOUT_ARMING_SPLIT]
 	
-	
-	ARMED_ENTRY_DELAY = 0x4b
-	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY]
-	STATES_ELEVATED = [SERVICE,MAINTENANCE]
+	ARMED_ENTRY_DELAY_A = 0x49
+	ARMED_ENTRY_DELAY_B = 0x4a	
+	ARMED_ENTRY_DELAY_C = 0x4b
+
+	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_B, ARMED_ENTRY_DELAY_C]
+	#STATES_ELEVATED = [SERVICE,MAINTENANCE]
 		
 	@staticmethod
 	def is_armed_state(status):
@@ -1002,7 +1006,8 @@ class JablotronState():
 		return status in JablotronState.STATES_DISARMED
 	@staticmethod
 	def is_elevated_state(status):
-		return status in JablotronState.STATES_ELEVATED
+		return JablotronState.is_service_state(status) or JablotronState.is_maintenance_state(status)
+		#return status in JablotronState.STATES_ELEVATED
 	
 	@staticmethod
 	def is_exit_delay_state(status):
@@ -1014,11 +1019,13 @@ class JablotronState():
 	
 	@staticmethod
 	def is_service_state(status):
-		return status in JablotronState.STATES_SERVICE
+		return not status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
+		#return status in JablotronState.STATES_SERVICE
 	
 	@staticmethod
 	def is_maintenance_state(status):
-		return status in JablotronState.STATES_MAINTENANCE
+		return status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
+		#return status in JablotronState.STATES_MAINTENANCE
 	
 	@staticmethod
 	def is_alarm_state(status):
@@ -1324,6 +1331,13 @@ class JA80CentralUnit(object):
 		for zone in self._zones.values():
 			zone.status = JablotronZone.STATUS_SERVICE
  
+	def is_elevated(self) -> bool:
+		for zone in self._zones.values():
+			if zone.status == JablotronZone.STATUS_SERVICE:
+				return True
+
+		return False
+
 	def _call_zones(self,source_id:bytes = None, function_name: str = None) -> None:
 		for zone in self._zones.values():
 			if zone is not None:
@@ -1582,13 +1596,14 @@ class JA80CentralUnit(object):
 			self._call_zone(2,by = detail,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_C:
 			self._call_zone(3,by = detail,function_name="armed")
-		elif status == JablotronState.ARMED_ENTRY_DELAY: 
+		elif status == JablotronState.ARMED_ENTRY_DELAY_C: 
 			# is detail 2 device id?
 			#if not detail_2 == 0x00:
 		#		device = self.get_device(detail_2)
 		#		self._get_zone_via_object(device).entering(device)
 		#		self._activate_source(detail_2)
 			pass
+
 		elif status == JablotronState.EXIT_DELAY_ABC:
 			self._call_zones(function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
@@ -1602,25 +1617,6 @@ class JA80CentralUnit(object):
 			self._call_zone(2,by = detail,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_C:
 			self._call_zone(3,by = detail,function_name="arming")
-		elif status == JablotronState.ENROLLMENT:
-			# detail = device id
-			self.notify_service()
-		elif status == JablotronState.BYPASS:
-				# detail = device id
-			self.notify_service()
-		elif status == JablotronState.SERVICE_LOADING_SETTINGS:
-			self.notify_service()
-		elif status == JablotronState.MAINTENANCE_LOADING_SETTINGS:
-			self.notify_service()
-		elif status == JablotronState.MAINTENANCE:
-			# at least activity 02
-			self.notify_service()
-		elif status == JablotronState.SERVICE:
-			self.notify_service()
-		else:
-			LOGGER.error(
-				f'Unknown status message status={status} received data={packet_data}')
-			
 			
 		if JablotronState.is_armed_state(status):
 			if activity == 0x00:
@@ -1674,8 +1670,10 @@ class JA80CentralUnit(object):
 				LOGGER.error(f'Unknown activity received data={packet_data}')
 		elif JablotronState.is_service_state(status):
 			self.status = JA80CentralUnit.STATUS_SERVICE
+			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
+			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
 			if activity == 0x0c:
 				# normal state?
@@ -1714,6 +1712,12 @@ class JA80CentralUnit(object):
 		elif JablotronState.is_entering_delay_state(status):
 			# device activation?
 			pass
+		elif JablotronState.is_disarmed_state(status):
+			pass
+		else:
+			LOGGER.error(
+				f'Unknown status message status={status} received data={packet_data}')
+		
 
 		#if activity != 0x00:
 		#	log = f'Status: {activity_name}, {detail}:{self.get_device(detail).name}'
@@ -1723,7 +1727,9 @@ class JA80CentralUnit(object):
 		#		#LOGGER.info(log)
 		#		pass
 
-		# LOGGER.info(f'{self}')
+		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
+		#LOGGER.info(f'{self}')
+
 	def _get_timestamp(self, data: bytearray) -> None:
 		day = f'{data[0]:02x}'
 		month = f'{data[1]:02x}'
@@ -1902,6 +1908,11 @@ class JA80CentralUnit(object):
 				pass
 
 	def _process_state_detail(self, data: bytearray, packet_data: str) -> None:
+
+		# if we are in elevated mode, don't process the detail
+		if self.is_elevated():
+			return
+
 		detail = data[1]
 		#crc = data[2]
 		if detail == 0x00:
