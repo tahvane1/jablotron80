@@ -405,19 +405,41 @@ class JablotronDevice(JablotronCommon):
 
 @dataclass
 class JablotronControlPanel(JablotronDevice):
-	_status: str = field(default="",init=False)
+	_warning: str = field(default="",init=False)
+	_message: str = field(default="",init=False)
+	_last_event: str = field(default="",init=False)
+
 
 	def __post_init__(self) -> None:
 		super().__post_init__()
 
 	@property	
-	def status(self) -> str:
-		return self._status
- 
-	@status.setter
+	def warning(self) -> str:
+		return self._warning
+
+	@warning.setter
 	@log_change
-	def status(self,status:str)->None:
-		self._status  = status
+	def warning(self,warning:str)->None:
+		self._warning  = warning
+
+	@property	
+	def message(self) -> str:
+		return self._message
+ 
+	@message.setter
+	@log_change
+	def message(self,message:str)->None:
+		self._message  = message
+
+	@property	
+	def last_event(self) -> str:
+		return self._last_event
+ 
+	@last_event.setter
+	@log_change
+	def last_event(self,last_event:str)->None:
+		self._last_event  = last_event
+
 
 def check_active(func):
 	def wrapper(*args, **kwargs):
@@ -429,6 +451,7 @@ def check_active(func):
 		if not prev == args[0]._status:
 			LOGGER.info(f'{args[0].name} status changed from {prev} to {args[0]._status}')
 	return wrapper
+
 
 
 
