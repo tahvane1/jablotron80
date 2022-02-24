@@ -1568,70 +1568,69 @@ class JA80CentralUnit(object):
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
+
+		by = detail if detail in [0x06, 0x12] else None
+
 		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
-			by = detail if detail != 0x00 else None
 			self._call_zone(1,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
-			by = detail if detail != 0x00 else None
 			self._call_zone(2,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
-			by = detail if detail != 0x00 else None
 			self._call_zones(by,function_name="alarm")
 		elif status == JablotronState.ALARM_C_SPLIT:
-			by = detail if detail != 0x00 else None
 			self._call_zone(3,by = by,function_name="alarm")        
 
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
 
-			if activity == 0x00:
+			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
 
 		elif status == JablotronState.ARMED_ABC:
-			self._call_zones(function_name="armed")
+			self._call_zones(by, function_name="armed")
 		elif status == JablotronState.ARMED_A:
-			self._call_zone(1,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_AB:
-			self._call_zone(1,by = detail,function_name="armed")
-			self._call_zone(2,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
+			self._call_zone(2,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_A:
-			self._call_zone(1,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_B:
-			self._call_zone(2,by = detail,function_name="armed")
+			self._call_zone(2,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_C:
-			self._call_zone(3,by = detail,function_name="armed")
+			self._call_zone(3,by = by,function_name="armed")
 
 
 		elif status == JablotronState.ARMED_ENTRY_DELAY_ABC:
-			self._call_zones(by = detail,function_name="entering")
+			self._call_zones(by, function_name="entering")
 		elif status == JablotronState.ARMED_ENTRY_DELAY_A:
-			self._call_zone(1,by = detail,function_name="entering")
+			self._call_zone(1,by = by,function_name="entering")
 		elif status == JablotronState.ARMED_ENTRY_DELAY_AB:
-			self._call_zone(1,by = detail,function_name="entering")
-			self._call_zone(2,by = detail,function_name="entering")
+			self._call_zone(1,by = by,function_name="entering")
+			self._call_zone(2,by = by,function_name="entering")
 		elif status == JablotronState.ARMED_ENTRY_DELAY_A_SPLIT:
-			self._call_zone(1,by = detail,function_name="entering")
+			self._call_zone(1,by = by,function_name="entering")
 		elif status == JablotronState.ARMED_ENTRY_DELAY_B_SPLIT:
-			self._call_zone(2,by = detail,function_name="entering")
+			self._call_zone(2,by = by,function_name="entering")
 		elif status == JablotronState.ARMED_ENTRY_DELAY_C_SPLIT:
-			self._call_zone(3,by = detail,function_name="entering")
+			self._call_zone(3,by = by,function_name="entering")
 
 
 		elif status == JablotronState.EXIT_DELAY_ABC:
-			self._call_zones(function_name="arming")
+			self._call_zones(by, function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
-			self._call_zone(1,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_AB:
-			self._call_zone(1,by = detail,function_name="arming")
-			self._call_zone(2,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
+			self._call_zone(2,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_A:
-			self._call_zone(1,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_B:
-			self._call_zone(2,by = detail,function_name="arming")
+			self._call_zone(2,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_C:
-			self._call_zone(3,by = detail,function_name="arming")
+			self._call_zone(3,by = by,function_name="arming")
 		
 			
 		if JablotronState.is_armed_state(status):
