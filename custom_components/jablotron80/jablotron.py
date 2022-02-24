@@ -1657,32 +1657,33 @@ class JA80CentralUnit(object):
 		
 
 		if activity == 0x00:
-			pass
+			activity_name = ''
 
-		if activity == 0x01:
-			activity_name ="Service Mode"
+		elif activity == 0x01:
+			activity_name = 'Service Mode'
 
-		if activity == 0x02:
-			activity_name ="Maintenence Mode"
+		elif activity == 0x02:
+			activity_name = 'Maintenence Mode'
 
 		elif activity == 0x04:
-			activity_name ="key pressed"
+			activity_name = 'Key pressed'
 
 		elif activity == 0x06:
 			# trigger during testing, i.e. maintenance mode
 			warn = True
-			activate = True
 			activity_name = 'Alarm'
+			self._activate_source(detail)
 
 		elif activity == 0x07:
 			warn = True
-			activate = True
-			activity_name = "Tamper alarm"
+			activity_name = 'Tamper alarm'
+			self._activate_source(detail)
 
 		elif activity == 0x08:
-			# "Fault" (on keypad), "lost communication with device" in logs
+			# "Fault" (on keypad), "lost communication with device" in logs, also power out on control panel
 			warn = True
 			activity_name = 'Fault'
+			self._activate_source(detail)
 
 		elif activity == 0x09:
 			warn = True
@@ -1690,49 +1691,56 @@ class JA80CentralUnit(object):
 			self._device_battery_low(detail)
 
 		elif activity == 0x0c:
-			activity_name = 'Exit delay (beeps)'
+			activity_name = 'Exit delay'
 
 		elif activity == 0x0d:
-			activity_name = 'Entrance delay (beeps)'
+			activity_name = 'Entrance delay'
 
 		elif activity == 0x10:
-			# trigger during standard (unset) mode, e.g. a door open detector
+			# permanent trigger during standard (unset) mode, e.g. a door open detector
 			activity_name = 'Triggered detector'
-				# something is active
+			# something is active
 			if detail == 0x00:
-				log = False
-				# no details... ask..
-				self._send_device_query()
+				if activity_name not in self.central_device.message:
+					# no details... ask..
+					self._send_device_query()
+				else:
+					log = False
 			else:
-				warn = True
-				activate = True
-				# set device active
+				self._activate_source(detail)
 				self._confirm_device_query()
 
 		elif activity == 0x12:
 			warn = True
-			activate = True
 			activity_name = 'Triggered detector (2)'
+			self._activate_source(detail)
 
 		elif activity == 0x14:
 			# Unconfirmed alarm
 			warn = True
-			activate = True
 			activity_name = 'Unconfirmed alarm'
+			self._activate_source(detail)
+
+		# the next 3 activities are some sort of status code on arming/disarming
+		elif activity == 0x40:
+			pass
+
+		elif activity == 0x44:
+			pass
+
+		elif activity == 0x4c:
+			pass
 
 		if activity != 0x00 or activity_name != "Unknown":
 			if message is None:
 
-				# Activity 51 is "Control Panel" according to my keypad!
-				if detail != 51:
-					name = self._get_source_name(detail)
-				else:
-					name = self._get_source_name(0)
-
 				if activity_name != "Unknown":
-					message = f'Warning: {activity_name}, {detail}:{name}'
+					message = f'{activity_name}'
 				else:
-					message = f'Unknown Warning:{activity}, {detail}:{name}'
+					message = f'Unknown Activity:{activity}'
+
+				if detail != 0x0:
+					message = message + f', {detail}:{self._get_source_name(detail)}'
 
 			# log a warning/info message only once
 			if self._message == message:
@@ -1740,13 +1748,13 @@ class JA80CentralUnit(object):
 			else:
 				if log:
 					self._message = message
+
 					if warn:
 						LOGGER.warn(message)
+						self.central_device.warning = message
 					else:
 						LOGGER.info(message)
-
-			if activate:
-				self._activate_source(detail)
+						self.central_device.message = message
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
