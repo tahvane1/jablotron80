@@ -1948,6 +1948,9 @@ class JA80CentralUnit(object):
 		elif detail == 0x03:
 			# fire alarm /should this alarm all zones?
 			pass
+		elif detail == 0x05:
+			# battery flat on backup battery
+			pass
 		elif detail == 0x08:
 			# comes at least when trying to enter service mode while already in service mode
 			pass
