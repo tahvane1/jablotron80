@@ -1540,6 +1540,8 @@ class JA80CentralUnit(object):
 		self.led_c = (leds & 0x02) == 0x02
 		self.led_power  = (leds & 0x01) == 0x01
 		self.led_alarm = (leds & 0x10) == 0x10
+		# The warning triangle is solid
+		self.led_solid_alarm = (leds & 0x20) == 0x20
 		detail_2 = data[5]
 		field_2 = data[6]
 		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
