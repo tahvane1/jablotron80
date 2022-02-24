@@ -1547,10 +1547,9 @@ class JA80CentralUnit(object):
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		warn = False # should a warning message be logged
 		log = True # should a message be logged at all
-		message = None
-		activate = False # should the sensor be activated
-
+		message = None # message text (attempting to get close to keypad text) 
 		activity_name = "Unknown"
+
 		status = data[1]
 		activity = data[2]
 		detail = data[3]
@@ -1634,34 +1633,36 @@ class JA80CentralUnit(object):
 		
 			
 		if JablotronState.is_armed_state(status):
-			pass
+			state_text = ''
 		elif JablotronState.is_service_state(status):
+			state_text = 'Service Mode'
 			self.status = JA80CentralUnit.STATUS_SERVICE
 			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
+			state_text = 'Maintenence Mode'
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
 			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
-			pass
+			state_text = 'Exit delay'
 		elif JablotronState.is_alarm_state(status):
-			pass
+			state_text = ''
 		elif JablotronState.is_entering_delay_state(status):
-			activity_name = 'Entrance delay (beeps)'
-			pass
+			state_text = 'Entrance delay'
 		elif JablotronState.is_disarmed_state(status):
-			pass
+			state_text = ''
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
 		
 
 		if activity == 0x00:
-			activity_name = ''
+			pass
 
 		elif activity == 0x01:
 			activity_name = 'Service Mode'
 
 		elif activity == 0x02:
+			pass
 			activity_name = 'Maintenence Mode'
 
 		elif activity == 0x04:
@@ -1730,30 +1731,29 @@ class JA80CentralUnit(object):
 		elif activity == 0x4c:
 			pass
 
-		if activity != 0x00 or activity_name != "Unknown":
-			if message is None:
+		if activity == 0x00:
+			message = state_text
+		elif activity_name == "Unknown":
+			message = f'Unknown Activity:{activity}'
+		else:
+			message = f'{activity_name}'
 
-				if activity_name != "Unknown":
-					message = f'{activity_name}'
+		if detail != 0x0:
+			message = message + f', {detail}:{self._get_source_name(detail)}'
+
+		# log a warning/info message only once
+		if self._message == message:
+			LOGGER.debug(message)
+		else:
+			if log:
+				self._message = message
+
+				if warn:
+					LOGGER.warn(message)
+					self.central_device.warning = message
 				else:
-					message = f'Unknown Activity:{activity}'
-
-				if detail != 0x0:
-					message = message + f', {detail}:{self._get_source_name(detail)}'
-
-			# log a warning/info message only once
-			if self._message == message:
-				LOGGER.debug(message)
-			else:
-				if log:
-					self._message = message
-
-					if warn:
-						LOGGER.warn(message)
-						self.central_device.warning = message
-					else:
-						LOGGER.info(message)
-						self.central_device.message = message
+					LOGGER.info(message)
+					self.central_device.message = message
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
