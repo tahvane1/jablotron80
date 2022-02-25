@@ -168,7 +168,6 @@ class JablotronCommon:
 	_reaction: str = field(default=None,init=False)
 	_type :str = field(default=None,init=False)
 	_enabled: bool = field(default=False, init=False)
- 
 
 	@property
 	def id_part(self):
@@ -314,7 +313,8 @@ class JablotronDevice(JablotronCommon):
 	_serial_number: str = field(default=None,init=False)
 	_tampered: bool = field(default=False,init=False)
 	_battery_low: bool =  field(default=False,init=False)
-	
+	_available: bool = field(default=True, init=False)
+
 	def __post_init__(self) -> None:
 		super().__post_init__()
 		self.enabled = True		 
@@ -347,8 +347,16 @@ class JablotronDevice(JablotronCommon):
 	@battery_low.setter
 	@log_change
 	def battery_low(self,state:bool)->None:
-		self._battery_low  = state
+		self._battery_low = state
 
+	@property	
+	def available(self) -> bool:
+		return self._available
+ 
+	@available.setter
+	@log_change
+	def available(self,state:bool)->None:
+		self._available = state
 
 	@property	
 	def name(self) -> str:
@@ -1410,6 +1418,25 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.warn(f'Unknown source type {source_id}')
 	
+	def _fault_source(self,source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		if isinstance(source,JablotronDevice):
+			source.available= False
+		else:
+			LOGGER.error(f'Fault called for none device:{source_id}')
+
+	def _clear_fault(self,source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		if isinstance(source,JablotronDevice):
+			source.available = True
+		else:
+			LOGGER.error(f'Clear_Fault called for none device:{source_id}')
+
+	def _clear_faults(self) -> None:
+		for device in self.devices:
+			if not device.available:
+				device.available = True
+
 	def _alarm_via_source(self,source_id: bytes) -> None:
 		source  = self._get_source(source_id)
 		self._get_zone_via_object(source).alarm(source)
@@ -1515,6 +1542,13 @@ class JA80CentralUnit(object):
 			# 24 hours code=source
 			code  = self._get_source(source)
 			code.active = True
+		elif event_type == 0x51:
+			event_name = "Fault no longer present" 
+			# todo: see if this message has any detail
+			if source != 0x00:
+				self._clear_fault(source)
+			else:
+				self._clear_faults()
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
 			warn = True
