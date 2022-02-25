@@ -413,31 +413,11 @@ class JablotronDevice(JablotronCommon):
 
 @dataclass
 class JablotronControlPanel(JablotronDevice):
-	_warning: str = field(default="",init=False)
-	_message: str = field(default="",init=False)
 	_last_event: str = field(default="",init=False)
 
 
 	def __post_init__(self) -> None:
 		super().__post_init__()
-
-	@property	
-	def warning(self) -> str:
-		return self._warning
-
-	@warning.setter
-	@log_change
-	def warning(self,warning:str)->None:
-		self._warning  = warning
-
-	@property	
-	def message(self) -> str:
-		return self._message
- 
-	@message.setter
-	@log_change
-	def message(self,message:str)->None:
-		self._message  = message
 
 	@property	
 	def last_event(self) -> str:
@@ -1102,6 +1082,46 @@ class JablotronSensor(JablotronCommon):
 	def value(self,val:float) -> None:
 		self._value = val
 
+@dataclass
+class JablotronWarning(JablotronCommon):
+	_value: str = field(default='OK',init=False)
+	_message: str = field(default='',init=False)
+
+	@property
+	def value(self) -> str:
+		return self._value
+
+	@value.setter
+	@log_change
+	def value(self,val:str) -> None:
+		self._value = val
+
+	@property
+	def message(self) -> str:
+		return self._message
+
+	@message.setter
+	@log_change
+	def message(self,message:str) -> None:
+		self._message = message
+
+@dataclass
+class JablotronStatusText(JablotronCommon):
+	_message: str = field(default=None,init=False)
+
+	@property
+	def active(self) -> str:
+		return self._message != '' or self._message is None
+
+	@property
+	def message(self) -> str:
+		return self._message
+
+	@message.setter
+	@log_change
+	def message(self,message:str) -> None:
+		self._message = message
+
 class JA80CentralUnit(object):
 	_year = datetime.datetime.now().year
 
@@ -1164,7 +1184,6 @@ class JA80CentralUnit(object):
   					"POWER":self._create_led(5,"power","power led")}
 
 		self._last_event_data = None
-		self._message = ""
 
 		self._master_code = config[CONFIGURATION_PASSWORD]
 		# this is in scale 0 - 40, 0 - 100% ?
@@ -1175,10 +1194,13 @@ class JA80CentralUnit(object):
 		self.last_state = None
 		self.system_status = None
 
-		self._warning = JablotronSensor(2)
+		self._warning = JablotronWarning(2)
 		self._warning.name = f'{CENTRAL_UNIT_MODEL} Warning'
-		self._warning.manufacturer = MANUFACTURER
 		self._warning.type = "warning"
+
+		self._statustext = JablotronStatusText(3)
+		self._statustext.name = f'{CENTRAL_UNIT_MODEL} Message'
+		self._statustext.type = "message"
 
 		self._active_devices = {}
 		self._active_codes = {}
@@ -1308,12 +1330,20 @@ class JA80CentralUnit(object):
 		self._rf_level.value= rf_level
 
 	@property
-	def warning(self) -> JablotronSensor:
+	def warning(self) -> JablotronWarning:
 		return self._warning
 	
 	@warning.setter
 	def warning(self,warning: str) -> None:
 		self._warning.value= warning
+
+	@property
+	def statustext(self) -> JablotronStatusText:
+		return self._statustext
+	
+	@statustext.setter
+	def statustext(self,statustext: str) -> None:
+		self._statustext.message = statustext
 
 	@property
 	def system_status(self) -> str:
@@ -1838,7 +1868,7 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector'
 			# something is active
 			if detail == 0x00:
-				if activity_name not in self.central_device.message:
+				if activity_name not in self.statustext.message:
 					# no details... ask..
 					self._send_device_query()
 				else:
@@ -1879,18 +1909,17 @@ class JA80CentralUnit(object):
 			message = message + f', {detail}:{self._get_source_name(detail)}'
 
 		# log a warning/info message only once
-		if self._message == message:
-			LOGGER.debug(message)
-		else:
-			if log:
-				self._message = message
-
-				if warn:
+		if log:
+			if warn:
+				if message != self.warning.message:
 					LOGGER.warn(message)
-					self.central_device.warning = message
-				else:
+					self.warning.message = message
+			else:
+				if message != self.statustext.message:
 					LOGGER.info(message)
-					self.central_device.message = message
+					self.statustext = message
+		else:
+			LOGGER.debug(message)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
