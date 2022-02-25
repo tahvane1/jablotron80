@@ -448,7 +448,6 @@ class JablotronControlPanel(JablotronDevice):
 	def last_event(self,last_event:str)->None:
 		self._last_event  = last_event
 
-
 def check_active(func):
 	def wrapper(*args, **kwargs):
 		LOGGER.debug(f'{args[0].name} action {func.__name__}')
@@ -459,7 +458,6 @@ def check_active(func):
 		if not prev == args[0]._status:
 			LOGGER.info(f'{args[0].name} status changed from {prev} to {args[0]._status}')
 	return wrapper
-
 
 
 
@@ -1016,7 +1014,7 @@ class JablotronState():
 	#STATES_SERVICE = [ENROLLMENT,
 	#				SERVICE, SERVICE_LOADING_SETTINGS, SERVICE_EXITING]
 	MAINTENANCE = 0x20
-	#BYPASS = 0x21
+	BYPASS = 0x21
 	#MAINTENANCE_LOADING_SETTINGS = 0x25
 	#MAINTENANCE_EXITING= 0x28
 	#STATES_MAINTENANCE = [MAINTENANCE,
@@ -1050,7 +1048,7 @@ class JablotronState():
 								ARMED_ENTRY_DELAY_A_SPLIT, ARMED_ENTRY_DELAY_B_SPLIT, ARMED_ENTRY_DELAY_C_SPLIT]
 	#STATES_ELEVATED = [SERVICE,MAINTENANCE]
 
-	
+
 	@staticmethod
 	def is_armed_state(status):
 		return status in JablotronState.STATES_ARMED
@@ -1368,7 +1366,7 @@ class JA80CentralUnit(object):
 			return source_obj.name
 
 	def get_device(self, id_: int) -> JablotronDevice:
-		if id_ == 0:
+		if id_ == 51 or id == 0 :
 			return self.central_device
 		if not id_ in self._devices:
 			self._devices[id_] = JablotronDevice(id_)
@@ -1544,25 +1542,6 @@ class JA80CentralUnit(object):
 			# after coming out of Service mode
 			event_name = "Fault"
 			warn = True
-		elif event_type == 0x50:
-			event_name = "End of Tamper alarm"
-			# source is 0 when all tamper alarms have gone
-		elif event_type == 0x11:
-			event_name = "Discharged battery"
-			warn = True
-			self._device_battery_low(source)
-		elif event_type == 0x41:
-			event_name = "Service Mode Entered"
-			# entering service mode, source = by which id
-			code  = self._get_source(source)
-			code.active = True
-		elif event_type == 0x42:
-			event_name = "Service Mode Exited"
-			# exiting service mode, source = by which id
-			code  = self._get_source(source)
-			code.active = False
-		elif event_type == 0x44:
-			event_name = "Data sent to ARC"
 			self._activate_source(source)
 		elif event_type == 0x08:
 			event_name = "Setting"
@@ -1634,6 +1613,9 @@ class JA80CentralUnit(object):
 		elif event_type == 0x42:
 			event_name = "Exit Elevated Mode"
 
+		elif event_type == 0x44:
+			event_name = "Data sent to ARC"
+
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
@@ -1647,6 +1629,7 @@ class JA80CentralUnit(object):
 			self._clear_tampers()
 		elif event_type == 0x51:
 			event_name = "No fault in system" 
+			# todo: see if this message has any detail
 			if source != 0x00:
 				self._clear_fault(source)
 			else:
@@ -1664,23 +1647,16 @@ class JA80CentralUnit(object):
 				event_name = event_name + ", Control panel"
 			warn = True
 			self._activate_source(source)
-		elif event_type == 0x0e:
-			event_name = "Lost communication"
-			warn = True
-		elif event_type == 0x50:
-			# received when all tamper alarms are removed (though status warnings may be present)
-			event_name = "End of Tamper alarm"
-			self._clear_tampers()
-		elif event_type == 0x51:
-			event_name = "Fault no longer present"
-		elif event_type == 0x52:
-			event_name = "Battery OK"
-			self._clear_battery
+
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 
-		log = f'Last Event:{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
+		if source == 0x0:
+			log = f'{event_name}, Date={date_time_obj}'
+		else:
+			log = f'{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
+
 		if warn:
 			LOGGER.warn(log)
 		else:
@@ -1709,7 +1685,7 @@ class JA80CentralUnit(object):
 		self.led_a = (leds & 0x08) == 0x08
 		self.led_b = (leds & 0x04) == 0x04
 		self.led_c = (leds & 0x02) == 0x02
-		self.led_power  = (leds & 0x01) == 0x01
+		self.led_power  = (leds & 0x01) == 0x01 # if this is not set, power is out on control panel and power led flashes
 		self.led_alarm = (leds & 0x10) == 0x10 # warning triagle may be flashing or solid
 		self.led_solid_alarm = (leds & 0x20) == 0x20 # The warning triangle is solid
 		
@@ -1743,17 +1719,6 @@ class JA80CentralUnit(object):
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
-			if activity == 0x10:
-				warn = True
-				activity_name = 'Activity'
-				# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					# set device active
-					self._confirm_device_query()
-					self._activate_source(detail)
 
 			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
@@ -1802,7 +1767,7 @@ class JA80CentralUnit(object):
 			self._call_zone(2,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_C:
 			self._call_zone(3,by = by,function_name="arming")
-		
+
 			
 		if JablotronState.is_armed_state(status):
 			state_text = ''
