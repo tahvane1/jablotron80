@@ -1040,12 +1040,17 @@ class JablotronState():
 					ALARM_A_SPLIT,ALARM_B_SPLIT,ALARM_C_SPLIT,ALARM_WITHOUT_ARMING_SPLIT]
 	
 	ARMED_ENTRY_DELAY_A = 0x49
-	ARMED_ENTRY_DELAY_B = 0x4a	
-	ARMED_ENTRY_DELAY_C = 0x4b
+	ARMED_ENTRY_DELAY_AB = 0x4a	
+	ARMED_ENTRY_DELAY_ABC = 0x4b
+	ARMED_ENTRY_DELAY_A_SPLIT = 0x69
+	ARMED_ENTRY_DELAY_B_SPLIT = 0x6a
+	ARMED_ENTRY_DELAY_C_SPLIT = 0x6b
 
-	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_B, ARMED_ENTRY_DELAY_C]
+	STATES_ENTERING_DELAY = [ARMED_ENTRY_DELAY_A, ARMED_ENTRY_DELAY_AB, ARMED_ENTRY_DELAY_ABC,
+								ARMED_ENTRY_DELAY_A_SPLIT, ARMED_ENTRY_DELAY_B_SPLIT, ARMED_ENTRY_DELAY_C_SPLIT]
 	#STATES_ELEVATED = [SERVICE,MAINTENANCE]
-		
+
+	
 	@staticmethod
 	def is_armed_state(status):
 		return status in JablotronState.STATES_ARMED
@@ -1161,7 +1166,8 @@ class JA80CentralUnit(object):
   					"POWER":self._create_led(5,"power","power led")}
 
 		self._last_event_data = None
-  
+		self._message = ""
+
 		self._master_code = config[CONFIGURATION_PASSWORD]
 		# this is in scale 0 - 40, 0 - 100% ?
 		self._rf_level = JablotronSensor(1)
@@ -1352,6 +1358,15 @@ class JA80CentralUnit(object):
 			# TODO convert bytes to int (1-50)
 			return self.get_code(source - 64)
 	
+	def _get_source_name(self, source:bytes) -> str:
+		if source is None:
+			return "Unknown"
+		source_obj = self._get_source(source)
+		if source_obj is None:
+			return "Unknown"
+		else:
+			return source_obj.name
+
 	def get_device(self, id_: int) -> JablotronDevice:
 		if id_ == 0:
 			return self.central_device
@@ -1505,7 +1520,6 @@ class JA80CentralUnit(object):
 		warn = False
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
-
 		if event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
 			event_name = "Sensor Activated"
 			# alarm or doorm open?, source = device id
@@ -1530,6 +1544,25 @@ class JA80CentralUnit(object):
 			# after coming out of Service mode
 			event_name = "Fault"
 			warn = True
+		elif event_type == 0x50:
+			event_name = "End of Tamper alarm"
+			# source is 0 when all tamper alarms have gone
+		elif event_type == 0x11:
+			event_name = "Discharged battery"
+			warn = True
+			self._device_battery_low(source)
+		elif event_type == 0x41:
+			event_name = "Service Mode Entered"
+			# entering service mode, source = by which id
+			code  = self._get_source(source)
+			code.active = True
+		elif event_type == 0x42:
+			event_name = "Service Mode Exited"
+			# exiting service mode, source = by which id
+			code  = self._get_source(source)
+			code.active = False
+		elif event_type == 0x44:
+			event_name = "Data sent to ARC"
 			self._activate_source(source)
 		elif event_type == 0x08:
 			event_name = "Setting"
@@ -1647,11 +1680,7 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 
-		if source == 0x0:
-			log = f'{event_name}, Date={date_time_obj}'
-		else:
-			log = f'{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
-
+		log = f'Last Event:{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
 		if warn:
 			LOGGER.warn(log)
 		else:
@@ -1668,8 +1697,11 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
-		warn = False
+		warn = False # should a warning message be logged
+		log = True # should a message be logged at all
+		message = None # message text (attempting to get close to keypad text) 
 		activity_name = "Unknown"
+
 		status = data[1]
 		activity = data[2]
 		detail = data[3]
@@ -1696,18 +1728,18 @@ class JA80CentralUnit(object):
 		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
 		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
+
+		by = detail if detail in [0x06, 0x12] else None
+
 		if status == JablotronState.ALARM_A or status == JablotronState.ALARM_A_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(1,by = detail,function_name="alarm")
+			self._call_zone(1,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(2,by = detail,function_name="alarm")
+			self._call_zone(2,by = by,function_name="alarm")
 		elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zones(detail,function_name="alarm")
+			self._call_zones(by,function_name="alarm")
 		elif status == JablotronState.ALARM_C_SPLIT:
-#			detail = detail if activity == 0x10 and not detail == 0x00 else None
-			self._call_zone(3,by = detail,function_name="alarm")        
+			self._call_zone(3,by = by,function_name="alarm")        
+
 		elif status in JablotronState.STATES_DISARMED:
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
@@ -1722,168 +1754,178 @@ class JA80CentralUnit(object):
 					# set device active
 					self._confirm_device_query()
 					self._activate_source(detail)
+
 			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
-			elif activity == 0x09:
-				self._device_battery_low(detail)
-			elif activity == 0x07:
-				#some pir activity
-				#ed 40 07 06 11 00 00 00 3b ff
-				self._activate_source(detail)
+
 		elif status == JablotronState.ARMED_ABC:
-			self._call_zones(function_name="armed")
+			self._call_zones(by, function_name="armed")
 		elif status == JablotronState.ARMED_A:
-			self._call_zone(1,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_AB:
-			self._call_zone(1,by = detail,function_name="armed")
-			self._call_zone(2,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
+			self._call_zone(2,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_A:
-			self._call_zone(1,by = detail,function_name="armed")
+			self._call_zone(1,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_B:
-			self._call_zone(2,by = detail,function_name="armed")
+			self._call_zone(2,by = by,function_name="armed")
 		elif status == JablotronState.ARMED_SPLIT_C:
-			self._call_zone(3,by = detail,function_name="armed")
-		elif status == JablotronState.ARMED_ENTRY_DELAY_C: 
-			# is detail 2 device id?
-			#if not detail_2 == 0x00:
-		#		device = self.get_device(detail_2)
-		#		self._get_zone_via_object(device).entering(device)
-		#		self._activate_source(detail_2)
-			pass
+			self._call_zone(3,by = by,function_name="armed")
+
+
+		elif status == JablotronState.ARMED_ENTRY_DELAY_ABC:
+			self._call_zones(by, function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_A:
+			self._call_zone(1,by = by,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_AB:
+			self._call_zone(1,by = by,function_name="entering")
+			self._call_zone(2,by = by,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_A_SPLIT:
+			self._call_zone(1,by = by,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_B_SPLIT:
+			self._call_zone(2,by = by,function_name="entering")
+		elif status == JablotronState.ARMED_ENTRY_DELAY_C_SPLIT:
+			self._call_zone(3,by = by,function_name="entering")
+
 
 		elif status == JablotronState.EXIT_DELAY_ABC:
-			self._call_zones(function_name="arming")
+			self._call_zones(by, function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_A:
-			self._call_zone(1,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_AB:
-			self._call_zone(1,by = detail,function_name="arming")
-			self._call_zone(2,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
+			self._call_zone(2,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_A:
-			self._call_zone(1,by = detail,function_name="arming")
+			self._call_zone(1,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_B:
-			self._call_zone(2,by = detail,function_name="arming")
+			self._call_zone(2,by = by,function_name="arming")
 		elif status == JablotronState.EXIT_DELAY_SPLIT_C:
-			self._call_zone(3,by = detail,function_name="arming")
+			self._call_zone(3,by = by,function_name="arming")
+		
 			
 		if JablotronState.is_armed_state(status):
-			if activity == 0x00:
-				# normal state 
-				#this might be needed for PIR clearing. What are effects to other sensors like doors?
-				#self._clear_triggers()
-				pass
-			elif activity == 0x06:
-				# sensor active,
-				# detail = sensor id
-				warn = True
-				activity_name = 'Activity Confirmed (1)'
-				self._activate_source(detail)
-				#self._get_zone_via_device(detail).alarm(detail)
-			elif activity == 0x04:
-				# key pressed
-				pass
-			elif activity == 0x08:
-				# "Fault" (on keypad), "lost communication with device" in logs
-				activity_name = 'Lost communication with device'
-				self._activate_source(detail)
-			elif activity == 0x10:
-				warn = True
-				activity_name = 'Activity Confirmed (2)'
-				# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					# set device active
-					self._confirm_device_query()
-					self._activate_source(detail)
-			elif activity == 0x0d:
-				# 
-				pass
-			elif activity == 0x0c:
-				# 
-				pass
-			elif activity == 0x12:
-				warn = True
-				activity_name = 'Activity Confirmed (3)'
-				#pir movement
-				#example ed 43 12 3d 0f 04 00 3c 59 ff for device 4
-				self._activate_source(detail_2)
-			elif activity == 0x14:
-				# Unconfirmed alarm
-				warn = True
-				activity_name = 'Unconfirmed alarm'
-				self._activate_source(detail)
-			
-			# the next 3 activities are some sort of status code on arming/disarming
-			elif activity == 0x40:
-				pass
-
-			elif activity == 0x44:
-				pass
-
-			elif activity == 0x4c:
-				pass
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			state_text = ''
 		elif JablotronState.is_service_state(status):
+			state_text = 'Service Mode'
 			self.status = JA80CentralUnit.STATUS_SERVICE
 			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
+			state_text = 'Maintenence Mode'
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
 			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
-			if activity == 0x0c:
-				# normal state?
-				#self._deactivate_source(detail)
-				pass
-			elif activity == 0x10:
-				warn = True
-				activity_name = 'Activity Confirmed'
-					# something is active
-				if detail == 0x00:
-					# no details... ask..
-					self._send_device_query()
-				else:
-					# set device active
-					self._confirm_device_query()
-					self._activate_source(detail)
-			elif activity == 0x04:
-				# key pressed, is this possible?
-				pass
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			state_text = 'Exit delay'
 		elif JablotronState.is_alarm_state(status):
-			if activity == 0x00:
-				# no reason yet
-				pass
-			elif activity == 0x06:
-				# sensor causing alarm,
-				# detail = sensor id
-				# also something in detail_2
-				self._activate_source(detail)
-			elif activity == 0x04:
-				# key pressed
-				pass
-			else:
-				LOGGER.error(f'Unknown activity received data={packet_data}')
+			state_text = ''
 		elif JablotronState.is_entering_delay_state(status):
-			# device activation?
-			pass
+			state_text = 'Entrance delay'
 		elif JablotronState.is_disarmed_state(status):
-			pass
+			state_text = ''
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
 		
 
-		#if activity != 0x00:
-		#	log = f'Status: {activity_name}, {detail}:{self.get_device(detail).name}'
-		#	if warn:
-		#		LOGGER.warn(log)
-		#	else:
-		#		#LOGGER.info(log)
-		#		pass
+		if activity == 0x00:
+			pass
+
+		elif activity == 0x01:
+			activity_name = 'Service Mode'
+
+		elif activity == 0x02:
+			pass
+			activity_name = 'Maintenence Mode'
+
+		elif activity == 0x04:
+			activity_name = 'Key pressed'
+
+		elif activity == 0x06:
+			# trigger during testing, i.e. maintenance mode
+			warn = True
+			activity_name = 'Alarm'
+			self._activate_source(detail)
+
+		elif activity == 0x07:
+			warn = True
+			activity_name = 'Tamper alarm'
+			self._activate_source(detail)
+
+		elif activity == 0x08:
+			# "Fault" (on keypad), "lost communication with device" in logs, also power out on control panel
+			warn = True
+			activity_name = 'Fault'
+			self._activate_source(detail)
+
+		elif activity == 0x09:
+			warn = True
+			activity_name = 'Discharged battery'
+			self._device_battery_low(detail)
+
+		elif activity == 0x0c:
+			activity_name = 'Exit delay'
+
+		elif activity == 0x0d:
+			activity_name = 'Entrance delay'
+
+		elif activity == 0x10:
+			# permanent trigger during standard (unset) mode, e.g. a door open detector
+			activity_name = 'Triggered detector'
+			# something is active
+			if detail == 0x00:
+				if activity_name not in self.central_device.message:
+					# no details... ask..
+					self._send_device_query()
+				else:
+					log = False
+			else:
+				self._activate_source(detail)
+				self._confirm_device_query()
+
+		elif activity == 0x12:
+			warn = True
+			activity_name = 'Triggered detector (2)'
+			self._activate_source(detail)
+
+		elif activity == 0x14:
+			# Unconfirmed alarm
+			warn = True
+			activity_name = 'Unconfirmed alarm'
+			self._activate_source(detail)
+
+		# the next 3 activities are some sort of status code on arming/disarming
+		elif activity == 0x40:
+			pass
+
+		elif activity == 0x44:
+			pass
+
+		elif activity == 0x4c:
+			pass
+
+		if activity == 0x00:
+			message = state_text
+		elif activity_name == "Unknown":
+			message = f'Unknown Activity:{activity}'
+		else:
+			message = f'{activity_name}'
+
+		if detail != 0x0:
+			message = message + f', {detail}:{self._get_source_name(detail)}'
+
+		# log a warning/info message only once
+		if self._message == message:
+			LOGGER.debug(message)
+		else:
+			if log:
+				self._message = message
+
+				if warn:
+					LOGGER.warn(message)
+					self.central_device.warning = message
+				else:
+					LOGGER.info(message)
+					self.central_device.message = message
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
@@ -2085,11 +2127,17 @@ class JA80CentralUnit(object):
 		elif detail == 0x03:
 			# fire alarm /should this alarm all zones?
 			pass
+		elif detail == 0x05:
+			# battery flat on backup battery
+			pass
+		elif detail == 0x08:
+			# comes at least when trying to enter service mode while already in service mode
+			pass
 		elif detail == 0x0e:
 			# ???
 			pass
 		elif detail == 0x0b:
-				# ???
+			# ???
 			pass
 		elif detail == 0x0d:
 			# ???
@@ -2097,9 +2145,7 @@ class JA80CentralUnit(object):
 		elif detail == 0x0c:
 			# ???
 			pass
-		elif detail == 0x08:
-			# comes at least when trying to enter service mode while already in service mode
-			pass
+
 		else:
 			LOGGER.error(f'Unknown state detail received data={packet_data}')
 
