@@ -16,14 +16,18 @@ class JablotronEntity(Entity):
 		self._cu: JA80CentralUnit = cu
 		self._object: JablotronCommon = obj
 
-
 	@property
 	def should_poll(self) -> bool:
 		return False
 
 	@property
 	def available(self) -> bool:
-		return self._cu.led_power
+		#return self._cu.led_power
+
+		if hasattr(self._object,"available"):
+			return self._object.available
+		else:
+			return True
 
 	@property
 	def device_info(self) -> Optional[Dict[str, Any]]:
@@ -59,7 +63,7 @@ class JablotronEntity(Entity):
 			attr["reaction"] = self._object.reaction
 		if not self._object is None and hasattr(self._object,"by"):
 			attr["by"] = self._object.formatted_by
-		for field in ["serial_number","model","manufacturer","id","type","battery_low"]:
+		for field in ["serial_number","model","manufacturer","id","type","battery_low","tampered","warning","message","last_event"]:
 			if not self._object is None and hasattr(self._object,field):
 				value = getattr(self._object,field)
 				if not value is None:
