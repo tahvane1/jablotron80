@@ -168,7 +168,6 @@ class JablotronCommon:
 	_reaction: str = field(default=None,init=False)
 	_type :str = field(default=None,init=False)
 	_enabled: bool = field(default=False, init=False)
- 
 
 	@property
 	def id_part(self):
@@ -314,7 +313,8 @@ class JablotronDevice(JablotronCommon):
 	_serial_number: str = field(default=None,init=False)
 	_tampered: bool = field(default=False,init=False)
 	_battery_low: bool =  field(default=False,init=False)
-	
+	_available: bool = field(default=True, init=False)
+
 	def __post_init__(self) -> None:
 		super().__post_init__()
 		self.enabled = True		 
@@ -347,8 +347,16 @@ class JablotronDevice(JablotronCommon):
 	@battery_low.setter
 	@log_change
 	def battery_low(self,state:bool)->None:
-		self._battery_low  = state
+		self._battery_low = state
 
+	@property	
+	def available(self) -> bool:
+		return self._available
+ 
+	@available.setter
+	@log_change
+	def available(self,state:bool)->None:
+		self._available = state
 
 	@property	
 	def name(self) -> str:
@@ -394,12 +402,12 @@ class JablotronDevice(JablotronCommon):
 	def __str__(self) -> str:
 		s = f'Device id={self.device_id},model={self.model},reaction={self.reaction},tampered={self.tampered},battery_low={self.battery_low}'
 		if not self.name is None:
-			s+=f'name={self.name},'
+			s+=f',name={self.name}'
 		if not self.zone is None:
-			s+=f'zone={self.zone.name},'
+			s+=f',zone={self.zone.name}'
 		if not self.serial_number is None:
-			s += f'serial={self.serial_number},'
-		s += f'active={self._active}'
+			s += f',serial={self.serial_number}'
+		s += f',active={self._active}'
 		return s
 
 
@@ -482,7 +490,8 @@ class JablotronZone(JablotronCommon):
 	@check_active     
 	def device_activated(self,device: JablotronDevice ) -> None:
 		if self.status == JablotronZone.STATUS_ARMED or device.reaction == JablotronConstants.REACTION_FIRE_ALARM:
-			self.alarm(device)
+			#self.alarm(device)
+			pass
 			
 	@check_active     
 	def device_deactivated(self,device: JablotronDevice)-> None:
@@ -492,21 +501,21 @@ class JablotronZone(JablotronCommon):
 
 	@check_active     
 	def code_activated(self,code: JablotronCode ) -> None:
-		pass
-		#if self.status == JablotronZone.STATUS_ARMED or code.reaction == JablotronConstants.REACTION_FIRE_ALARM:
-		#	self.alarm(code)
+		if self.status == JablotronZone.STATUS_ARMED or code.reaction == JablotronConstants.REACTION_FIRE_ALARM:
+			#self.alarm(code)
+			pass
 			
 	@check_active     
 	def code_deactivated(self,device: JablotronDevice)-> None:
-		pass
-  		#if self.status == JablotronZone.STATUS_ALARM:
-		#	#self.disarm()
-		#	pass
+		if self.status == JablotronZone.STATUS_ALARM:
+			#self.disarm()
+			pass
 
-			
+	
 	@check_active      
 	def tamper(self,by: Optional[JablotronDevice]  = None) -> None:
-		self.alarm(by)
+		#self.alarm(by)
+		pass
 		
 	@check_active
 	def clear(self,by: Optional[JablotronCode] = None) -> None:
@@ -913,6 +922,7 @@ class JablotronMessage():
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
+				# likely a corrupt message
 				LOGGER.debug(f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
@@ -1120,7 +1130,11 @@ class JA80CentralUnit(object):
 		self.last_state = None
 		self.system_status = None
 
-		self._devices = {}
+		self._warning = JablotronSensor(2)
+		self._warning.name = f'{CENTRAL_UNIT_MODEL} Warning'
+		self._warning.manufacturer = MANUFACTURER
+		self._warning.type = "warning"
+
 		self._active_devices = {}
 		self._active_codes = {}
 		self._codes = {}
@@ -1250,6 +1264,14 @@ class JA80CentralUnit(object):
 		self._rf_level.value= rf_level
 
 	@property
+	def warning(self) -> JablotronSensor:
+		return self._warning
+	
+	@warning.setter
+	def warning(self,warning: str) -> None:
+		self._warning.value= warning
+
+	@property
 	def system_status(self) -> str:
 		return self._system_status
 
@@ -1376,7 +1398,16 @@ class JA80CentralUnit(object):
 			code.active = False
 		self._active_codes.clear()
  
- 
+	def _clear_tampers(self) -> None:
+		for device in self.devices:
+			if device.tampered:
+				device.tampered = False
+
+	def _clear_battery(self) -> None:
+		for device in self.devices:
+			if device.battery_low:
+				device.battery_low = False
+
 	def _activate_source(self,source_id:bytes ,type=None) -> None:
 		source  = self._get_source(source_id)
 		if isinstance(source,JablotronDevice):
@@ -1399,6 +1430,25 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.warn(f'Unknown source type {source_id}')
 	
+	def _fault_source(self,source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		if isinstance(source,JablotronDevice):
+			source.available= False
+		else:
+			LOGGER.error(f'Fault called for none device:{source_id}')
+
+	def _clear_fault(self,source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		if isinstance(source,JablotronDevice):
+			source.available = True
+		else:
+			LOGGER.error(f'Clear_Fault called for none device:{source_id}')
+
+	def _clear_faults(self) -> None:
+		for device in self.devices:
+			if not device.available:
+				device.available = True
+
 	def _alarm_via_source(self,source_id: bytes) -> None:
 		source  = self._get_source(source_id)
 		self._get_zone_via_object(source).alarm(source)
@@ -1524,7 +1574,6 @@ class JA80CentralUnit(object):
 			self._clear_tampers()
 		elif event_type == 0x51:
 			event_name = "No fault in system" 
-			# todo: see if this message has any detail
 			if source != 0x00:
 				self._clear_fault(source)
 			else:
@@ -1542,7 +1591,18 @@ class JA80CentralUnit(object):
 				event_name = event_name + ", Control panel"
 			warn = True
 			self._activate_source(source)
-
+		elif event_type == 0x0e:
+			event_name = "Lost communication"
+			warn = True
+		elif event_type == 0x50:
+			# received when all tamper alarms are removed (though status warnings may be present)
+			event_name = "End of Tamper alarm"
+			self._clear_tampers()
+		elif event_type == 0x51:
+			event_name = "Fault no longer present"
+		elif event_type == 0x52:
+			event_name = "Battery OK"
+			self._clear_battery
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
@@ -1578,7 +1638,16 @@ class JA80CentralUnit(object):
 		self.led_b = (leds & 0x04) == 0x04
 		self.led_c = (leds & 0x02) == 0x02
 		self.led_power  = (leds & 0x01) == 0x01
-		self.led_alarm = (leds & 0x10) == 0x10
+		self.led_alarm = (leds & 0x10) == 0x10 # warning triagle may be flashing or solid
+		self.led_solid_alarm = (leds & 0x20) == 0x20 # The warning triangle is solid
+		
+		if self.led_solid_alarm:
+			self.warning = "Fault"
+		elif self.led_alarm:
+			self.warning = "Alarm"
+		else:
+			self.warning = "OK"
+
 		detail_2 = data[5]
 		field_2 = data[6]
 		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
@@ -1613,7 +1682,7 @@ class JA80CentralUnit(object):
 					# set device active
 					self._confirm_device_query()
 					self._activate_source(detail)
-			elif activity == 0x00:
+			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
 			elif activity == 0x09:
