@@ -1377,7 +1377,16 @@ class JA80CentralUnit(object):
 			code.active = False
 		self._active_codes.clear()
  
- 
+	def _clear_tampers(self) -> None:
+		for device in self.devices:
+			if device.tampered:
+				device.tampered = False
+
+	def _clear_battery(self) -> None:
+		for device in self.devices:
+			if device.battery_low:
+				device.battery_low = False
+
 	def _activate_source(self,source_id:bytes ,type=None) -> None:
 		source  = self._get_source(source_id)
 		if isinstance(source,JablotronDevice):
@@ -1511,8 +1520,15 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0e:
 			event_name = "Lost communication"
 			warn = True
+		elif event_type == 0x50:
+			# received when all tamper alarms are removed (though status warnings may be present)
+			event_name = "End of Tamper alarm"
+			self._clear_tampers()
 		elif event_type == 0x51:
-			event_name = "No issues reported"
+			event_name = "Fault no longer present"
+		elif event_type == 0x52:
+			event_name = "Battery OK"
+			self._clear_battery
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
