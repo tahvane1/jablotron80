@@ -16,14 +16,18 @@ class JablotronEntity(Entity):
 		self._cu: JA80CentralUnit = cu
 		self._object: JablotronCommon = obj
 
-
 	@property
 	def should_poll(self) -> bool:
 		return False
 
 	@property
 	def available(self) -> bool:
-		return self._cu.led_power
+		#return self._cu.led_power
+
+		if hasattr(self._object,"available"):
+			return self._object.available
+		else:
+			return True
 
 	@property
 	def device_info(self) -> Optional[Dict[str, Any]]:
