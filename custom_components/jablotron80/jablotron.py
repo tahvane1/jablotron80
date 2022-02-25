@@ -1574,7 +1574,7 @@ class JA80CentralUnit(object):
 					# set device active
 					self._confirm_device_query()
 					self._activate_source(detail)
-			elif activity == 0x00:
+			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
 			elif activity == 0x09:
