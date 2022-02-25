@@ -13,6 +13,8 @@ import os
 import logging
 import serial
 import sys
+
+from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
 
 from typing import Any, Dict, Optional, Union,Callable
@@ -304,8 +306,6 @@ class JablotronCode(JablotronCommon):
 		return s
 	
 
-	
-
 @dataclass(order=True)
 class JablotronDevice(JablotronCommon):
 	_model: str = field(default=None,init=False)
@@ -411,6 +411,44 @@ class JablotronDevice(JablotronCommon):
 		return s
 
 
+@dataclass
+class JablotronControlPanel(JablotronDevice):
+	_warning: str = field(default="",init=False)
+	_message: str = field(default="",init=False)
+	_last_event: str = field(default="",init=False)
+
+
+	def __post_init__(self) -> None:
+		super().__post_init__()
+
+	@property	
+	def warning(self) -> str:
+		return self._warning
+
+	@warning.setter
+	@log_change
+	def warning(self,warning:str)->None:
+		self._warning  = warning
+
+	@property	
+	def message(self) -> str:
+		return self._message
+ 
+	@message.setter
+	@log_change
+	def message(self,message:str)->None:
+		self._message  = message
+
+	@property	
+	def last_event(self) -> str:
+		return self._last_event
+ 
+	@last_event.setter
+	@log_change
+	def last_event(self,last_event:str)->None:
+		self._last_event  = last_event
+
+
 def check_active(func):
 	def wrapper(*args, **kwargs):
 		LOGGER.debug(f'{args[0].name} action {func.__name__}')
@@ -421,6 +459,7 @@ def check_active(func):
 		if not prev == args[0]._status:
 			LOGGER.info(f'{args[0].name} status changed from {prev} to {args[0]._status}')
 	return wrapper
+
 
 
 
@@ -1105,13 +1144,15 @@ class JA80CentralUnit(object):
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
-		self._zones[3] = JablotronZone(3)  
-		self.central_device = JablotronDevice(0)
+		self._zones[3] = JablotronZone(3)
+		self.central_device = JablotronControlPanel(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
 		# device that receives fault alerts such as tamper alarms and communication failures
-		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control Panel'
+		self.central_device.name = "Control panel"
 		self.central_device.manufacturer = MANUFACTURER
-		self.central_device.type = "Control Panel"
+		self.central_device.type = DEVICE_CONTROL_PANEL
+		self._devices = {}
+		self._devices[0] = self.central_device # add central device as a device so it gets an entity 
 		self._leds = {
       				"A":self._create_led(1,"zone A armed","armed led"),
   					"B":self._create_led(2,"zone B armed","armed led"),
@@ -1138,7 +1179,6 @@ class JA80CentralUnit(object):
 		self._active_devices = {}
 		self._active_codes = {}
 		self._codes = {}
-		self._devices = {}
 		self._device_query_pending = False
 		self._last_state = None
 		self._mode = None
@@ -1195,7 +1235,7 @@ class JA80CentralUnit(object):
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
-		return [self.get_device(i) for i in range(1,self._max_number_of_devices+1)]
+		return [self.get_device(i) for i in range(0,self._max_number_of_devices+1)]
 
 	@property
 	def zones(self) -> List[JablotronZone]:

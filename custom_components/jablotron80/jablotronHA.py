@@ -63,7 +63,7 @@ class JablotronEntity(Entity):
 			attr["reaction"] = self._object.reaction
 		if not self._object is None and hasattr(self._object,"by"):
 			attr["by"] = self._object.formatted_by
-		for field in ["serial_number","model","manufacturer","id","type","battery_low","tampered"]:
+		for field in ["serial_number","model","manufacturer","id","type","battery_low","tampered","warning","message","last_event"]:
 			if not self._object is None and hasattr(self._object,field):
 				value = getattr(self._object,field)
 				if not value is None:

@@ -73,3 +73,5 @@ DEVICES = {
 	DEVICE_OTHER: "Other",
 	DEVICE_EMPTY: "Empty",
 }
+
+DEVICE_CONTROL_PANEL = "control_panel"
