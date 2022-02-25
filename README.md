@@ -142,7 +142,7 @@ cards:
 
 Screenshot of alarm control panel
 
-<img src="examples/mobile_app.png" alt="Alarm control panel" width="200"/>
+<img src="examples/lovelace-card.png" alt="Alarm control panel" width="200"/>
 
 
 ## Troubleshooting
