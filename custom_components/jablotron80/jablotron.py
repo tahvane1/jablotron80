@@ -1619,7 +1619,8 @@ class JA80CentralUnit(object):
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
-			self._clear_triggers()
+			# don't clear triggers until the alarm is set or warnings are cancelled
+			# self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
 
