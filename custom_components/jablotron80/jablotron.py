@@ -949,7 +949,7 @@ class JablotronMessage():
 			#  msg type is still none so next call will work
 		if message_type is None:
 			LOGGER.error(
-					f'Unknown message type {record[0]} with data {packet_data} received')
+					f'Unknown message type {hex(record[0])} with data {packet_data} received')
 			return None
 		else:
 			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
