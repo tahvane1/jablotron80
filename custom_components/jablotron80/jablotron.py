@@ -949,7 +949,7 @@ class JablotronMessage():
 			#  msg type is still none so next call will work
 		if message_type is None:
 			LOGGER.error(
-					f'Unknown message type {record[0]} with data {packet_data} received')
+					f'Unknown message type {hex(record[0])} with data {packet_data} received')
 			return None
 		else:
 			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
@@ -1619,7 +1619,8 @@ class JA80CentralUnit(object):
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
-			self._clear_triggers()
+			# don't clear triggers until the alarm is set or warnings are cancelled
+			# self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
 
@@ -1679,7 +1680,7 @@ class JA80CentralUnit(object):
 		activity_name = "Unknown"
 
 		status = data[1]
-		activity = data[2]
+		activity = data[2] & 0x3f # take lower bit below 0x40
 		detail = data[3]
 		leds = data[4]
 		self.led_a = (leds & 0x08) == 0x08
@@ -1790,7 +1791,7 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
-		
+
 
 		if activity == 0x00:
 			pass
@@ -1858,20 +1859,16 @@ class JA80CentralUnit(object):
 			activity_name = 'Unconfirmed alarm'
 			self._activate_source(detail)
 
-		# the next 3 activities are some sort of status code on arming/disarming
-		elif activity == 0x40:
-			pass
-
-		elif activity == 0x44:
-			pass
-
-		elif activity == 0x4c:
-			pass
-
+		elif activity == 0x16:
+			warn = True
+			activity_name = 'Triggered detector (3)'
+			self._activate_source(detail)
+			
 		if activity == 0x00:
 			message = state_text
 		elif activity_name == "Unknown":
-			message = f'Unknown Activity:{activity}'
+			warn = True
+			message = f'Unknown Activity:{hex(activity)}'
 		else:
 			message = f'{activity_name}'
 
