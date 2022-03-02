@@ -69,135 +69,80 @@ Each sensor has additional state attributes depending in jablotron configuration
 
 #### Example control panel
 
-Example alarm control panel defined in lovelace yaml
+Example of a configuration in lovelace wich try to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
 
 ```
-- id:  security
-    icon: mdi:shield-home
-    title: Security
+type: vertical-stack
+cards:
+  - type: horizontal-stack
     cards:
-        - type: vertical-stack
-          cards:
-          - type: horizontal-stack
-            cards:
-              - <<: *cb_spacer_10px
-              - <<: *card_mod_margin_mainstyle
-                type: "custom:button-card"
-                entity: binary_sensor.ja_80k_alarm
-                icon: mdi:triangle
-                color_type: icon
-                show_name: false
-                show_state: false
-                state:
-                 - value: 'on'
-                   color: rgb(255,5,5)
-                   icon: mdi:hazard-lights
-                 - value: 'off'
-                   color: var(--disabled-text-color)
-                   icon: mdi:triangle
-              - <<: *card_mod_margin_mainstyle
-                type: "custom:button-card"
-                entity: binary_sensor.ja_80k_zone_a_armed
-                icon: mdi:alpha-a
-                color_type: icon
-                show_name: false
-                show_state: false
-                state:
-                 - value: 'on'
-                   color: rgb(255,5,5)
-                 - value: 'off'
-                   color: var(--disabled-text-color)
-              - <<: *card_mod_margin_mainstyle
-                type: "custom:button-card"
-                entity: binary_sensor.ja_80k_zone_b_armed
-                icon: mdi:alpha-b
-                color_type: icon
-                show_name: false
-                show_state: false
-                state:
-                 - value: 'on'
-                   color: rgb(255,5,5)
-                 - value: 'off'
-                   color: var(--disabled-text-color)
-              - <<: *card_mod_margin_mainstyle
-                type: "custom:button-card"
-                entity: binary_sensor.ja_80k_zone_c_armed
-                icon: mdi:alpha-c
-                color_type: icon
-                show_name: false
-                show_state: false
-                state:
-                 - value: 'on'
-                   color: rgb(255,5,5)
-                 - value: 'off'
-                   color: var(--disabled-text-color)
-              - <<: *card_mod_margin_mainstyle
-                type: "custom:button-card"
-                entity: binary_sensor.ja_80k_power
-                icon: mdi:power
-                color_type: icon
-                show_name: false
-                show_state: false
-                state:
-                 - value: 'on'
-                   color: rgb(5,255,5)
-                 - value: 'off'
-                   color: var(--disabled-text-color)
-              - <<: *cb_spacer_10px
-              - <<: *cb_spacer_10px
-          - type: horizontal-stack
-            cards:
-              - <<: *cb_spacer_10px
-              - <<: *card_mod_margin_mainstyle
-                type: 'alarm-panel'
-                entity: alarm_control_panel.jablotron_control_panel_abc
-                name: Control panel
-                states:
-                  - arm_away
-              - <<: *cb_spacer_10px
-  
-          - type: horizontal-stack
-            cards:
-              - <<: *cb_spacer_10px
-              - <<: *card_mod_margin_mainstyle
-                type: entities
-                show_state: False
-                entities:
-                  - type: custom:template-entity-row 
-                    entity: sensor.zone_c
-                    name: > 
-                       {{state_attr('sensor.zone_c','by') }}      set to
-                    icon: "{% if is_state('sensor.zone_c.state','alarm')%}  mdi:hazard-lights  {% else %} mdi:information-outline {% endif %}"
-                    color: "{% if is_state('sensor.zone_c.state','alarm')%}  rgb(255,5,5) {% endif %}"
-                  - type: custom:template-entity-row 
-                    entity: binary_sensor.ja_81f
-                    name: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %} Keypad battery low {% else %} Keypad battery {% endif %}"
-                    icon: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %}  mdi:hazard-lights  {% else %} mdi:information-outline {% endif %}"
-                    color: "{% if state_attr('binary_sensor.ja_81f','battery low') == true %}  rgb(255,5,5) {% endif %}"
-                  - type: custom:template-entity-row 
-                    entity: binary_sensor.doors_downstairs
-                    name: Downstairs doors
-                    color: "{% if is_state('binary_sensor.doors_downstairs','on')%}  rgb(255,5,5)  {% else %} rgb(5,255,5) {% endif %}"
-                    state: "{% if is_state('binary_sensor.doors_downstairs','on')%}  open  {% else %} closed {% endif %}"
-                  - type: custom:template-entity-row 
-                    entity: binary_sensor.doors_upstairs
-                    name: Upstairs doors
-                    color: "{% if is_state('binary_sensor.doors_upstairs','on')%}  rgb(255,5,5)  {% else %} rgb(5,255,5) {% endif %}"
-                    state: "{% if is_state('binary_sensor.doors_downstairs','on')%}  open  {% else %} closed {% endif %}"
-                  - type: custom:template-entity-row 
-                    entity: binary_sensor.firealarm_downstairs
-                    name: Downstairs fire alarm
-                    color: "{% if is_state('binary_sensor.firealarm_downstairs','on')%}  rgb(255,5,5)  {% else %} var(--disabled-text-color) {% endif %}"
-                  - type: custom:template-entity-row 
-                    entity: binary_sensor.firealarm_upstairs
-                    name: Upstairs fire alarm
-                    color: "{% if is_state('binary_sensor.firealarm_upstairs','on')%}  rgb(255,5,5)  {% else %} var(--disabled-text-color) {% endif %}"
-              - <<: *cb_spacer_10px
+      - type: button
+        entity: binary_sensor.ja_80k_alarm
+        icon: mdi:alert-outline
+        color_type: icon
+        show_name: false
+        show_state: false
+        state:
+          - value: 'on'
+            color: rgb(255,5,5)
+          - value: 'off'
+            color: var(--disabled-text-color)
+      - type: button
+        entity: binary_sensor.ja_80k_zone_a_armed
+        icon: mdi:alpha-a
+        color_type: icon
+        show_name: false
+        show_state: false
+        state:
+          - value: 'on'
+            color: rgb(255,5,5)
+          - value: 'off'
+            color: var(--disabled-text-color)
+      - type: button
+        entity: binary_sensor.ja_80k_zone_b_armed
+        icon: mdi:alpha-b
+        color_type: icon
+        show_name: false
+        show_state: false
+        state:
+          - value: 'on'
+            color: rgb(255,5,5)
+          - value: 'off'
+            color: var(--disabled-text-color)
+      - type: button
+        entity: binary_sensor.ja_80k_zone_c_armed
+        icon: mdi:alpha-c
+        color_type: icon
+        show_name: false
+        show_state: false
+        state:
+          - value: 'on'
+            color: rgb(255,5,5)
+          - value: 'off'
+            color: var(--disabled-text-color)
+      - type: button
+        entity: binary_sensor.ja_80k_power
+        icon: mdi:power
+        color_type: icon
+        show_name: false
+        show_state: false
+        state:
+          - value: 'on'
+            color: rgb(5,255,5)
+          - value: 'off'
+            color: var(--disabled-text-color)
+  - type: horizontal-stack
+    cards:
+      - type: alarm-panel
+        states:
+          - arm_home
+          - arm_away
+        entity: alarm_control_panel.jablotron_control_panel_a_ab_abc
 ```
 
 Screenshot of alarm control panel
 
-<img src="examples/mobile_app.png" alt="Alarm control panel" width="200"/>
+<img src="examples/lovelace-card.png" alt="Alarm control panel" width="200"/>
 
 
 ## Troubleshooting
