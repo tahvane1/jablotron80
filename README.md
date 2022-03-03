@@ -35,7 +35,7 @@ Report [issue](https://github.com/tahvane1/jablotron80/issues)
 
 ## Supported devices
 
-This integration has been tested with JA-80K central unit, JA-81F keypad and JA82-T usb cable. Tested sensors include wired door sensors and wired fire alarms.
+This integration has been tested with JA-80K /JA-82K central units, JA-81F keypad and JA82-T usb cable. Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 Development for supporting JA80-T cable is WIP (and not yet working).
 
 ## Examples & configuration
