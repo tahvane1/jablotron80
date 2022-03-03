@@ -87,6 +87,11 @@ cards:
             color: rgb(255,5,5)
           - value: 'off'
             color: var(--disabled-text-color)
+        tap_action:
+          action: call-service
+          service: button.press
+          service_data:
+            entity_id: button.ja_80k_query_button
       - type: button
         entity: binary_sensor.ja_80k_zone_a_armed
         icon: mdi:alpha-a
@@ -209,6 +214,11 @@ cards:
             - animation: blink 2s ease infinite
       - value: OK
         color: var(--disabled-text-color)
+    tap_action:
+      action: call-service
+      service: button.press
+      service_data:
+        entity_id: button.ja_80k_query_button
   - type: custom:button-card
     entity: binary_sensor.ja_80k_zone_a_armed
     icon: mdi:alpha-a
