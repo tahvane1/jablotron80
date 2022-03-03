@@ -69,7 +69,7 @@ Each sensor has additional state attributes depending in jablotron configuration
 
 #### Example control panel
 
-Example of a configuration in lovelace wich try to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
+Example of a configuration in lovelace which attempts to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
 
 ```
 type: vertical-stack
@@ -131,19 +131,129 @@ cards:
             color: rgb(5,255,5)
           - value: 'off'
             color: var(--disabled-text-color)
-  - type: horizontal-stack
-    cards:
-      - type: alarm-panel
-        states:
-          - arm_home
-          - arm_away
-        entity: alarm_control_panel.jablotron_control_panel_a_ab_abc
+  - type: conditional
+    conditions:
+      - entity: sensor.ja_80k_warning
+        state_not: OK
+    card:
+      type: entity
+      entity: sensor.ja_80k_warning
+      attribute: message
+      name: Warning
+      state_color: false
+      icon: mdi:alert
+      style: |
+        ha-card
+        .value {
+          font-size: 22px
+        }
+  - type: conditional
+    conditions:
+      - entity: binary_sensor.ja_80k_message
+        state: 'on'
+    card:
+      type: entity
+      entity: binary_sensor.ja_80k_message
+      icon: mdi:information
+      name: Keypad Message
+      attribute: message
+  - type: alarm-panel
+    states:
+      - arm_home
+      - arm_away
+      - arm_night
+    entity: alarm_control_panel.jablotron_control_panel_a_ab_abc
+    name: House Alarm
+  - type: entity
+    entity: binary_sensor.ja_80k_control_panel
+    attribute: last event
+    name: Last Event
+    icon: mdi:history
+    style: |
+      ha-card
+      .value {
+        font-size: 16px
+      }
 ```
 
 Screenshot of alarm control panel
 
 <img src="examples/lovelace-card.png" alt="Alarm control panel" width="200"/>
 
+
+
+#### Enhanced control panel
+
+If you would like to enhance the example with coloured buttons and flashing warning and power 'leds' and are prepated to install the custom buttomn card https://github.com/custom-cards/button-card
+
+```
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    entity: sensor.ja_80k_warning
+    icon: mdi:alert-outline
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: Fault
+        color: rgb(255,5,5)
+      - value: Alarm
+        color: rgb(255,5,5)
+        styles:
+          card:
+            - animation: blink 2s ease infinite
+      - value: OK
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_a_armed
+    icon: mdi:alpha-a
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_b_armed
+    icon: mdi:alpha-b
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_c_armed
+    icon: mdi:alpha-c
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_power
+    icon: mdi:power
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(5,255,5)
+      - value: 'off'
+        color: rgb(5,255,5)
+        styles:
+          card:
+            - animation: blink 2s ease infinite
+
+```
 
 ## Troubleshooting
 
