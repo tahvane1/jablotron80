@@ -194,7 +194,7 @@ Screenshot of enhanced alarm control panel
 type: horizontal-stack
 cards:
   - type: custom:button-card
-    entity: sensor.ja_80k_warning
+    entity: sensor.ja_80k_alert
     icon: mdi:alert-outline
     color_type: icon
     show_name: false
