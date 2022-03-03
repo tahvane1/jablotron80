@@ -18,7 +18,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 	cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON] # type: JA80CentralUnit
 	async_add_entities([JablotronZoneSensorEntity(zone,cu) for zone in cu.zones], True)
 	async_add_entities([JablotronSignalEntity(cu.rf_level,cu)], True)
-	async_add_entities([JablotronSensorEntity(cu.warning,cu)], True)
+	async_add_entities([JablotronSensorEntity(cu.alert,cu)], True)
 
 class JablotronZoneSensorEntity(JablotronEntity):
 	def __init__(self, zone: JablotronZone,cu: JA80CentralUnit) -> None:
