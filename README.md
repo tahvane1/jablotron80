@@ -133,13 +133,13 @@ cards:
             color: var(--disabled-text-color)
   - type: conditional
     conditions:
-      - entity: sensor.ja_80k_warning
+      - entity: sensor.ja_80k_alert
         state_not: OK
     card:
       type: entity
-      entity: sensor.ja_80k_warning
+      entity: sensor.ja_80k_alert
       attribute: message
-      name: Warning
+      name: Alert
       state_color: false
       icon: mdi:alert
       style: |
@@ -149,11 +149,11 @@ cards:
         }
   - type: conditional
     conditions:
-      - entity: binary_sensor.ja_80k_message
+      - entity: binary_sensor.ja_80k_status_text
         state: 'on'
     card:
       type: entity
-      entity: binary_sensor.ja_80k_message
+      entity: binary_sensor.ja_80k_status_text
       icon: mdi:information
       name: Keypad Message
       attribute: message
