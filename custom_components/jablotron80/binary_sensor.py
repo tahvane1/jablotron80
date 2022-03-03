@@ -41,6 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 	async_add_entities([JablotronDeviceSensorEntity(device,cu) for device in cu.devices], True)
 	async_add_entities([JablotronDeviceSensorEntity(led,cu) for led in cu.leds], True)
 	async_add_entities([JablotronDeviceSensorEntity(code,cu) for code in cu.codes], True)
+	async_add_entities([JablotronDeviceSensorEntity(cu.statustext,cu)], True)
 
 
 class JablotronDeviceSensorEntity(JablotronEntity,BinarySensorEntity):
