@@ -184,7 +184,11 @@ Screenshot of alarm control panel
 
 #### Enhanced control panel
 
-If you would like to enhance the example with coloured buttons and flashing warning and power 'leds' and are prepated to install the custom buttomn card https://github.com/custom-cards/button-card
+If you would like to enhance the example with coloured buttons and flashing warning and power 'leds' and are prepared to install the custom buttomn card https://github.com/custom-cards/button-card
+
+Screenshot of enhanced alarm control panel
+
+<img src="examples/lovelace-card-custom.png" alt="Alarm control panel" width="200"/>
 
 ```
 type: horizontal-stack
