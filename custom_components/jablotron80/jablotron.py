@@ -929,7 +929,7 @@ class JablotronMessage():
 			#  msg type is still none so next call will work
 		if message_type is None:
 			LOGGER.error(
-					f'Unknown message type {hex(record[0])} with data {packet_data} received')
+					f'Unknown message type {record[0]} with data {packet_data} received')
 			return None
 		else:
 			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
@@ -1083,7 +1083,7 @@ class JablotronSensor(JablotronCommon):
 		self._value = val
 
 @dataclass
-class JablotronWarning(JablotronCommon):
+class JablotronAlert(JablotronCommon):
 	_value: str = field(default='OK',init=False)
 	_message: str = field(default='',init=False)
 
@@ -1107,7 +1107,7 @@ class JablotronWarning(JablotronCommon):
 
 @dataclass
 class JablotronStatusText(JablotronCommon):
-	_message: str = field(default=None,init=False)
+	_message: str = field(default='',init=False)
 
 	@property
 	def active(self) -> str:
@@ -1194,13 +1194,13 @@ class JA80CentralUnit(object):
 		self.last_state = None
 		self.system_status = None
 
-		self._warning = JablotronWarning(2)
-		self._warning.name = f'{CENTRAL_UNIT_MODEL} Warning'
-		self._warning.type = "warning"
+		self._alert = JablotronAlert(2)
+		self._alert.name = f'{CENTRAL_UNIT_MODEL} Alert'
+		self._alert.type = "alert"
 
 		self._statustext = JablotronStatusText(3)
-		self._statustext.name = f'{CENTRAL_UNIT_MODEL} Message'
-		self._statustext.type = "message"
+		self._statustext.name = f'{CENTRAL_UNIT_MODEL} Status Text'
+		self._statustext.type = "status"
 
 		self._active_devices = {}
 		self._active_codes = {}
@@ -1330,12 +1330,12 @@ class JA80CentralUnit(object):
 		self._rf_level.value= rf_level
 
 	@property
-	def warning(self) -> JablotronWarning:
-		return self._warning
+	def alert(self) -> JablotronAlert:
+		return self._alert
 	
-	@warning.setter
-	def warning(self,warning: str) -> None:
-		self._warning.value= warning
+	@alert.setter
+	def alert(self,alert: str) -> None:
+		self._alert.value= alert
 
 	@property
 	def statustext(self) -> JablotronStatusText:
@@ -1649,8 +1649,7 @@ class JA80CentralUnit(object):
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
-			# don't clear triggers until the alarm is set or warnings are cancelled
-			# self._clear_triggers()
+			self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
 
@@ -1710,22 +1709,22 @@ class JA80CentralUnit(object):
 		activity_name = "Unknown"
 
 		status = data[1]
-		activity = data[2] & 0x3f # take lower bit below 0x40
+		activity = data[2]
 		detail = data[3]
 		leds = data[4]
 		self.led_a = (leds & 0x08) == 0x08
 		self.led_b = (leds & 0x04) == 0x04
 		self.led_c = (leds & 0x02) == 0x02
 		self.led_power  = (leds & 0x01) == 0x01 # if this is not set, power is out on control panel and power led flashes
-		self.led_alarm = (leds & 0x10) == 0x10 # warning triagle may be flashing or solid
-		self.led_solid_alarm = (leds & 0x20) == 0x20 # The warning triangle is solid
+		self.led_alarm = (leds & 0x10) == 0x10 # alert triagle may be flashing or solid
+		self.led_solid_alarm = (leds & 0x20) == 0x20 # The alert triangle is solid
 		
 		if self.led_solid_alarm:
-			self.warning = "Fault"
+			self.alert = "Fault"
 		elif self.led_alarm:
-			self.warning = "Alarm"
+			self.alert = "Alarm"
 		else:
-			self.warning = "OK"
+			self.alert = "OK"
 
 		detail_2 = data[5]
 		field_2 = data[6]
@@ -1821,7 +1820,7 @@ class JA80CentralUnit(object):
 		else:
 			LOGGER.error(
 				f'Unknown status message status={status} received data={packet_data}')
-
+		
 
 		if activity == 0x00:
 			pass
@@ -1889,16 +1888,20 @@ class JA80CentralUnit(object):
 			activity_name = 'Unconfirmed alarm'
 			self._activate_source(detail)
 
-		elif activity == 0x16:
-			warn = True
-			activity_name = 'Triggered detector (3)'
-			self._activate_source(detail)
-			
+		# the next 3 activities are some sort of status code on arming/disarming
+		elif activity == 0x40:
+			pass
+
+		elif activity == 0x44:
+			pass
+
+		elif activity == 0x4c:
+			pass
+
 		if activity == 0x00:
 			message = state_text
 		elif activity_name == "Unknown":
-			warn = True
-			message = f'Unknown Activity:{hex(activity)}'
+			message = f'Unknown Activity:{activity}'
 		else:
 			message = f'{activity_name}'
 
@@ -1908,13 +1911,13 @@ class JA80CentralUnit(object):
 		# log a warning/info message only once
 		if log:
 			if warn:
-				if message != self.warning.message:
+				if message != self.alert.message:
 					LOGGER.warn(message)
-					self.warning.message = message
+					self.alert.message = message
 			else:
 				if message != self.statustext.message:
 					LOGGER.info(message)
-					self.statustext = message
+					self.statustext.message = message
 		else:
 			LOGGER.debug(message)
 
