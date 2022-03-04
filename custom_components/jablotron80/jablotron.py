@@ -1838,7 +1838,6 @@ class JA80CentralUnit(object):
 			activity_name = 'Service Mode'
 
 		elif activity == 0x02:
-			pass
 			activity_name = 'Maintenence Mode'
 
 		elif activity == 0x04:
