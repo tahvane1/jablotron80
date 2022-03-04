@@ -366,13 +366,18 @@ class JablotronDevice(JablotronCommon):
 			elif not self.model is None:
 				return f'device_{self.model}_{self.device_id}'
 			else:
+
 				# device 52 & 53 are visible in Bypass
 				if self.device_id == 52:
 					return 'Keypad'
 
 				elif self.device_id == 53:
 					return 'Communicator'
-	
+
+				# device 63 is when home assisant sets the alarm (with no code)
+				elif self.device_id == 63:
+					return 'Computer Interface'	
+				
 				return f'device_{self.device_id}'
 		return self._name
 
