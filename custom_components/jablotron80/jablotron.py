@@ -1064,7 +1064,8 @@ class JablotronState():
 		return status in JablotronState.STATES_ALARM
 
 
-
+class JablotronButton(JablotronCommon):
+	pass
 
 class JablotronLed(JablotronCommon):
 	pass
@@ -1201,6 +1202,10 @@ class JA80CentralUnit(object):
 		self._statustext = JablotronStatusText(3)
 		self._statustext.name = f'{CENTRAL_UNIT_MODEL} Status Text'
 		self._statustext.type = "status"
+
+		self._query = JablotronButton(4)
+		self._query.name = f'{CENTRAL_UNIT_MODEL} Query Button'
+		self._query.type = "button"
 
 		self._active_devices = {}
 		self._active_codes = {}
@@ -1344,6 +1349,10 @@ class JA80CentralUnit(object):
 	@statustext.setter
 	def statustext(self,statustext: str) -> None:
 		self._statustext.message = statustext
+
+	@property
+	def query(self) -> JablotronButton:
+		return self._query
 
 	@property
 	def system_status(self) -> str:

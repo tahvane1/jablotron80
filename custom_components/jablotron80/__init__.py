@@ -3,6 +3,7 @@ import asyncio
 from homeassistant.components.alarm_control_panel import DOMAIN as PLATFORM_ALARM_CONTROL_PANEL
 from homeassistant.components.binary_sensor import DOMAIN as PLATFORM_BINARY_SENSOR
 from homeassistant.components.sensor import DOMAIN as PLATFORM_SENSOR
+from homeassistant.components.button import DOMAIN as PLATFORM_BUTTON
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -12,7 +13,7 @@ from .const import (DOMAIN,DATA_JABLOTRON,	DATA_OPTIONS_UPDATE_UNSUBSCRIBER, NAM
 from .jablotron import JA80CentralUnit
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>
-PLATFORMS = [PLATFORM_ALARM_CONTROL_PANEL,PLATFORM_BINARY_SENSOR,PLATFORM_SENSOR]
+PLATFORMS = [PLATFORM_ALARM_CONTROL_PANEL,PLATFORM_BINARY_SENSOR,PLATFORM_SENSOR, PLATFORM_BUTTON]
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
