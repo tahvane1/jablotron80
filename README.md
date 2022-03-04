@@ -35,7 +35,7 @@ Report [issue](https://github.com/tahvane1/jablotron80/issues)
 
 ## Supported devices
 
-This integration has been tested with JA-80K central unit, JA-81F keypad and JA82-T usb cable. Tested sensors include wired door sensors and wired fire alarms.
+This integration has been tested with JA-80K /JA-82K central units, JA-81F keypad and JA82-T usb cable. Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 Development for supporting JA80-T cable is WIP (and not yet working).
 
 ## Examples & configuration
@@ -69,7 +69,7 @@ Each sensor has additional state attributes depending in jablotron configuration
 
 #### Example control panel
 
-Example of a configuration in lovelace wich try to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
+Example of a configuration in lovelace which attempts to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
 
 ```
 type: vertical-stack
@@ -87,6 +87,11 @@ cards:
             color: rgb(255,5,5)
           - value: 'off'
             color: var(--disabled-text-color)
+        tap_action:
+          action: call-service
+          service: button.press
+          service_data:
+            entity_id: button.ja_80k_query_button
       - type: button
         entity: binary_sensor.ja_80k_zone_a_armed
         icon: mdi:alpha-a
@@ -131,19 +136,138 @@ cards:
             color: rgb(5,255,5)
           - value: 'off'
             color: var(--disabled-text-color)
-  - type: horizontal-stack
-    cards:
-      - type: alarm-panel
-        states:
-          - arm_home
-          - arm_away
-        entity: alarm_control_panel.jablotron_control_panel_a_ab_abc
+  - type: conditional
+    conditions:
+      - entity: sensor.ja_80k_alert
+        state_not: OK
+    card:
+      type: entity
+      entity: sensor.ja_80k_alert
+      attribute: message
+      name: Alert
+      state_color: false
+      icon: mdi:alert
+      style: |
+        ha-card
+        .value {
+          font-size: 22px
+        }
+  - type: conditional
+    conditions:
+      - entity: binary_sensor.ja_80k_status_text
+        state: 'on'
+    card:
+      type: entity
+      entity: binary_sensor.ja_80k_status_text
+      icon: mdi:information
+      name: Keypad Message
+      attribute: message
+  - type: alarm-panel
+    states:
+      - arm_home
+      - arm_away
+      - arm_night
+    entity: alarm_control_panel.jablotron_control_panel_a_ab_abc
+    name: House Alarm
+  - type: entity
+    entity: binary_sensor.ja_80k_control_panel
+    attribute: last event
+    name: Last Event
+    icon: mdi:history
+    style: |
+      ha-card
+      .value {
+        font-size: 16px
+      }
 ```
 
 Screenshot of alarm control panel
 
 <img src="examples/lovelace-card.png" alt="Alarm control panel" width="200"/>
 
+
+
+#### Enhanced control panel
+
+If you would like to enhance the example with coloured buttons and flashing Warning and Power 'leds' and are prepared to install the custom button card https://github.com/custom-cards/button-card (installable via HACS), you can use the following snippet
+
+Screenshot of enhanced alarm control panel
+
+<img src="examples/lovelace-card-custom.png" alt="Enhanced Alarm control panel" width="200"/>
+
+```
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    entity: sensor.ja_80k_alert
+    icon: mdi:alert-outline
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: Fault
+        color: rgb(255,5,5)
+      - value: Alarm
+        color: rgb(255,5,5)
+        styles:
+          card:
+            - animation: blink 2s ease infinite
+      - value: OK
+        color: var(--disabled-text-color)
+    tap_action:
+      action: call-service
+      service: button.press
+      service_data:
+        entity_id: button.ja_80k_query_button
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_a_armed
+    icon: mdi:alpha-a
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_b_armed
+    icon: mdi:alpha-b
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_zone_c_armed
+    icon: mdi:alpha-c
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(255,5,5)
+      - value: 'off'
+        color: var(--disabled-text-color)
+  - type: custom:button-card
+    entity: binary_sensor.ja_80k_power
+    icon: mdi:power
+    color_type: icon
+    show_name: false
+    show_state: false
+    state:
+      - value: 'on'
+        color: rgb(5,255,5)
+      - value: 'off'
+        color: rgb(5,255,5)
+        styles:
+          card:
+            - animation: blink 2s ease infinite
+
+```
 
 ## Troubleshooting
 
