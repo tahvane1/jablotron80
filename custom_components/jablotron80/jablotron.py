@@ -1551,7 +1551,7 @@ class JA80CentralUnit(object):
 
 	
 	def _process_event(self, data: bytearray, packet_data: str) -> None:
-		date_time_obj = self._get_timestamp(data[1:5])
+		date_time_obj = self._get_timestamp(data[1:5]) # type: datetime.datetime
 		event_type = data[5]
 		event_name = "Unknown"
 		warn = False
