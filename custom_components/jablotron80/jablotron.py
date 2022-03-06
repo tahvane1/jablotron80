@@ -1908,7 +1908,6 @@ class JA80CentralUnit(object):
 				self._confirm_device_query()
 
 		elif activity == 0x12:
-			warn = True
 			activity_name = 'Active output'
 			self._activate_source(detail)
 
