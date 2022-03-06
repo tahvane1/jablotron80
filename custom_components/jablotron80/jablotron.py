@@ -1699,6 +1699,14 @@ class JA80CentralUnit(object):
 				event_name = event_name + ", Control panel"
 			warn = True
 			self._activate_source(source)
+		elif event_type == 0x5c:
+			event_name = "PGX On"
+		elif event_type == 0x5d:
+			event_name = "PGX Off"
+		elif event_type == 0x5e:
+			event_name = "PGY On"
+		elif event_type == 0x5f:
+			event_name = "PGY Off"
 
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
