@@ -1585,18 +1585,19 @@ class JA80CentralUnit(object):
 			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 			self._activate_source(source)
 		elif event_type == 0x05:
-			event_name = "Tamper alarm"
+			event_name = "Tampering alarm"
 			# entering service mode, source = by which id
 			self._device_tampered(source)
 			self._activate_source(source)
 			warn = True
+			if source == 0x0:
+				event_name += ", Control panel"
 		elif event_type == 0x06:
 			event_name = "Tampering key pad (wrong code?)"
 			warn = True
 			self._device_tampered(source)
 			self._activate_source(source)
 		elif event_type == 0x07:
-			# after coming out of Service mode
 			event_name = "Fault"
 			warn = True
 			self._activate_source(source)
@@ -1626,19 +1627,18 @@ class JA80CentralUnit(object):
 			warn = True
 			self._activate_source(source)
 		elif event_type == 0x0f:
-			event_name = "Fault, Control panel"
+			event_name = "Power fault of control panel"
 			warn = True
 			self._activate_source(source)			
 		elif event_type == 0x10:
-			event_name = "Discharged battery, Control panel (1)"
-			warn = True
+			event_name = "Control panel power O.K."
 			self._device_battery_low(source)
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
 			warn = True
 			self._device_battery_low(source)
 		elif event_type == 0x14:
-			event_name = "Discharged battery, Control panel (2)"
+			event_name = "Backup battery fault"
 			warn = True
 			self._device_battery_low(source)
 		elif event_type == 0x17:
@@ -1663,6 +1663,9 @@ class JA80CentralUnit(object):
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 			self._call_zone(2,by = source,function_name="arming")
+
+		elif event_type == 0x40:
+			event_name = "Control panel powering up"
 
 		elif event_type == 0x41:
 			event_name = "Enter Elevated Mode"
@@ -1692,7 +1695,7 @@ class JA80CentralUnit(object):
 			else:
 				self._clear_faults()
 		elif event_type == 0x52:
-			event_name = "Battery OK"
+			event_name = "All devices' power O.K."
 			self._clear_battery()
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
