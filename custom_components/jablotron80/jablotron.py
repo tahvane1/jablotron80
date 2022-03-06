@@ -1692,9 +1692,9 @@ class JA80CentralUnit(object):
 		#crc = data[7]
 
 		if source == 0x0:
-			log = f'{event_name}, Date={date_time_obj}'
+			log = f'{event_name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 		else:
-			log = f'{event_name}, {source}:{self._get_source(source).name}, Date={date_time_obj}'
+			log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 
 		if warn:
 			LOGGER.warn(log)
