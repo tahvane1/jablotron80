@@ -1734,7 +1734,7 @@ class JA80CentralUnit(object):
 
 
 	def _send_device_query(self)->None:
-		if not self._device_query_pending:
+		#if not self._device_query_pending:
 			self.send_detail_command()
 			
 	def _confirm_device_query(self)->None:
@@ -1840,11 +1840,11 @@ class JA80CentralUnit(object):
 		if JablotronState.is_armed_state(status):
 			state_text = ''
 		elif JablotronState.is_service_state(status):
-			state_text = 'Service Mode'
+			state_text = 'Service'
 			self.status = JA80CentralUnit.STATUS_SERVICE
 			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
-			state_text = 'Maintenence Mode'
+			state_text = 'Maintenence'
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
 			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
@@ -1857,24 +1857,27 @@ class JA80CentralUnit(object):
 			state_text = ''
 		else:
 			LOGGER.error(
-				f'Unknown status message status={status} received data={packet_data}')
+				f'Unknown status message status={hex(status)} received data={packet_data}')
 
 
 		if activity == 0x00:
+			activity_name = ''
 			pass
 
 		elif activity == 0x01:
-			activity_name = 'Service Mode'
+			activity_name = 'Service'
 
 		elif activity == 0x02:
-			activity_name = 'Maintenence Mode'
+			activity_name = 'Maintenence'
+
+		elif activity == 0x03:
+			activity_name = 'Enrollment'
 
 		elif activity == 0x04:
 			activity_name = 'Key pressed'
 
 		elif activity == 0x06:
 			# trigger during testing, i.e. maintenance mode
-			warn = True
 			activity_name = 'Alarm'
 			self._activate_source(detail)
 
@@ -1894,6 +1897,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
 
+		elif activity == 0x0b:
+			activity_name = 'Bypass'
+
 		elif activity == 0x0c:
 			activity_name = 'Exit delay'
 
@@ -1905,9 +1911,12 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector'
 			# something is active
 			if detail == 0x00:
-				if activity_name not in self.statustext.message:
+				if activity_name not in self.statustext.message or activity_name == self.statustext.message:
 					# no details... ask..
-					self._send_device_query()
+					if self._device_query_pending:
+						self._send_device_query()
+
+					self._send_device_query()				
 				else:
 					log = False
 			else:
@@ -1929,9 +1938,10 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector (3)'
 
 		if activity == 0x00:
-			message = state_text
+			pass
+#			message = state_text
+			message = f'{activity_name}'
 		elif activity_name == "Unknown":
-			warn = True
 			message = f'Unknown Activity:{hex(activity)}'
 		else:
 			message = f'{activity_name}'
@@ -1939,18 +1949,62 @@ class JA80CentralUnit(object):
 		if detail != 0x0:
 			message = message + f', {detail}:{self._get_source_name(detail)}'
 
-		# log a warning/info message only once
-		if log:
-			if warn:
-				if message != self.alert.message:
-					LOGGER.warn(message)
-					self.alert.message = message
+		# if there is no alert and messages are different, concatenate them
+		if message != state_text and (self.alert.value == "OK" or not warn) and message != '':
+			if state_text != '':
+				state_text = state_text + ", " + message 
 			else:
-				if message != self.statustext.message:
-					LOGGER.info(message)
-					self.statustext.message = message
-		else:
-			LOGGER.debug(message)
+				state_text = message
+
+		# log the message, but only if it is different to last time
+
+		if log:
+			if state_text != '' and state_text != None:
+				if state_text != self.statustext.message:
+					LOGGER.info('status: ' + state_text)
+					self.statustext.message = state_text
+				else:
+					LOGGER.debug('status: ' + state_text)
+			elif (log and self.alert.value =="OK") or activity == 0x00:
+				self.statustext.message = ''		
+
+		# log the alert
+		if self.alert.value != "OK" and warn:
+
+			if message != self.alert.message:
+				LOGGER.info('alert: ' + message)
+				self.alert.message = message
+			else:
+				LOGGER.debug('alert: ' + message)
+
+#		else:
+#			self.alert.message = "Unknown, press '?' button for detail"
+
+
+
+		# log a warning/info message only once
+#		if log:
+#			if warn:
+#				if message != self.alert.message:
+#					LOGGER.info(message)
+#					self.alert.message = message
+#			else:
+#				if message != self.statustext.message:
+#					LOGGER.info(message)
+#					self.statustext.message = message
+#		else:
+#			LOGGER.debug(message)
+
+#		if message != self.statustext.message:
+#			LOGGER.info('status: ' + message)
+#			self.statustext.message = message
+#		else:
+#			LOGGER.debug('status: ' + message)
+#
+#		if warn:
+#			self.alert.message = message
+#		else:
+#			self.alert.message = ''
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
@@ -1960,8 +2014,8 @@ class JA80CentralUnit(object):
 		month = f'{data[1]:02x}'
 		hours = f'{data[2]:02x}'
 		minutes = f'{data[3]:02x}'
-		date_time_str = f'{self._year}-{month}-{day} {hours}:{minutes}'
-		return datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M')
+		date_time_str = f'{hours}:{minutes} {day}-{month}-{self._year}'
+		return datetime.datetime.strptime(date_time_str, '%H:%M %d-%m-%Y')
 
 	def _process_settings(self, data: bytearray, packet_data: str) -> None:
 		setting_type_1 = data[1]
