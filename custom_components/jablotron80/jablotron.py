@@ -372,6 +372,12 @@ class JablotronDevice(JablotronCommon):
 
 				elif self.device_id == 53:
 					return 'Communicator'
+
+				elif self.device_id == 60:
+					return 'PGX'
+
+				elif self.device_id == 61:
+					return 'PGY'
 	
 				return f'device_{self.device_id}'
 		return self._name
