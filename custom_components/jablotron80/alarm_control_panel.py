@@ -241,7 +241,10 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 
 	@property
 	def available(self) -> bool:
-		return self._cu.led_power
+		#return self._cu.led_power
+		# when running on battery power the led in off (well flashing) and the sytem is still working see issue#85
+		# we should enhance this to be based on the data flowing on the serial line
+		return True
 
 	@property
 	def device_info(self) -> Optional[Dict[str, Any]]:
