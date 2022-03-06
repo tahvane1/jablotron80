@@ -1679,7 +1679,7 @@ class JA80CentralUnit(object):
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
 			if source == 0x00:
-				# This event occurs when an entrace delay is caused by an unconfirmed alarm
+				# This event occurs when an entrance delay is caused by an unconfirmed alarm
 				# It looks to me like a bug in the firmware to show this as the alarm should only be triggered once
 				# the second detector is triggered. But the aim of this software is to replicate the alerts of the alarm system.
 				# TODO: Check the alarm logs to see what is registered. 
