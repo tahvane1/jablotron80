@@ -373,11 +373,17 @@ class JablotronDevice(JablotronCommon):
 
 				elif self.device_id == 53:
 					return 'Communicator'
+        
+				elif self.device_id == 60:
+					return 'PGX'
 
+				elif self.device_id == 61:
+					return 'PGY'
+        
 				# device 63 is when home assisant sets the alarm (with no code)
 				elif self.device_id == 63:
 					return 'Computer Interface'	
-				
+        
 				return f'device_{self.device_id}'
 		return self._name
 
@@ -1698,6 +1704,14 @@ class JA80CentralUnit(object):
 				event_name = event_name + ", Control panel"
 			warn = True
 			self._activate_source(source)
+		elif event_type == 0x5c:
+			event_name = "PGX On"
+		elif event_type == 0x5d:
+			event_name = "PGX Off"
+		elif event_type == 0x5e:
+			event_name = "PGY On"
+		elif event_type == 0x5f:
+			event_name = "PGY Off"
 
 		else:
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
@@ -1898,8 +1912,7 @@ class JA80CentralUnit(object):
 				self._confirm_device_query()
 
 		elif activity == 0x12:
-			warn = True
-			activity_name = 'Triggered detector (2)'
+			activity_name = 'Active output'
 			self._activate_source(detail)
 
 		elif activity == 0x14:
