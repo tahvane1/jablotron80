@@ -198,6 +198,8 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			default_name = f'code {code.code_id} user'
 			if code.id == 0:
 				default_name = "Master"
+			if code.id == 63:
+				default_name = "Service"
 			fields[vol.Required("code_{:03}_name".format(code.id),default=default_name)] = str
 
 		return self.async_show_form(
