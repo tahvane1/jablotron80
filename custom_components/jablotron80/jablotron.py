@@ -1571,18 +1571,23 @@ class JA80CentralUnit(object):
 	def _process_event(self, data: bytearray, packet_data: str) -> None:
 		date_time_obj = self._get_timestamp(data[1:5]) # type: datetime.datetime
 		event_type = data[5]
-		event_name = "Unknown"
-		warn = False
+		event_name = "Unknown" # default name to Unknown if we don't know what it is
+		warn = False # by defalt we will log an info message, but for important items we will install warn
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
-		if event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
-			event_name = "Sensor Activated"
-			# alarm or doorm open?, source = device id
-			# 0x01 motion?
-			# 0x02 door/natural
-			# 0x03 fire alarm
+		if event_type == 0x01:
+			event_name = "PIR Activated"
 			# can source be also code? Now assuming it is device.
 			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
+			self._activate_source(source)
+		elif event_type == 0x02:
+			event_name = "Door Activated"
+			self._activate_source(source)
+		elif event_type == 0x03:
+			event_name = "Fire Alarm Activated"
+			self._activate_source(source)
+		elif event_type == 0x04:
+			event_name = "Sensor Activated"
 			self._activate_source(source)
 		elif event_type == 0x05:
 			event_name = "Tampering alarm"
@@ -1632,7 +1637,6 @@ class JA80CentralUnit(object):
 			self._activate_source(source)			
 		elif event_type == 0x10:
 			event_name = "Control panel power O.K."
-			self._device_battery_low(source)
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
 			warn = True
@@ -1656,33 +1660,26 @@ class JA80CentralUnit(object):
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(2,by = source,function_name="arming")
-
 		elif event_type == 0x21:
 			event_name = "Partial Set A,B"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 			self._call_zone(2,by = source,function_name="arming")
-
 		elif event_type == 0x40:
 			event_name = "Control panel powering up"
-
 		elif event_type == 0x41:
 			event_name = "Enter Elevated Mode"
-
 		elif event_type == 0x42:
 			event_name = "Exit Elevated Mode"
-
 		elif event_type == 0x44:
 			event_name = "Data sent to ARC"
-
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
 			self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
-
 		elif event_type == 0x50:
 			# received when all tamper alarms are removed (though alarm warnings may be present via status messages)
 			event_name = "All tamper contacts OK"
