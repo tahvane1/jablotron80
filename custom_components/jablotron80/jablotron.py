@@ -1740,8 +1740,8 @@ class JA80CentralUnit(object):
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
 		warn = False # should a warning message be logged
 		log = True # should a message be logged at all
-		message = None # message text (attempting to get close to keypad text) 
 		activity_name = "Unknown"
+		state_text = "Unknown"
 
 		status = data[1]
 		activity = data[2] & 0x3f # take lower bit below 0x40
@@ -1859,7 +1859,6 @@ class JA80CentralUnit(object):
 
 		if activity == 0x00:
 			activity_name = ''
-			pass
 
 		elif activity == 0x01:
 			activity_name = 'Service'
@@ -1874,7 +1873,6 @@ class JA80CentralUnit(object):
 			activity_name = 'Key pressed'
 
 		elif activity == 0x06:
-			# trigger during testing, i.e. maintenance mode
 			activity_name = 'Alarm'
 			self._activate_source(detail)
 
@@ -1884,7 +1882,6 @@ class JA80CentralUnit(object):
 			self._activate_source(detail)
 
 		elif activity == 0x08:
-			# "Fault" (on keypad), "lost communication with device" in logs, also power out on control panel
 			warn = True
 			activity_name = 'Fault'
 			self._activate_source(detail)
@@ -1939,6 +1936,12 @@ class JA80CentralUnit(object):
 #			message = state_text
 			message = f'{activity_name}'
 		elif activity_name == "Unknown":
+			self._activate_source(detail)
+
+
+
+		# build message text based on activity and source if one exists	
+		if activity_name == "Unknown":
 			message = f'Unknown Activity:{hex(activity)}'
 		else:
 			message = f'{activity_name}'
@@ -1946,25 +1949,28 @@ class JA80CentralUnit(object):
 		if detail != 0x0:
 			message = message + f', {detail}:{self._get_source_name(detail)}'
 
-		# if there is no alert and messages are different, concatenate them
-		if message != state_text and (self.alert.value == "OK" or not warn) and message != '':
-			if state_text != '':
-				state_text = state_text + ", " + message 
-			else:
+		# build the "non alert" message text out of the state and the activity text
+		# if they are different, concatenate them so we don't lose any info
+		# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
+		if self.alert.value == "OK" or not warn:		
+
+			if activity_name == state_text:
 				state_text = message
+			else:
+				if state_text != '':
+					state_text = state_text + ", " + message 
+				else:
+					state_text = message
 
 		# log the message, but only if it is different to last time
-
 		if log:
-			if state_text != '' and state_text != None:
-				if state_text != self.statustext.message:
-					LOGGER.info('status: ' + state_text)
-					self.statustext.message = state_text
-				else:
-					LOGGER.debug('status: ' + state_text)
-			elif (log and self.alert.value =="OK") or activity == 0x00:
-				self.statustext.message = ''		
 
+			if state_text != self.statustext.message:
+				LOGGER.info('status: ' + state_text)
+				self.statustext.message = state_text
+			else:
+				LOGGER.debug('status: ' + state_text)
+	
 		# log the alert
 		if self.alert.value != "OK" and warn:
 
@@ -1974,34 +1980,10 @@ class JA80CentralUnit(object):
 			else:
 				LOGGER.debug('alert: ' + message)
 
+
+
 #		else:
 #			self.alert.message = "Unknown, press '?' button for detail"
-
-
-
-		# log a warning/info message only once
-#		if log:
-#			if warn:
-#				if message != self.alert.message:
-#					LOGGER.info(message)
-#					self.alert.message = message
-#			else:
-#				if message != self.statustext.message:
-#					LOGGER.info(message)
-#					self.statustext.message = message
-#		else:
-#			LOGGER.debug(message)
-
-#		if message != self.statustext.message:
-#			LOGGER.info('status: ' + message)
-#			self.statustext.message = message
-#		else:
-#			LOGGER.debug('status: ' + message)
-#
-#		if warn:
-#			self.alert.message = message
-#		else:
-#			self.alert.message = ''
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
