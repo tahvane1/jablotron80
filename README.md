@@ -219,6 +219,8 @@ cards:
       service: button.press
       service_data:
         entity_id: button.ja_80k_query_button
+    hold_action:
+      action: more-info
   - type: custom:button-card
     entity: binary_sensor.ja_80k_zone_a_armed
     icon: mdi:alpha-a
