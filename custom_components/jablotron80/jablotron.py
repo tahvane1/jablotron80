@@ -1926,8 +1926,17 @@ class JA80CentralUnit(object):
 
 		elif activity == 0x16:
 			warn = True
+			# unknown activity from JohnnyM84
 			activity_name = 'Triggered detector (3)'
-			self._activate_source(detail)
+			if detail == 0x00:
+				if activity_name not in self.statustext.message:
+					# no details... ask..
+					self._send_device_query()
+				else:
+					log = False
+			else:
+				self._activate_source(detail)
+				self._confirm_device_query()
 			
 		if activity == 0x00:
 			message = state_text
