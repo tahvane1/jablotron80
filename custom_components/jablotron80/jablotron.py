@@ -1923,7 +1923,6 @@ class JA80CentralUnit(object):
 			self._activate_source(detail)
 
 		elif activity == 0x16:
-			# unknown activity from JohnnyM84
 			activity_name = 'Triggered detector (multiple)'
 			# multiple things are active
 			if detail == 0x00:
