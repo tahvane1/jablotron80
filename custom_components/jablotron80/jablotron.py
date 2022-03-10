@@ -1738,11 +1738,6 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
-		warn = False # should a warning message be logged
-		log = True # should a message be logged at all
-		activity_name = "Unknown"
-		state_text = "Unknown"
-
 		status = data[1]
 		activity = data[2] & 0x3f # take lower bit below 0x40
 		detail = data[3]
@@ -1856,6 +1851,9 @@ class JA80CentralUnit(object):
 			LOGGER.error(
 				f'Unknown status message status={hex(status)} received data={packet_data}')
 
+		activity_name = "Unknown"
+		warn = False # should a warning message be logged
+		log = True # should a message be logged at all
 
 		if activity == 0x00:
 			activity_name = ''
