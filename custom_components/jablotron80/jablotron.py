@@ -1731,7 +1731,7 @@ class JA80CentralUnit(object):
 
 
 	def _send_device_query(self)->None:
-		#if not self._device_query_pending:
+		if not self._device_query_pending:
 			self.send_detail_command()
 			
 	def _confirm_device_query(self)->None:
@@ -1994,8 +1994,8 @@ class JA80CentralUnit(object):
 		month = f'{data[1]:02x}'
 		hours = f'{data[2]:02x}'
 		minutes = f'{data[3]:02x}'
-		date_time_str = f'{hours}:{minutes} {day}-{month}-{self._year}'
-		return datetime.datetime.strptime(date_time_str, '%H:%M %d-%m-%Y')
+		date_time_str = f'{self._year}-{month}-{day} {hours}:{minutes}'
+		return datetime.datetime.strptime(date_time_str, '%Y-%m-%d %H:%M')
 
 	def _process_settings(self, data: bytearray, packet_data: str) -> None:
 		setting_type_1 = data[1]
