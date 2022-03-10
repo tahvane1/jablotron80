@@ -1923,16 +1923,6 @@ class JA80CentralUnit(object):
 			self._activate_source(detail)
 
 		elif activity == 0x16:
-			# as yet, unclear activity from JohnnyM84
-			activity_name = 'Triggered detector (3)'
-
-		if activity == 0x00:
-			pass
-#			message = state_text
-			message = f'{activity_name}'
-		elif activity_name == "Unknown":
-			self._activate_source(detail)
-			# unknown activity from JohnnyM84
 			activity_name = 'Triggered detector (multiple)'
 			# multiple things are active
 			if detail == 0x00:
