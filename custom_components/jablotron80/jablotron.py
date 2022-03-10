@@ -1851,7 +1851,6 @@ class JA80CentralUnit(object):
 			LOGGER.error(
 				f'Unknown status message status={hex(status)} received data={packet_data}')
 
-		activity_name = "Unknown"
 		warn = False # should a warning message be logged
 		log = True # should a message be logged at all
 
@@ -1871,6 +1870,7 @@ class JA80CentralUnit(object):
 			activity_name = 'Key pressed'
 
 		elif activity == 0x06:
+			warn = True
 			activity_name = 'Alarm'
 			self._activate_source(detail)
 
@@ -1903,11 +1903,8 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector'
 			# something is active
 			if detail == 0x00:
+				# don't send query if we already have "triggered detector" displayed
 				if activity_name not in self.statustext.message or activity_name == self.statustext.message:
-					# no details... ask..
-					if self._device_query_pending:
-						self._send_device_query()
-
 					self._send_device_query()				
 				else:
 					log = False
@@ -1935,49 +1932,55 @@ class JA80CentralUnit(object):
 			message = f'{activity_name}'
 		elif activity_name == "Unknown":
 			self._activate_source(detail)
+			# unknown activity from JohnnyM84
+			activity_name = 'Triggered detector (multiple)'
+			# multiple things are active
+			if detail == 0x00:
+				# no details... ask..
+				self._send_device_query()				
+			else:
+				self._activate_source(detail)
+				self._confirm_device_query()
 
-
-
-		# build message text based on activity and source if one exists	
-		if activity_name == "Unknown":
-			message = f'Unknown Activity:{hex(activity)}'
 		else:
-			message = f'{activity_name}'
+			activity_name = f'Unknown Activity:{hex(activity)}'
+
+
+		message = f'{activity_name}'
 
 		if detail != 0x0:
 			message = message + f', {detail}:{self._get_source_name(detail)}'
 
-		# build the "non alert" message text out of the state and the activity text
-		# if they are different, concatenate them so we don't lose any info
-		# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
-		if self.alert.value == "OK" or not warn:		
-
-			if activity_name == state_text:
-				state_text = message
-			else:
-				if state_text != '':
-					state_text = state_text + ", " + message 
-				else:
-					state_text = message
-
-		# log the message, but only if it is different to last time
 		if log:
 
-			if state_text != self.statustext.message:
-				LOGGER.info('status: ' + state_text)
-				self.statustext.message = state_text
-			else:
-				LOGGER.debug('status: ' + state_text)
-	
-		# log the alert
-		if self.alert.value != "OK" and warn:
+			# build the "non alert" message text out of the state and the activity text
+			# if they are different, concatenate them so we don't lose any info
+			# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
+			if not warn:		
 
-			if message != self.alert.message:
-				LOGGER.info('alert: ' + message)
-				self.alert.message = message
-			else:
-				LOGGER.debug('alert: ' + message)
+				if activity_name == state_text:
+					state_text = message
+				else:
+					if state_text != '':
+						state_text = state_text + ", " + message 
+					else:
+						state_text = message
 
+				if state_text != self.statustext.message:
+					LOGGER.info('status: ' + state_text)
+					self.statustext.message = state_text
+				else:
+					LOGGER.debug('status: ' + state_text)
+
+			# log the message as an alert/alarm since the warning triangle is lit
+			else:
+				if message != self.alert.message:
+					LOGGER.info('alert: ' + message)
+					self.alert.message = message
+				else:
+					LOGGER.debug('alert: ' + message)
+		else:
+			LOGGER.debug(message)
 
 
 #		else:
