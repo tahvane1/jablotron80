@@ -1571,18 +1571,23 @@ class JA80CentralUnit(object):
 	def _process_event(self, data: bytearray, packet_data: str) -> None:
 		date_time_obj = self._get_timestamp(data[1:5]) # type: datetime.datetime
 		event_type = data[5]
-		event_name = "Unknown"
-		warn = False
+		event_name = "Unknown" # default name to Unknown if we don't know what it is
+		warn = False # by defalt we will log an info message, but for important items we will install warn
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
-		if event_type == 0x01 or event_type == 0x02 or event_type == 0x03 or event_type == 0x04:
-			event_name = "Sensor Activated"
-			# alarm or doorm open?, source = device id
-			# 0x01 motion?
-			# 0x02 door/natural
-			# 0x03 fire alarm
+		if event_type == 0x01:
+			event_name = "PIR Activated"
 			# can source be also code? Now assuming it is device.
 			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
+			self._activate_source(source)
+		elif event_type == 0x02:
+			event_name = "Door Activated"
+			self._activate_source(source)
+		elif event_type == 0x03:
+			event_name = "Fire Alarm Activated"
+			self._activate_source(source)
+		elif event_type == 0x04:
+			event_name = "Sensor Activated"
 			self._activate_source(source)
 		elif event_type == 0x05:
 			event_name = "Tampering alarm"
@@ -1632,7 +1637,6 @@ class JA80CentralUnit(object):
 			self._activate_source(source)			
 		elif event_type == 0x10:
 			event_name = "Control panel power O.K."
-			self._device_battery_low(source)
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
 			warn = True
@@ -1656,33 +1660,26 @@ class JA80CentralUnit(object):
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(2,by = source,function_name="arming")
-
 		elif event_type == 0x21:
 			event_name = "Partial Set A,B"
 			code  = self._get_source(source)
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 			self._call_zone(2,by = source,function_name="arming")
-
 		elif event_type == 0x40:
 			event_name = "Control panel powering up"
-
 		elif event_type == 0x41:
 			event_name = "Enter Elevated Mode"
-
 		elif event_type == 0x42:
 			event_name = "Exit Elevated Mode"
-
 		elif event_type == 0x44:
 			event_name = "Data sent to ARC"
-
 		elif event_type == 0x4e:
 			event_name = "Alarm Cancelled"
 			# alarm cancelled / disarmed, source = by which code
 			self._clear_triggers()
 			#code is specific to zone or master TODO
 			self._call_zones(function_name="disarm",source_id=source)
-
 		elif event_type == 0x50:
 			# received when all tamper alarms are removed (though alarm warnings may be present via status messages)
 			event_name = "All tamper contacts OK"
@@ -1741,11 +1738,6 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
-		warn = False # should a warning message be logged
-		log = True # should a message be logged at all
-		message = None # message text (attempting to get close to keypad text) 
-		activity_name = "Unknown"
-
 		status = data[1]
 		activity = data[2] & 0x3f # take lower bit below 0x40
 		detail = data[3]
@@ -1840,11 +1832,11 @@ class JA80CentralUnit(object):
 		if JablotronState.is_armed_state(status):
 			state_text = ''
 		elif JablotronState.is_service_state(status):
-			state_text = 'Service Mode'
+			state_text = 'Service'
 			self.status = JA80CentralUnit.STATUS_SERVICE
 			self.notify_service()
 		elif JablotronState.is_maintenance_state(status):
-			state_text = 'Maintenence Mode'
+			state_text = 'Maintenence'
 			self.status = JA80CentralUnit.STATUS_MAINTENANCE
 			self.notify_service()
 		elif JablotronState.is_exit_delay_state(status):
@@ -1857,23 +1849,27 @@ class JA80CentralUnit(object):
 			state_text = ''
 		else:
 			LOGGER.error(
-				f'Unknown status message status={status} received data={packet_data}')
+				f'Unknown status message status={hex(status)} received data={packet_data}')
 
+		warn = False # should a warning message be logged
+		log = True # should a message be logged at all
 
 		if activity == 0x00:
-			pass
+			activity_name = ''
 
 		elif activity == 0x01:
-			activity_name = 'Service Mode'
+			activity_name = 'Service'
 
 		elif activity == 0x02:
-			activity_name = 'Maintenence Mode'
+			activity_name = 'Maintenence'
+
+		elif activity == 0x03:
+			activity_name = 'Enrollment'
 
 		elif activity == 0x04:
 			activity_name = 'Key pressed'
 
 		elif activity == 0x06:
-			# trigger during testing, i.e. maintenance mode
 			warn = True
 			activity_name = 'Alarm'
 			self._activate_source(detail)
@@ -1884,7 +1880,6 @@ class JA80CentralUnit(object):
 			self._activate_source(detail)
 
 		elif activity == 0x08:
-			# "Fault" (on keypad), "lost communication with device" in logs, also power out on control panel
 			warn = True
 			activity_name = 'Fault'
 			self._activate_source(detail)
@@ -1893,6 +1888,9 @@ class JA80CentralUnit(object):
 			warn = True
 			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
+
+		elif activity == 0x0b:
+			activity_name = 'Bypass'
 
 		elif activity == 0x0c:
 			activity_name = 'Exit delay'
@@ -1905,9 +1903,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Triggered detector'
 			# something is active
 			if detail == 0x00:
-				if activity_name not in self.statustext.message:
-					# no details... ask..
-					self._send_device_query()
+				# don't send query if we already have "triggered detector" displayed
+				if activity_name not in self.statustext.message or activity_name == self.statustext.message:
+					self._send_device_query()				
 				else:
 					log = False
 			else:
@@ -1925,32 +1923,58 @@ class JA80CentralUnit(object):
 			self._activate_source(detail)
 
 		elif activity == 0x16:
-			# as yet, unclear activity from JohnnyM84
-			activity_name = 'Triggered detector (3)'
+			activity_name = 'Triggered detector (multiple)'
+			# multiple things are active
+			if detail == 0x00:
+				# no details... ask..
+				self._send_device_query()				
+			else:
+				self._activate_source(detail)
+				self._confirm_device_query()
 
-		if activity == 0x00:
-			message = state_text
-		elif activity_name == "Unknown":
-			warn = True
-			message = f'Unknown Activity:{hex(activity)}'
 		else:
-			message = f'{activity_name}'
+			activity_name = f'Unknown Activity:{hex(activity)}'
+
+
+		message = f'{activity_name}'
 
 		if detail != 0x0:
 			message = message + f', {detail}:{self._get_source_name(detail)}'
 
-		# log a warning/info message only once
 		if log:
-			if warn:
-				if message != self.alert.message:
-					LOGGER.warn(message)
-					self.alert.message = message
+
+			# build the "non alert" message text out of the state and the activity text
+			# if they are different, concatenate them so we don't lose any info
+			# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
+			if not warn:		
+
+				if activity_name == state_text:
+					state_text = message
+				else:
+					if state_text != '':
+						state_text = state_text + ", " + message 
+					else:
+						state_text = message
+
+				if state_text != self.statustext.message:
+					LOGGER.info('status: ' + state_text)
+					self.statustext.message = state_text
+				else:
+					LOGGER.debug('status: ' + state_text)
+
+			# log the message as an alert/alarm since the warning triangle is lit
 			else:
-				if message != self.statustext.message:
-					LOGGER.info(message)
-					self.statustext.message = message
+				if message != self.alert.message:
+					LOGGER.info('alert: ' + message)
+					self.alert.message = message
+				else:
+					LOGGER.debug('alert: ' + message)
 		else:
 			LOGGER.debug(message)
+
+
+#		else:
+#			self.alert.message = "Unknown, press '?' button for detail"
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
