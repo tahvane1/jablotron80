@@ -1848,6 +1848,7 @@ class JA80CentralUnit(object):
 		elif JablotronState.is_disarmed_state(status):
 			state_text = ''
 		else:
+			state_text = 'Unknown'
 			LOGGER.error(
 				f'Unknown status message status={hex(status)} received data={packet_data}')
 
@@ -1971,10 +1972,6 @@ class JA80CentralUnit(object):
 					LOGGER.debug('alert: ' + message)
 		else:
 			LOGGER.debug(message)
-
-
-#		else:
-#			self.alert.message = "Unknown, press '?' button for detail"
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
