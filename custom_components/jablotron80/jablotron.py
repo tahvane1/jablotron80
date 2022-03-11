@@ -1575,19 +1575,24 @@ class JA80CentralUnit(object):
 		warn = False # by defalt we will log an info message, but for important items we will install warn
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
+ 
+		# alarm or doorm open?, source = device id
+		# 0x01 motion?
+		# 0x02 door/natural
+		# 0x03 fire alarm
+		# can source be also code? Now assuming it is device.
+		# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 		if event_type == 0x01:
-			event_name = "PIR Activated"
-			# can source be also code? Now assuming it is device.
-			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
+			event_name = "Sensor (1) Activated"
 			self._activate_source(source)
 		elif event_type == 0x02:
-			event_name = "Door Activated"
+			event_name = "Sensor (2) Activated"
 			self._activate_source(source)
 		elif event_type == 0x03:
-			event_name = "Fire Alarm Activated"
+			event_name = "Sensor (3) Activated"
 			self._activate_source(source)
 		elif event_type == 0x04:
-			event_name = "Sensor Activated"
+			event_name = "Sensor (4) Activated"
 			self._activate_source(source)
 		elif event_type == 0x05:
 			event_name = "Tampering alarm"
@@ -1724,8 +1729,6 @@ class JA80CentralUnit(object):
 
 		if warn:
 			LOGGER.warn(log)
-		else:
-			LOGGER.info(log)
 
 		self.central_device.last_event = log
 
@@ -1934,6 +1937,7 @@ class JA80CentralUnit(object):
 				self._confirm_device_query()
 
 		else:
+			warn = True
 			activity_name = f'Unknown Activity:{hex(activity)}'
 
 
@@ -1947,7 +1951,7 @@ class JA80CentralUnit(object):
 			# build the "non alert" message text out of the state and the activity text
 			# if they are different, concatenate them so we don't lose any info
 			# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
-			if not warn:		
+			if not warn: # self.alert.value == "OK":		
 
 				if activity_name == state_text:
 					state_text = message
@@ -1957,21 +1961,17 @@ class JA80CentralUnit(object):
 					else:
 						state_text = message
 
-				if state_text != self.statustext.message:
-					LOGGER.info('status: ' + state_text)
-					self.statustext.message = state_text
-				else:
-					LOGGER.debug('status: ' + state_text)
-
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
-				if message != self.alert.message:
-					LOGGER.info('alert: ' + message)
+				if message != self.alert.message and message != '':
+					LOGGER.warn(message)
 					self.alert.message = message
-				else:
-					LOGGER.debug('alert: ' + message)
+
+			if state_text != self.statustext.message:
+				self.statustext.message = state_text
+
 		else:
-			LOGGER.debug(message)
+			LOGGER.debug('message: ' + message)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
