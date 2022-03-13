@@ -1575,24 +1575,19 @@ class JA80CentralUnit(object):
 		warn = False # by defalt we will log an info message, but for important items we will install warn
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
- 
-		# alarm or doorm open?, source = device id
-		# 0x01 motion?
-		# 0x02 door/natural
-		# 0x03 fire alarm
 		# can source be also code? Now assuming it is device.
 		# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 		if event_type == 0x01:
-			event_name = "Sensor (1) Activated"
+			event_name = "Instant zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x02:
-			event_name = "Sensor (2) Activated"
+			event_name = "Delay zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x03:
-			event_name = "Sensor (3) Activated"
+			event_name = "Fire zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x04:
-			event_name = "Sensor (4) Activated"
+			event_name = "Panic Alarm"
 			self._activate_source(source)
 		elif event_type == 0x05:
 			event_name = "Tampering alarm"
