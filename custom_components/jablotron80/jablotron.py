@@ -1943,11 +1943,14 @@ class JA80CentralUnit(object):
 
 		if log:
 
-			# build the "non alert" message text out of the state and the activity text
-			# if they are different, concatenate them so we don't lose any info
-			# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
-			if not warn: # self.alert.value == "OK":		
+			# This condition is complex for a couple of reasons
+			# Sometime a normal message needs displaying even if there is a Fault in the system, in this case the triangle is solid
+			# Also for some status' they can be alarms or normal, e.g. testing a system in maint mode isn't an alert
+			if not warn or (warn and self.alert.value == "OK"):		
 
+				# build the "non alert" message text out of the state and the activity text
+				# if they are different, concatenate them so we don't lose any info
+				# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
 				if activity_name == state_text:
 					state_text = message
 				else:
