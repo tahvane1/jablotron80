@@ -1508,6 +1508,10 @@ class JA80CentralUnit(object):
 			code.active = False
 		self._active_codes.clear()
  
+	def _clear_source(self, source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		source.active = False
+
 	def _clear_tampers(self) -> None:
 		for device in self.devices:
 			if device.tampered:
@@ -1605,7 +1609,7 @@ class JA80CentralUnit(object):
 		elif event_type == 0x07:
 			event_name = "Fault"
 			warn = True
-			self._activate_source(source)
+			self._fault_source(source)
 		elif event_type == 0x08:
 			event_name = "Setting"
 			code  = self._get_source(source)
@@ -1630,13 +1634,14 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0e:
 			event_name = "Lost communication"
 			warn = True
-			self._activate_source(source)
+			self._fault_source(source)
 		elif event_type == 0x0f:
 			event_name = "Power fault of control panel"
 			warn = True
 			self._activate_source(source)			
 		elif event_type == 0x10:
 			event_name = "Control panel power O.K."
+			self._clear_source(source)			
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
 			warn = True
@@ -1645,11 +1650,12 @@ class JA80CentralUnit(object):
 			event_name = "Backup battery fault"
 			warn = True
 			self._device_battery_low(source)
+			self._activate_source(source)	
 		elif event_type == 0x17:
 			event_name = "24 hours" # for example panic alarm
 			# 24 hours code=source
-			code  = self._get_source(source)
-			code.active = True
+			source  = self._get_source(source)
+			self._activate_source(source)
 		elif event_type == 0x1a:
 			event_name = "Setting Zone A"
 			code  = self._get_source(source)
@@ -1702,8 +1708,9 @@ class JA80CentralUnit(object):
 				# the second detector is triggered. But the aim of this software is to replicate the alerts of the alarm system.
 				# TODO: Check the alarm logs to see what is registered. 
 				event_name = event_name + ", Control panel"
+			else:
+				self._activate_source(source)
 			warn = True
-			self._activate_source(source)
 		elif event_type == 0x5c:
 			event_name = "PGX On"
 		elif event_type == 0x5d:
