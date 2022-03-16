@@ -1954,9 +1954,9 @@ class JA80CentralUnit(object):
 				if activity_name == state_text:
 					state_text = message
 				else:
-					if state_text != '':
+					if state_text != '' and message != '':
 						state_text = state_text + ", " + message 
-					else:
+					elif message != '':
 						state_text = message
 
 			# log the message as an alert/alarm since the warning triangle is lit
