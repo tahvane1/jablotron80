@@ -382,7 +382,7 @@ class JablotronDevice(JablotronCommon):
         
 				# device 63 is when home assisant sets the alarm (with no code)
 				elif self.device_id == 63:
-					return 'Computer Interface'	
+					return 'Device on line'	
         
 				return f'device_{self.device_id}'
 		return self._name
