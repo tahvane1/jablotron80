@@ -382,7 +382,7 @@ class JablotronDevice(JablotronCommon):
         
 				# device 63 is when home assisant sets the alarm (with no code)
 				elif self.device_id == 63:
-					return 'Computer Interface'	
+					return 'Device on line'	
         
 				return f'device_{self.device_id}'
 		return self._name
@@ -1517,6 +1517,10 @@ class JA80CentralUnit(object):
 			code.active = False
 		self._active_codes.clear()
  
+	def _clear_source(self, source_id:bytes) -> None:
+		source  = self._get_source(source_id)
+		source.active = False
+
 	def _clear_tampers(self) -> None:
 		for device in self.devices:
 			if device.tampered:
@@ -1584,19 +1588,19 @@ class JA80CentralUnit(object):
 		warn = False # by defalt we will log an info message, but for important items we will install warn
 		source = data[6]
 		# codes 40 master code, 41 - 50 codes 1-10
+		# can source be also code? Now assuming it is device.
+		# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
 		if event_type == 0x01:
-			event_name = "PIR Activated"
-			# can source be also code? Now assuming it is device.
-			# logic for codes and devices? devices in range hex 01 - ??, codes in 40 -
+			event_name = "Instant zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x02:
-			event_name = "Door Activated"
+			event_name = "Delay zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x03:
-			event_name = "Fire Alarm Activated"
+			event_name = "Fire zone Alarm"
 			self._activate_source(source)
 		elif event_type == 0x04:
-			event_name = "Sensor Activated"
+			event_name = "Panic Alarm"
 			self._activate_source(source)
 		elif event_type == 0x05:
 			event_name = "Tampering alarm"
@@ -1614,7 +1618,7 @@ class JA80CentralUnit(object):
 		elif event_type == 0x07:
 			event_name = "Fault"
 			warn = True
-			self._activate_source(source)
+			self._fault_source(source)
 		elif event_type == 0x08:
 			event_name = "Setting"
 			code  = self._get_source(source)
@@ -1639,13 +1643,14 @@ class JA80CentralUnit(object):
 		elif event_type == 0x0e:
 			event_name = "Lost communication"
 			warn = True
-			self._activate_source(source)
+			self._fault_source(source)
 		elif event_type == 0x0f:
 			event_name = "Power fault of control panel"
 			warn = True
 			self._activate_source(source)			
 		elif event_type == 0x10:
 			event_name = "Control panel power O.K."
+			self._clear_source(source)			
 		elif event_type == 0x11:
 			event_name = "Discharged battery"
 			warn = True
@@ -1654,11 +1659,12 @@ class JA80CentralUnit(object):
 			event_name = "Backup battery fault"
 			warn = True
 			self._device_battery_low(source)
+			self._activate_source(source)	
 		elif event_type == 0x17:
 			event_name = "24 hours" # for example panic alarm
 			# 24 hours code=source
-			code  = self._get_source(source)
-			code.active = True
+			source  = self._get_source(source)
+			self._activate_source(source)
 		elif event_type == 0x1a:
 			event_name = "Setting Zone A"
 			code  = self._get_source(source)
@@ -1711,8 +1717,9 @@ class JA80CentralUnit(object):
 				# the second detector is triggered. But the aim of this software is to replicate the alerts of the alarm system.
 				# TODO: Check the alarm logs to see what is registered. 
 				event_name = event_name + ", Control panel"
+			else:
+				self._activate_source(source)
 			warn = True
-			self._activate_source(source)
 		elif event_type == 0x5c:
 			event_name = "PGX On"
 		elif event_type == 0x5d:
@@ -1733,8 +1740,6 @@ class JA80CentralUnit(object):
 
 		if warn:
 			LOGGER.warn(log)
-		else:
-			LOGGER.info(log)
 
 		self.central_device.last_event = log
 
@@ -1943,6 +1948,7 @@ class JA80CentralUnit(object):
 				self._confirm_device_query()
 
 		else:
+			warn = True
 			activity_name = f'Unknown Activity:{hex(activity)}'
 
 
@@ -1953,34 +1959,33 @@ class JA80CentralUnit(object):
 
 		if log:
 
-			# build the "non alert" message text out of the state and the activity text
-			# if they are different, concatenate them so we don't lose any info
-			# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
-			if not warn:		
+			# This condition is complex for a couple of reasons
+			# Sometime a normal message needs displaying even if there is a Fault in the system, in this case the triangle is solid
+			# Also for some status' they can be alarms or normal, e.g. testing a system in maint mode isn't an alert
+			if not warn or (warn and self.alert.value == "OK"):		
 
+				# build the "non alert" message text out of the state and the activity text
+				# if they are different, concatenate them so we don't lose any info
+				# note that this is more verbose that the real Jablotron keypad messages and we may remove at some point
 				if activity_name == state_text:
 					state_text = message
 				else:
-					if state_text != '':
+					if state_text != '' and message != '':
 						state_text = state_text + ", " + message 
-					else:
+					elif message != '':
 						state_text = message
-
-				if state_text != self.statustext.message:
-					LOGGER.info('status: ' + state_text)
-					self.statustext.message = state_text
-				else:
-					LOGGER.debug('status: ' + state_text)
 
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
-				if message != self.alert.message:
-					LOGGER.info('alert: ' + message)
+				if message != self.alert.message and message != '':
+					LOGGER.warn(message)
 					self.alert.message = message
-				else:
-					LOGGER.debug('alert: ' + message)
+
+			if state_text != self.statustext.message:
+				self.statustext.message = state_text
+
 		else:
-			LOGGER.debug(message)
+			LOGGER.debug('message: ' + message)
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
