@@ -1,4 +1,5 @@
 import logging
+import traceback
 import asyncio
 import voluptuous as vol
 from collections import OrderedDict
@@ -130,7 +131,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				for device in self._devices:
 					devices[device.id] = {"serial_number":device.serial_number,
 						"reaction":device.reaction,
-						"zone": device.zone.id,
+						"zone": device.zone.id if device.zone is not None else "None",
 						"model":device.model,
 						"manufacturer": device.manufacturer}
 				for input in sorted(user_input):
@@ -147,7 +148,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				return await self.async_step_codes()
 
 			except Exception as ex:
-				LOGGER.debug(format(ex))
+				LOGGER.error(f'Unexpected error: {traceback.format_exc()}')
 
 				return self.async_abort(reason="unknown")
 

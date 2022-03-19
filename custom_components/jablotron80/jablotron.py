@@ -1292,7 +1292,7 @@ class JA80CentralUnit(object):
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
-		return [self.get_device(i) for i in range(0,self._max_number_of_devices+1)]
+		return [self.get_device(i) for i in range(1,self._max_number_of_devices+1)]
 
 	@property
 	def zones(self) -> List[JablotronZone]:
