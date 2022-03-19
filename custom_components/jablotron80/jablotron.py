@@ -2086,7 +2086,7 @@ class JA80CentralUnit(object):
 				#    # use only zone A if unsplit system
 				#    device.zone = self.zones[1]
 				#else:
-				device.zone = self.get_zone([data[6]])
+				device.zone = self.get_zone(data[6])
 				device.reaction = data[5]
 			elif setting_type_2 == 0x02:
 				# E6 06 02 00 01 01 01 39 FF 
