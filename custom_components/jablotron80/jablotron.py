@@ -646,14 +646,14 @@ class JablotronConnection():
 			self._connection.write(b'\x00\x00\x01\x01')
 			LOGGER.debug('Successfully sent startup message')
 		elif self._type == CABLE_MODEL_JA80T:
-			self._connection = serial.Serial(port=self._device,
+			self._connection = serial.serial_for_url(url=self._device,
                                     baudrate=9600,
                                     parity=serial.PARITY_NONE,
                                     bytesize=serial.EIGHTBITS,
                                     dsrdtr=True,# stopbits=serial.STOPBITS_ONE
                                     timeout=1)
-	   
-		
+
+
 	def disconnect(self) -> None:
 		if self.is_connected():
 			LOGGER.info('Disconnecting from JA80...')
@@ -738,7 +738,11 @@ class JablotronConnection():
 				if send_cmd is not None:
 					# new command in queue
 					if not send_cmd.code is None:
-						cmd = b'\x00\x02\x01' + send_cmd.code
+
+						if self._type == CABLE_MODEL_JA80T:
+							cmd = send_cmd.code											
+						else:
+							cmd = b'\x00\x02\x01' + send_cmd.code
 						
 						LOGGER.debug(f'Sending new command {send_cmd}')
 						self._connection.write(cmd)
@@ -753,12 +757,12 @@ class JablotronConnection():
 							records_tmp = self._read_data()
 							self._forward_records(records_tmp)
 							for record in records_tmp:
-								if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix:
+								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
+										or self._type == CABLE_MODEL_JA80T and record[:1] == b'\xff':
 									LOGGER.info(
 										f"confirmation for command {send_cmd} received")
 									confirmed=True
 									send_cmd.confirm(True)
-									
 							
 						if not confirmed:
 							# no confirmation received
@@ -826,6 +830,7 @@ class JablotronMessage():
 	TYPE_PING = 'Ping' # regular messages that have no clear meaning (perhaps yet)
 	TYPE_PING_OR_OTHER = 'Ping or Other' # message that have no payload or otherwise the payload is a message of other type
 	TYPE_SAVING = 'Saving'
+	TYPE_CONFIRM = 'Confirm'
 	# e8,e9,e5,
 	_MESSAGE_MAIN_TYPES = {
 		0xed: TYPE_STATE,
@@ -849,6 +854,7 @@ class JablotronMessage():
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING, # seen when saving took really long
 		0xfe: TYPE_BEEP, # on setup
+		0xff: TYPE_CONFIRM # with JA-80T cable
 	}
 	_LENGTHS ={ 
 		0xed: 10,
@@ -861,6 +867,7 @@ class JablotronMessage():
 		0xe9: 6,
 		0xe7: 9,
 		0xec: 10,
+		0xff: 1
 	}
 	_RECORD_E6_LENGTHS = {
 	   # 0x02:6,
@@ -1177,6 +1184,7 @@ class JA80CentralUnit(object):
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
+#		self._connection = JablotronConnection(CABLE_MODEL_JA80T,'socket://192.168.0.8:23?logging=debug')
 		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
 		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		if device_count == 0:
@@ -1300,6 +1308,7 @@ class JA80CentralUnit(object):
 	
 	@property
 	def serial_port(self) -> str:
+#		return  "/dev/hidraw0"
 		return self._connection.device
 	
 	@property 
