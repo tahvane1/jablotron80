@@ -695,9 +695,9 @@ class JablotronConnection():
 
 		pass
 		#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-		if LOGGER.isEnabledFor(logging.DEBUG):
-			formatted_data = " ".join(["%02x" % c for c in data])
-			LOGGER.debug(f'Received raw data {formatted_data}')
+		#if LOGGER.isEnabledFor(logging.DEBUG):
+		#	formatted_data = " ".join(["%02x" % c for c in data])
+		#	LOGGER.debug(f'Received raw data {formatted_data}')
 
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
 		read_buffer = []
