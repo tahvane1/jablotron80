@@ -690,6 +690,15 @@ class JablotronConnection():
 	def _forward_records(self,records: List[bytearray]) -> None:
 		self._output_q.put(records)
 		
+
+	def _log_detail(self, data):
+
+		pass
+		#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+		if LOGGER.isEnabledFor(logging.DEBUG):
+			formatted_data = " ".join(["%02x" % c for c in data])
+			LOGGER.debug(f'Received raw data {formatted_data}')
+
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
 		read_buffer = []
 		ret_val = []
@@ -697,10 +706,7 @@ class JablotronConnection():
 		if self._type == CABLE_MODEL_JA82T:
 			for j in range(max_package_sections):
 				data = self._connection.read(64)
-				#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-				#if LOGGER.isEnabledFor(logging.DEBUG):
-				#	formatted_data = " ".join(["%02x" % c for c in data])
-				#	LOGGER.debug(f'Received raw data {formatted_data}')
+				self._log_detail(data)
 				if len(data) > 0 and data[0] == 0x82:
 					size = data[1] 
 					read_buffer.append(data[2:2+int(size)])
@@ -717,9 +723,7 @@ class JablotronConnection():
 		
 		elif self._type == CABLE_MODEL_JA80T:
 			data = self._connection.read_until(b'\xff')
-			#if LOGGER.isEnabledFor(logging.DEBUG):
-			#	formatted_data = " ".join(["%02x" % c for c in data])
-			#	LOGGER.debug(f'Received raw data {formatted_data}')
+			self._log_detail(data)
 			ret_bytes = []
 			read_buffer.append(data)
 			for i in b''.join(read_buffer):
