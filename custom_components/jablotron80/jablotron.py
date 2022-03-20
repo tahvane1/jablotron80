@@ -770,7 +770,8 @@ class JablotronConnection():
 							self._forward_records(records_tmp)
 							for record in records_tmp:
 								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
-										or (self._type == CABLE_MODEL_JA80T and (send_cmd.confirm_prefix == send_cmd.code or \
+										or (self._type == CABLE_MODEL_JA80T and \
+											((send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff') or \
 											record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix)):
 									LOGGER.info(
 										f"confirmation for command {send_cmd} received")
