@@ -672,6 +672,12 @@ class JablotronConnection():
 		 
 	def add_command(self, command: JablotronCommand) -> None:
 		LOGGER.debug(f'Adding command {command}')
+
+		# for JA-80T, when putting in key presses, these are not echoed back, just an \xff
+		if self._type == CABLE_MODEL_JA80T:
+			if command.code == command.confirm_prefix:
+				command.confirm_prefix = b'\xff'
+
 		self._cmd_q.put(command)
 
 	def _get_command(self) -> Union[JablotronCommand,None]:
@@ -769,9 +775,7 @@ class JablotronConnection():
 							records_tmp = self._read_data()
 							self._forward_records(records_tmp)
 							for record in records_tmp:
-								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
-										or (self._type == CABLE_MODEL_JA80T and (send_cmd.confirm_prefix == send_cmd.code or \
-											record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix)):
+								if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix:
 									LOGGER.info(
 										f"confirmation for command {send_cmd} received")
 									confirmed=True
