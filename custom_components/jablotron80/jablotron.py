@@ -690,16 +690,24 @@ class JablotronConnection():
 	def _forward_records(self,records: List[bytearray]) -> None:
 		self._output_q.put(records)
 		
+
+	def _log_detail(self, data):
+
+		pass
+		#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+		#if LOGGER.isEnabledFor(logging.DEBUG):
+		#	formatted_data = " ".join(["%02x" % c for c in data])
+		#	LOGGER.debug(f'Received raw data {formatted_data}')
+
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
 		read_buffer = []
 		ret_val = []
-		for j in range(max_package_sections):
-			data = self._connection.read(64)
-			#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-			#if LOGGER.isEnabledFor(logging.DEBUG):
-			#	formatted_data = " ".join(["%02x" % c for c in data])
-			#	LOGGER.debug(f'Received raw data {formatted_data}')
-			if self._type == CABLE_MODEL_JA82T and len(data) > 0 and data[0] == 0x82:
+
+		if self._type == CABLE_MODEL_JA82T:
+			for j in range(max_package_sections):
+				data = self._connection.read(64)
+				self._log_detail(data)
+				if len(data) > 0 and data[0] == 0x82:
 					size = data[1] 
 					read_buffer.append(data[2:2+int(size)])
 					if data[1 + int(size)] == 0xff:
@@ -711,16 +719,20 @@ class JablotronConnection():
 								ret_val.append(bytearray(ret_bytes))
 								ret_bytes.clear()
 						return ret_val
-			elif self._type == CABLE_MODEL_JA80T:
-				ret_bytes = []
-				read_buffer.append(data)
-				for i in b''.join(read_buffer):
-					ret_bytes.append(i)
-					if i == 0xff:
-						ret_val.append(bytearray(ret_bytes))
-						ret_bytes.clear()
-				return ret_val
-		return ret_val
+			return ret_val
+		
+		elif self._type == CABLE_MODEL_JA80T:
+			data = self._connection.read_until(b'\xff')
+			self._log_detail(data)
+			ret_bytes = []
+			read_buffer.append(data)
+			for i in b''.join(read_buffer):
+				ret_bytes.append(i)
+				if i == 0xff:
+					ret_val.append(bytearray(ret_bytes))
+					ret_bytes.clear()
+			return ret_val
+
 	   
 	def read_send_packet_loop(self) -> None:
 		# keep reading bytes untill 0xff which indicates end of packet
@@ -758,7 +770,9 @@ class JablotronConnection():
 							self._forward_records(records_tmp)
 							for record in records_tmp:
 								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
-										or self._type == CABLE_MODEL_JA80T and record[:1] == b'\xff':
+										or (self._type == CABLE_MODEL_JA80T and \
+											((send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff') or \
+											record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix)):
 									LOGGER.info(
 										f"confirmation for command {send_cmd} received")
 									confirmed=True
@@ -766,7 +780,7 @@ class JablotronConnection():
 							
 						if not confirmed:
 							# no confirmation received
-							LOGGER.info(
+							LOGGER.warn(
 											f"no confirmation for command {send_cmd} received")
 							send_cmd.confirm(False)       
 						self._cmd_q.task_done()
