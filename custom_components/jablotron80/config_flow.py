@@ -19,6 +19,12 @@ from .const import (
     CABLE_MODELS,
     CABLE_MODEL,
     DEFAULT_CABLE_MODEL,
+	DEVICE_CONTROL_PANEL,
+	DEVICE_KEY_FOB,
+	DEVICE_MOTION_DETECTOR,
+	DEVICE_OTHER,
+	DEVICE_SIREN_INDOOR,
+	DEVICE_SIREN_OUTDOOR,
 	DOMAIN,
 	DEFAULT_SERIAL_PORT,
 	MAX_NUMBER_OF_DEVICES,
@@ -155,14 +161,25 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		fields = OrderedDict()
 
 		for i in range(1, self._config[CONFIGURATION_NUMBER_OF_DEVICES] + 1):
-			default_device = DEVICE_DOOR_OPENING_DETECTOR
 			device = self._devices[i-1]
-			if device.is_control_panel: 
+			if device.is_keypad: 
 				default_device = DEVICES[DEVICE_KEYPAD]
 			elif device.reaction == JablotronConstants.REACTION_FIRE_ALARM:
 				default_device = DEVICES[DEVICE_SMOKE_DETECTOR]
-			else: 
+			elif device.is_motion:
+				default_device = DEVICES[DEVICE_MOTION_DETECTOR]
+			elif device.is_keyfob:
+				default_device = DEVICES[DEVICE_KEY_FOB]
+			elif device.is_central_unit:
+				default_device = DEVICES[DEVICE_CONTROL_PANEL]
+			elif device.is_outdoor_siren:
+				default_device = DEVICES[DEVICE_SIREN_OUTDOOR]
+			elif device.is_indoor_siren:
+				default_device = DEVICES[DEVICE_SIREN_INDOOR]
+			elif device.is_door:
 				default_device = DEVICES[DEVICE_DOOR_OPENING_DETECTOR]
+			else:
+				default_device = DEVICES[DEVICE_OTHER]
 			fields[vol.Required("device_{:03}_type".format(i),default=default_device)] = vol.In(list(DEVICES.values()))
 			fields[vol.Required("device_{:03}_name".format(i),default=device.name)] = str
 

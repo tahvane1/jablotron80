@@ -358,10 +358,11 @@ class JablotronDevice(JablotronCommon):
 	@property	
 	def name(self) -> str:
 		if self._name is None:
-			if not self.model is None and not self.model == "wired":
-				return self.model
-			elif not self.model is None:
-				return f'device_{self.model}_{self.device_id}'
+			
+			if self.model is not None and self.serial_number is not None:
+				return f'{self.model}_{self.serial_number}'
+			elif self.model is not None:
+				return f'{self.model}_{self.device_id}'
 			else:
 
 				# device 52 & 53 are visible in Bypass
@@ -396,11 +397,33 @@ class JablotronDevice(JablotronCommon):
 	def serial_number(self, serial_number:str) -> None:
 		self._serial_number = serial_number
 	
-	# can other devices have serial numbers?
 	@property
-	def is_control_panel(self) -> bool:
-		return not self.serial_number is None
-	
+	def is_keypad(self) -> bool:
+		return self.model == "JA-81F"
+
+	@property
+	def is_motion(self) -> bool:
+		return self.model == "JA-80W" \
+			or self.model == "JA-86P" \
+			or self.model == "JA-84P"
+
+	@property
+	def is_outdoor_siren(self) -> bool:
+		return self.model == "JA-80A"
+
+	@property
+	def is_indoor_siren(self) -> bool:
+		return self.model == "JA-80L"
+
+	@property
+	def is_door(self) -> bool:
+		return self.model == "JA-82M"
+
+	@property
+	def is_keyfob(self) -> bool:
+		return self.model == "RC-86" \
+			or self.model == "RC-86 (80)"
+
 	@property
 	def is_central_unit(self) -> bool:
 		return self.device_id == 0 or self.device_id == 51
@@ -1399,7 +1422,17 @@ class JA80CentralUnit(object):
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
-		return [self.get_device(i) for i in range(1,self._max_number_of_devices+1)]
+
+		def registered(device: JablotronDevice):
+
+			if (device.serial_number is not None \
+				and device.reaction != JablotronConstants.REACTION_OFF) \
+				or device.model == "wired":
+				return True
+			
+			return False
+
+		return list(filter(registered, [self.get_device(i) for i in range(1,MAX_NUMBER_OF_DEVICES)] ) )
 
 	@property
 	def zones(self) -> List[JablotronZone]:
@@ -2172,17 +2205,44 @@ class JA80CentralUnit(object):
 				# 04 08 06 02 08 0D = hex 48628D, serial 04743821 (of JA-81F)
 				# crc = data[11]
 				device = self.get_device(device_id)
-				if not data[5:11] == b'\x0f\x0f\x00\x00\x00\x00':
+				if device_id >=1 and device_id <= self._max_number_of_wired_devices:
+					device.model = "wired"
+				elif not data[5:7] == b'\x0f\x0f':
 					serial_hex_string = "".join(
 						map(lambda x: hex(x)[2:], data[5:11]))
 					serial_int_string = int(serial_hex_string, 16)
 					device.serial_number = f'{serial_int_string:08d}'
 					if data[5:7] == b'\x04\x08':
-						# not sure if this is the logic
-						device.model = 'JA-81F'
-						device.manufacturer = MANUFACTURER
+						device.model = 'JA-81F' # wireless keypad
+
+					if data[5:7] == b'\x07\x0e':
+						device.model = 'JA-80W' # motion
+
+					if data[5:7] == b'\x06\x0e':
+						device.model = 'JA-86P' # dual band motion
+
+					if data[5:7] == b'\x05\x00':
+						device.model = 'JA-80A' # external siren
+						
+					if data[5:7] == b'\x08\x01' \
+						or data[5:7] == b'\x08\x03' \
+						or data[5:7] == b'\x09\x01' \
+						or data[5:7] == b'\x09\x03':
+						device.model = 'RC-86 (80)' # fob
+
+					if data[5:7] == b'\x05\x04':
+						device.model = 'JA-84P' # pir camera
+
+					if data[5:7] == b'\x01\x01':
+						device.model = 'JA-80S' # smoke
+
+					if data[5:7] == b'\x01\x04':
+						device.model = 'JA-82M' # magnetic contact
+
+
+					device.manufacturer = MANUFACTURER
 				else:
-					device.model = "wired"
+					device.model = None
 			elif setting_type_2 == 0x01:
 				# E6 06 01 00 01 01 01 2B FF 
 				# device reactions and associated zones
