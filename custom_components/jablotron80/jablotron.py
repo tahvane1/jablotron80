@@ -1560,7 +1560,7 @@ class JA80CentralUnit(object):
 
 	def _clear_code(self, code_id):
 		code  = self._get_source(code_id)
-		if isinstance(source,JablotronCode):
+		if isinstance(code,JablotronCode):
 			code.active = False
 
 	def _activate_code_object(self, source):
@@ -1635,8 +1635,8 @@ class JA80CentralUnit(object):
 			self._device_tampered(source)
 			self._activate_source(source)
 			warn = True
-			if source == 0x0:
-				event_name += ", Control panel"
+			#if source == 0x0:
+			#	event_name += ", Control panel"
 		elif event_type == 0x06:
 			event_name = "Tampering key pad (wrong code?)"
 			warn = True
@@ -1732,14 +1732,14 @@ class JA80CentralUnit(object):
 			self._clear_battery()
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
-			if source == 0x00:
+			if source != 0x00:
+				self._activate_source(source)
+#			else:
 				# This event occurs when an entrance delay is caused by an unconfirmed alarm
 				# It looks to me like a bug in the firmware to show this as the alarm should only be triggered once
 				# the second detector is triggered. But the aim of this software is to replicate the alerts of the alarm system.
 				# TODO: Check the alarm logs to see what is registered. 
-				event_name = event_name + ", Control panel"
-			else:
-				self._activate_source(source)
+#				event_name = event_name + ", Control panel"
 			warn = True
 		elif event_type == 0x5c:
 			event_name = "PGX On"
@@ -1754,10 +1754,10 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 
-		if source == 0x0:
-			log = f'{event_name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
-		else:
-			log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
+#		if source == 0x0:
+#			log = f'{event_name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
+#		else:
+		log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 
 		if warn:
 			LOGGER.warn(log)
