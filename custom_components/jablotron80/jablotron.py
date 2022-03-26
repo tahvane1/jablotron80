@@ -622,7 +622,8 @@ class JablotronConnection():
 		self._cmd_q = queue.Queue()
 		self._output_q = queue.Queue()
 		self._stop = threading.Event()
-	
+		self._connection = None
+			
 	def get_record(self) -> List[bytearray]:
 		if self._output_q.empty():
 			return None
@@ -636,20 +637,25 @@ class JablotronConnection():
 		return self._device
 	
 	def connect(self) -> None:
-		LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
-		if self._type == CABLE_MODEL_JA82T:
-			self._connection = open(self._device, 'w+b',buffering=0)
-			LOGGER.debug('Sending startup message')
-			self._connection.write(b'\x00\x00\x01\x01')
-			LOGGER.debug('Successfully sent startup message')
-		elif self._type == CABLE_MODEL_JA80T:
-			self._connection = serial.serial_for_url(url=self._device,
-                                    baudrate=9600,
-                                    parity=serial.PARITY_NONE,
-                                    bytesize=serial.EIGHTBITS,
-                                    dsrdtr=True,# stopbits=serial.STOPBITS_ONE
-                                    timeout=1)
 
+		while self._connection is None:
+
+			try:
+				LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
+				if self._type == CABLE_MODEL_JA82T:
+					self._connection = open(self._device, 'w+b',buffering=0)
+					LOGGER.debug('Sending startup message')
+					self._connection.write(b'\x00\x00\x01\x01')
+					LOGGER.debug('Successfully sent startup message')
+				elif self._type == CABLE_MODEL_JA80T:
+					self._connection = serial.serial_for_url(url=self._device,
+											baudrate=9600,
+											parity=serial.PARITY_NONE,
+											bytesize=serial.EIGHTBITS,
+											dsrdtr=True,# stopbits=serial.STOPBITS_ONE
+											timeout=1)
+			except Exception:
+				LOGGER.warn('Connection error, retrying: %s', traceback.format_exc())
 
 	def disconnect(self) -> None:
 		if self.is_connected():
