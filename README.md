@@ -5,7 +5,7 @@ Home Assistant custom component for JABLOTRON 80 alarm system
 
 ## Preparation
 
-1. Connect the USB cable to Jablotron central unit
+1. Connect the USB or Serial cable to Jablotron central unit
 2. Restart the Home Assistant OS
 3. Use the following command line to identify the port:
 
@@ -35,8 +35,8 @@ Report [issue](https://github.com/tahvane1/jablotron80/issues)
 
 ## Supported devices
 
-This integration has been tested with JA-80K /JA-82K central units, JA-81F keypad and JA82-T usb cable. Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
-Development for supporting JA80-T cable is WIP (and not yet working).
+This integration has been tested with JA-80K /JA-82K central units, JA-81F keypad and both JA-82T usb and JA-80T serial cables.
+Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 
 ## Examples & configuration
 
