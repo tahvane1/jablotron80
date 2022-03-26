@@ -39,7 +39,7 @@ This integration has been tested with JA-80K /JA-82K central units, JA-81F keypa
 Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 
 ## Remote Support
-The JA-80T serial cable setup can work with remote serial devices using a device name of 'socket://[ipaddress:socket]', see section at bottom of page for more details
+The JA-80T serial cable setup can work with remote serial devices using a device address of 'socket://[ipaddress:socket]', see section at bottom of page for more details. This can be made to work even without a JA-80T serial cable (as these are hard to source)
 
 ## Examples & configuration
 
