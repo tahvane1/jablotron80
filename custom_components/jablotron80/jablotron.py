@@ -1655,7 +1655,7 @@ class JA80CentralUnit(object):
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x0e:
-			event_name = "Lost communication"
+			event_name = "Lost communication with device"
 			warn = True
 			self._fault_source(source)
 		elif event_type == 0x0f:
