@@ -38,6 +38,9 @@ Report [issue](https://github.com/tahvane1/jablotron80/issues)
 This integration has been tested with JA-80K /JA-82K central units, JA-81F keypad and both JA-82T usb and JA-80T serial cables.
 Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 
+## Remote Support
+The JA-80T serial cable setup can work with remote serial devices using a device name of 'socket://[ipaddress:socket]', see section at bottom of page for more details
+
 ## Examples & configuration
 
 ### Initial configuration
@@ -270,6 +273,22 @@ cards:
             - animation: blink 2s ease infinite
 
 ```
+
+## Remote
+Generic remote serial devices are expected to be able to be made to work with this integration.
+
+A confirmed workinging confiuration is documented below:
+
+|Description   |Supplier   |Part Number   |Comment   |URL/Search Terms   |
+|---|---|---|---|---|
+|TTL to Ethernet Converter|USR IOT Technology Limited  |USR-TCP232-T2|Direct connection prefered as opposed to WiFi for performance|   |
+|TTL to RS485 converter|MAX|MAX3485||
+|3.3V or 5v step down power transformer|||Connected to the 12V power supply on the Jablotron board||
+
+Serial Port to be setup as `9600 baud, 8 bit, no partity, 1 stop bit`. Must be set-up as `TCP Server`
+
+Additional expected similar solutions could be constructed from USR-TCP232-306, USR-TCP232-304 connected directly to the control panel or
+USR-TCP232-302 conected to an existing JA-80T serial cable.
 
 ## Troubleshooting
 
