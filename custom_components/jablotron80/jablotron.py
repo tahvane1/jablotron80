@@ -94,7 +94,7 @@ class JablotronSettings:
 	#sleep when no command
 	SERIAL_SLEEP_NO_COMMAND = 0.2
 	#sleep when command
-	SERIAL_SLEEP_COMMAND = 0
+	SERIAL_SLEEP_COMMAND = 0.2
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  
@@ -654,8 +654,12 @@ class JablotronConnection():
 											bytesize=serial.EIGHTBITS,
 											dsrdtr=True,# stopbits=serial.STOPBITS_ONE
 											timeout=1)
-			except Exception:
-				LOGGER.warn('Connection error, retrying: %s', traceback.format_exc())
+			except serial.SerialException as ex:
+				if "timed out" in f'{ex}':
+					LOGGER.info('Timeout, retrying')
+				else:
+					LOGGER.error(f'{ex}')
+					raise
 
 	def disconnect(self) -> None:
 		if self.is_connected():
@@ -766,7 +770,6 @@ class JablotronConnection():
 						# confirmation required, read until confirmation or to limit
 						records_cmd = []
 						for i in range(send_cmd.max_records):
-							time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 							if confirmed:
 								break 
 							records_tmp = self._read_data()
@@ -780,7 +783,7 @@ class JablotronConnection():
 										f"confirmation for command {send_cmd} received")
 									confirmed=True
 									send_cmd.confirm(True)
-							
+									time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 						if not confirmed:
 							# no confirmation received
 							LOGGER.warn(
