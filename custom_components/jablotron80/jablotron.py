@@ -94,7 +94,7 @@ class JablotronSettings:
 	#sleep when no command
 	SERIAL_SLEEP_NO_COMMAND = 0.2
 	#sleep when command
-	SERIAL_SLEEP_COMMAND = 0.2
+	SERIAL_SLEEP_COMMAND = 0.5
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  

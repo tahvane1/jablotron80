@@ -131,8 +131,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		devices_by_names = {value:key for key, value in DEVICES.items()}
 		if user_input is not None:
 			try:
-
-				
+	
 				devices = {}
 				for device in self._devices:
 					devices[device.id] = {"serial_number":device.serial_number,
@@ -160,8 +159,10 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 		fields = OrderedDict()
 
-		for i in range(1, self._config[CONFIGURATION_NUMBER_OF_DEVICES] + 1):
-			device = self._devices[i-1]
+		for device in self._devices:
+
+			LOGGER.debug(f'{device.id}')
+
 			if device.is_keypad: 
 				default_device = DEVICES[DEVICE_KEYPAD]
 			elif device.reaction == JablotronConstants.REACTION_FIRE_ALARM:
@@ -180,8 +181,8 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 				default_device = DEVICES[DEVICE_DOOR_OPENING_DETECTOR]
 			else:
 				default_device = DEVICES[DEVICE_OTHER]
-			fields[vol.Required("device_{:03}_type".format(i),default=default_device)] = vol.In(list(DEVICES.values()))
-			fields[vol.Required("device_{:03}_name".format(i),default=device.name)] = str
+			fields[vol.Required("device_{:03}_type".format(device.id),default=default_device)] = vol.In(list(DEVICES.values()))
+			fields[vol.Required("device_{:03}_name".format(device.id),default=device.name)] = str
 
 		return self.async_show_form(
 			step_id="devices",
