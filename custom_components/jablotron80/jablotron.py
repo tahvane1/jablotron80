@@ -615,9 +615,7 @@ class JablotronCommand():
 class JablotronConnection():
 
 	# device is mandatory at initiation
-	def __init__(self, type: str, device: str) -> None:
-		LOGGER.info(f'Init JablotronConnection of type {type} with device {device}')
-		self._type = type
+	def __init__(self, device: str) -> None:
 		self._device = device
 		self._cmd_q = queue.Queue()
 		self._output_q = queue.Queue()
@@ -636,31 +634,6 @@ class JablotronConnection():
 	def device(self):
 		return self._device
 	
-	def connect(self) -> None:
-
-		while self._connection is None:
-
-			try:
-				LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
-				if self._type == CABLE_MODEL_JA82T:
-					self._connection = open(self._device, 'w+b',buffering=0)
-					LOGGER.debug('Sending startup message')
-					self._connection.write(b'\x00\x00\x01\x01')
-					LOGGER.debug('Successfully sent startup message')
-				elif self._type == CABLE_MODEL_JA80T:
-					self._connection = serial.serial_for_url(url=self._device,
-											baudrate=9600,
-											parity=serial.PARITY_NONE,
-											bytesize=serial.EIGHTBITS,
-											dsrdtr=True,# stopbits=serial.STOPBITS_ONE
-											timeout=1)
-			except serial.SerialException as ex:
-				if "timed out" in f'{ex}':
-					LOGGER.info('Timeout, retrying')
-				else:
-					LOGGER.error(f'{ex}')
-					raise
-
 	def disconnect(self) -> None:
 		if self.is_connected():
 			LOGGER.info('Disconnecting from JA80...')
@@ -706,41 +679,19 @@ class JablotronConnection():
 		#	formatted_data = " ".join(["%02x" % c for c in data])
 		#	LOGGER.debug(f'Received raw data {formatted_data}')
 
+	def connect(self) -> None:
+		raise NotImplementedError
+
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
-		read_buffer = []
-		ret_val = []
+		raise NotImplementedError
 
-		if self._type == CABLE_MODEL_JA82T:
-			for j in range(max_package_sections):
-				data = self._connection.read(64)
-				self._log_detail(data)
-				if len(data) > 0 and data[0] == 0x82:
-					size = data[1] 
-					read_buffer.append(data[2:2+int(size)])
-					if data[1 + int(size)] == 0xff:
-						# return data received
-						ret_bytes = []
-						for i in b''.join(read_buffer):
-							ret_bytes.append(i)
-							if i == 0xff:
-								ret_val.append(bytearray(ret_bytes))
-								ret_bytes.clear()
-						return ret_val
-			return ret_val
-		
-		elif self._type == CABLE_MODEL_JA80T:
-			data = self._connection.read_until(b'\xff')
-			self._log_detail(data)
-			ret_bytes = []
-			read_buffer.append(data)
-			for i in b''.join(read_buffer):
-				ret_bytes.append(i)
-				if i == 0xff:
-					ret_val.append(bytearray(ret_bytes))
-					ret_bytes.clear()
-			return ret_val
+	def _get_cmd(self, code: bytes) -> str:
+		raise NotImplementedError
 
-	   
+	def _confirmed(self, record, send_cmd: JablotronCommand):
+		raise NotImplementedError
+
+
 	def read_send_packet_loop(self) -> None:
 		# keep reading bytes untill 0xff which indicates end of packet
 		LOGGER.debug('Loop endlessly reading serial')
@@ -757,12 +708,7 @@ class JablotronConnection():
 				if send_cmd is not None:
 					# new command in queue
 					if not send_cmd.code is None:
-
-						if self._type == CABLE_MODEL_JA80T:
-							cmd = send_cmd.code											
-						else:
-							cmd = b'\x00\x02\x01' + send_cmd.code
-						
+						cmd = self._get_cmd(send_cmd.code)																
 						LOGGER.debug(f'Sending new command {send_cmd}')
 						self._connection.write(cmd)
 						LOGGER.debug(f'Command sent {cmd}')
@@ -775,19 +721,16 @@ class JablotronConnection():
 							records_tmp = self._read_data()
 							self._forward_records(records_tmp)
 							for record in records_tmp:
-								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
-										or (self._type == CABLE_MODEL_JA80T and \
-											((send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff') or \
-											record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix)):
-									LOGGER.info(
-										f"confirmation for command {send_cmd} received")
+								packet_data = " ".join(["%02x" % c for c in record])
+								LOGGER.warn(f'record:{i}:{packet_data}')
+								if self._confirmed(record, send_cmd):
+									LOGGER.info(f"confirmation for command {send_cmd} received")
 									confirmed=True
 									send_cmd.confirm(True)
 									time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 						if not confirmed:
 							# no confirmation received
-							LOGGER.warn(
-											f"no confirmation for command {send_cmd} received")
+							LOGGER.warn(f"no confirmation for command {send_cmd} received")
 							send_cmd.confirm(False)       
 						self._cmd_q.task_done()
 						
@@ -800,7 +743,101 @@ class JablotronConnection():
 			except Exception as ex:
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
-		
+
+
+class JablotronConnectionHID(JablotronConnection):
+
+	def connect(self) -> None:
+
+		LOGGER.info(f'Connecting to JA80 via HID using {self._device}...')
+		self._connection = open(self._device, 'w+b',buffering=0)
+		LOGGER.debug('Sending startup message')
+		self._connection.write(b'\x00\x00\x01\x01')
+		LOGGER.debug('Successfully sent startup message')
+
+
+	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
+		read_buffer = []
+		ret_val = []
+
+		for j in range(max_package_sections):
+			data = self._connection.read(64)
+			self._log_detail(data)
+			if len(data) > 0 and data[0] == 0x82:
+				size = data[1] 
+				read_buffer.append(data[2:2+int(size)])
+				if data[1 + int(size)] == 0xff:
+					# return data received
+					ret_bytes = []
+					for i in b''.join(read_buffer):
+						ret_bytes.append(i)
+						if i == 0xff:
+							ret_val.append(bytearray(ret_bytes))
+							ret_bytes.clear()
+					return ret_val
+		return ret_val
+
+	def _get_cmd(self, code: bytes) -> str:
+		return b'\x00\x02\x01' + code
+
+
+	def _confirmed(self, record, send_cmd: JablotronCommand):
+
+		if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix:
+			return True
+		else:
+			return False
+
+class JablotronConnectionSerial(JablotronConnection):
+
+	def connect(self) -> None:
+
+		LOGGER.info(f'Connecting to JA80 via Serial using {self._device}...')
+
+		while self._connection is None:
+
+			try:
+				self._connection = serial.serial_for_url(url=self._device,
+											baudrate=9600,
+											parity=serial.PARITY_NONE,
+											bytesize=serial.EIGHTBITS,
+											dsrdtr=True,# stopbits=serial.STOPBITS_ONE
+											timeout=1)
+			except serial.SerialException as ex:
+				if "timed out" in f'{ex}':
+					LOGGER.info('Timeout, retrying')
+				else:
+					raise
+
+	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
+		read_buffer = []
+		ret_val = []
+
+		data = self._connection.read_until(b'\xff')
+		self._log_detail(data)
+		ret_bytes = []
+		read_buffer.append(data)
+		for i in b''.join(read_buffer):
+			ret_bytes.append(i)
+			if i == 0xff:
+				ret_val.append(bytearray(ret_bytes))
+				ret_bytes.clear()
+		return ret_val
+
+
+	def _get_cmd(self, code: bytes):
+		return code
+
+
+	def _confirmed(self, record, send_cmd: JablotronCommand):
+
+		if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix \
+			or send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff':
+			return True
+		else:
+			return False
+
+
 class JablotronKeyPress():
 	
 	_KEY_MAP = {
@@ -1228,12 +1265,13 @@ class JA80CentralUnit(object):
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
 #		self._connection = JablotronConnection(CABLE_MODEL_JA80T,'socket://192.168.0.8:23?logging=debug')
-		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
-		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
-		if device_count == 0:
-			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
-		else:
-			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
+#		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
+		self._connection = JablotronConnectionSerial(config[CONFIGURATION_SERIAL_PORT])
+#		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
+#		if device_count == 0:
+#			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
+#		else:
+#			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
