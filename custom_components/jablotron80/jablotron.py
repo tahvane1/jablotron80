@@ -26,7 +26,7 @@ from homeassistant.const import (
 if __name__ == "__main__":
 	from const import (
 		CONFIGURATION_SERIAL_PORT,
-		CONFIGURATION_NUMBER_OF_DEVICES,
+#		CONFIGURATION_NUMBER_OF_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
 		MANUFACTURER,
@@ -40,7 +40,8 @@ if __name__ == "__main__":
 else:
 	from .const import (
 		CONFIGURATION_SERIAL_PORT,
-		CONFIGURATION_NUMBER_OF_DEVICES,
+		CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
+		MIN_NUMBER_OF_WIRED_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
 		MANUFACTURER,
@@ -1316,11 +1317,11 @@ class JA80CentralUnit(object):
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
 		self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
-		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
-		if device_count == 0:
-			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
-		else:
-			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
+		try:
+			self._max_number_of_wired_devices = config[CONFIGURATION_NUMBER_OF_WIRED_DEVICES]
+		except KeyError:
+			self._max_number_of_wired_devices = MIN_NUMBER_OF_WIRED_DEVICES
+
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
@@ -2239,6 +2240,8 @@ class JA80CentralUnit(object):
 					if data[5:7] == b'\x01\x04':
 						device.model = 'JA-82M' # magnetic contact
 
+					if data[5:7] == b'\x00\x05':
+						device.model = 'JA-80L' # wireless intenal siren
 
 					device.manufacturer = MANUFACTURER
 				else:

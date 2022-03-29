@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 from .jablotron import JA80CentralUnit,JablotronConstants,JablotronDevice,JablotronCode
 from .const import (
 	CONFIGURATION_SERIAL_PORT,
-	CONFIGURATION_NUMBER_OF_DEVICES,
+	CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
 	CONFIGURATION_PASSWORD,
 	CONFIGURATION_DEVICES,
 	CONFIGURATION_CODES,
@@ -27,8 +27,9 @@ from .const import (
 	DEVICE_SIREN_OUTDOOR,
 	DOMAIN,
 	DEFAULT_SERIAL_PORT,
-	MAX_NUMBER_OF_DEVICES,
- 	NAME,
+	MAX_NUMBER_OF_WIRED_DEVICES,
+	MIN_NUMBER_OF_WIRED_DEVICES,
+	NAME,
 	DEVICES,
  	DEVICE_DOOR_OPENING_DETECTOR,
 	DEVICE_KEYPAD,
@@ -81,7 +82,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
        			CABLE_MODEL: cables_by_names[user_input[CABLE_MODEL]],
 				CONFIGURATION_SERIAL_PORT: user_input[CONFIGURATION_SERIAL_PORT],
 				CONFIGURATION_PASSWORD: user_input[CONFIGURATION_PASSWORD],
-				CONFIGURATION_NUMBER_OF_DEVICES: user_input[CONFIGURATION_NUMBER_OF_DEVICES],
+				CONFIGURATION_NUMBER_OF_WIRED_DEVICES: user_input[CONFIGURATION_NUMBER_OF_WIRED_DEVICES],
 		
 			}
 			cu = JA80CentralUnit(None, self._config, None)
@@ -97,7 +98,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			if result:
 				self._devices = cu.devices
 				self._codes = cu.codes
-				if result and user_input[CONFIGURATION_NUMBER_OF_DEVICES] == 0:
+				if result and user_input[CONFIGURATION_NUMBER_OF_WIRED_DEVICES] == 0:
 					if len(self._codes) == 0: 
 						return self.async_create_entry(title=NAME, data=self._config)
 					return await self.async_step_codes()
@@ -120,7 +121,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         			vol.Required(CABLE_MODEL, default=DEFAULT_CABLE_MODEL): vol.In(list(CABLE_MODELS.values())),
 					vol.Required(CONFIGURATION_SERIAL_PORT, default=DEFAULT_SERIAL_PORT): str,
 					vol.Required(CONFIGURATION_PASSWORD): str,
-					vol.Optional(CONFIGURATION_NUMBER_OF_DEVICES, default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_NUMBER_OF_DEVICES)),
+					vol.Optional(CONFIGURATION_NUMBER_OF_WIRED_DEVICES, default=MIN_NUMBER_OF_WIRED_DEVICES): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_NUMBER_OF_WIRED_DEVICES)),
 				}
 			),
 			errors=errors,
