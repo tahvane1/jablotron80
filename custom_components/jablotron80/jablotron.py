@@ -592,6 +592,7 @@ class JablotronCommand():
 	code: str = None
 	confirmation_required: bool = True
 	confirm_prefix: str = None
+	accepted_prefix: str = None
 	max_records: int = 10
 	
 	def __post_init__(self) -> None:
@@ -714,7 +715,6 @@ class JablotronConnection():
 						LOGGER.debug(f'Command sent {cmd}')
 					if send_cmd.confirmation_required:
 						# confirmation required, read until confirmation or to limit
-						records_cmd = []
 						for i in range(send_cmd.max_records):
 							if confirmed:
 								break 
@@ -856,12 +856,31 @@ class JablotronKeyPress():
 		"*": b'\x8f'
 	}
 	_KEYPRESS_OPTIONS = {
-		0x0: {'val': '0', 'desc': 'Key 0 pressed on keypad'}, 0x1: {'val': '1', 'desc': 'Key 1 (^) pressed on keypad'}, 0x2: {'val': '2', 'desc': 'Key 2 pressed on keypad'}, 0x3: {'val': '3', 'desc': 'Key 3 pressed on keypad'}, 0x4: {'val': '4', 'desc': 'Key 4 (<) pressed on keypad'}, 0x5: {'val': '5', 'desc': 'Key 5 pressed on keypad'}, 0x6: {'val': '6', 'desc': 'Key 6 (>) pressed on keypad'}, 0x7: {'val': '7', 'desc': 'Key 7 (v) pressed on keypad'}, 0x8: {'val': '8', 'desc': 'Key 8 pressed on keypad'}, 0x9: {'val': '9', 'desc': 'Key 9 pressed on keypad'}, 0xe: {'val': '#', 'desc': 'Key # (ESC/OFF) pressed on keypad'}, 0xf: {'val': '*', 'desc': 'Key * (ON) pressed on keypad'}
+		0x0: {'val': '0', 'desc': 'Key 0 pressed on keypad'}, 
+		0x1: {'val': '1', 'desc': 'Key 1 (^) pressed on keypad'},
+		0x2: {'val': '2', 'desc': 'Key 2 pressed on keypad'},
+		0x3: {'val': '3', 'desc': 'Key 3 pressed on keypad'}, 
+	 	0x4: {'val': '4', 'desc': 'Key 4 (<) pressed on keypad'}, 
+		0x5: {'val': '5', 'desc': 'Key 5 pressed on keypad'}, 
+		0x6: {'val': '6', 'desc': 'Key 6 (>) pressed on keypad'},
+		0x7: {'val': '7', 'desc': 'Key 7 (v) pressed on keypad'},
+		0x8: {'val': '8', 'desc': 'Key 8 pressed on keypad'}, 
+		0x9: {'val': '9', 'desc': 'Key 9 pressed on keypad'}, 
+		0xe: {'val': '#', 'desc': 'Key # (ESC/OFF) pressed on keypad'}, 
+		0xf: {'val': '*', 'desc': 'Key * (ON) pressed on keypad'}
 	}
 	
 	_BEEP_OPTIONS = {
 		# happens when warning appears on keypad (e.g. after alarm)
-		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x5: {'val': '3s', 'desc': '3 subtle (short) beeps, 1 then 2'}, 0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'}, 0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
+		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'},
+	 	0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'},
+		0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'},
+		0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'},
+		0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'},
+		0x5: {'val': '3s', 'desc': '3 subtle (short) beeps, 1 then 2'},
+		0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'},
+		0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'},
+		0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
 	}
 	@staticmethod
 	def get_key_command(key):
@@ -2363,25 +2382,25 @@ class JA80CentralUnit(object):
 	def send_elevated_mode_command(self) -> None: 
 		if not self._system_status in self.STATUS_ELEVATED:
 			self._connection.add_command(JablotronCommand(name="Elevated mode first part",
-				code=b'\x8f', confirm_prefix=b'\x8f'))
+				code=b'\x8f', confirm_prefix=b'\xa0\xff'))
 			self._connection.add_command(JablotronCommand(name="Elevated mode second part",
-				code=b'\x80', confirm_prefix=b'\x80'))
+				code=b'\x80', confirm_prefix=b'\xa0\xff'))
 
 	def send_return_mode_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		self._connection.add_command(JablotronCommand(name="Esc / back",
-			code=b'\x8e', confirm_prefix=b'\x8e'))
+			code=b'\x8e', confirm_prefix=b'\xa1\xff'))
 
 	async def send_settings_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		command = JablotronCommand(name="Get settings",
-				code=b'\x8a', confirm_prefix=b'\xe6\x04', max_records=300)
+				code=b'\x8a', accepted_prefix=b'\xa4\xff', confirm_prefix=b'\xe6\x04', max_records=300)
 		self._connection.add_command(command)
 		return await command.wait_for_confirmation()
 
 	def send_detail_command(self) -> None:
 		self._connection.add_command(JablotronCommand(name="Details",
-			code=b'\x8e', confirm_prefix=b'\x8e'))
+			code=b'\x8e', confirm_prefix=b'\xa4\xff'))
 
 	def enter_elevated_mode(self, code: str) -> bool:
 		# mode service/maintenance depends on pin send after this
@@ -2421,13 +2440,19 @@ class JA80CentralUnit(object):
 		return False
 
 	def send_key_press(self, key: str) -> None:
-		for cmd in key:
+		for i in range(0, len(key)):
+			cmd = key[i] 
 			value = JablotronKeyPress.get_key_command(cmd)
 			name = cmd
 			if JablotronSettings.HIDE_KEY_PRESS:
 				name = "*HIDDEN*"
+			if i == len(key)-1:
+				confirm=b'\xa1\xff'
+			else:
+				confirm=b'\xa0\xff'
 			self._connection.add_command(
-				JablotronCommand(name=f'keypress {name}',code=value, confirm_prefix=value))
+
+				JablotronCommand(name=f'keypress {name}',code=value, confirm_prefix=confirm))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
