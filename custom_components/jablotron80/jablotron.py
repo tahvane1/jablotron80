@@ -1655,7 +1655,7 @@ class JA80CentralUnit(object):
 			code.active = True
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x0e:
-			event_name = "Lost communication"
+			event_name = "Lost communication with device"
 			warn = True
 			self._fault_source(source)
 		elif event_type == 0x0f:
@@ -1704,7 +1704,7 @@ class JA80CentralUnit(object):
 		elif event_type == 0x44:
 			event_name = "Data sent to ARC"
 		elif event_type == 0x4e:
-			event_name = "Alarm Cancelled"
+			event_name = "Alarm cancelled by a user"
 			# alarm cancelled / disarmed, source = by which code
 			self._clear_triggers()
 			#code is specific to zone or master TODO
