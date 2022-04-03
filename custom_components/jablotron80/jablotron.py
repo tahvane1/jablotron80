@@ -406,7 +406,7 @@ class JablotronDevice(JablotronCommon):
 	
 	@property
 	def is_central_unit(self) -> bool:
-		return self.device_id == 0
+		return self.device_id == 0 or self.device_id == 51
 		
 	@property
 	def tampered(self) -> bool:
@@ -1732,7 +1732,7 @@ class JA80CentralUnit(object):
 			self._clear_battery()
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
-			if source != 0x00:
+			if not self._get_source(source).is_central_unit:
 				self._activate_source(source)
 #			else:
 				# This event occurs when an entrance delay is caused by an unconfirmed alarm
@@ -1956,7 +1956,8 @@ class JA80CentralUnit(object):
 			# Unconfirmed alarm
 			warn = True
 			activity_name = 'Unconfirmed alarm'
-			self._activate_source(detail)
+			if not self._get_source(detail).is_central_unit:
+				self._activate_source(detail)
 
 		elif activity == 0x16:
 			activity_name = 'Triggered detector (multiple)'
