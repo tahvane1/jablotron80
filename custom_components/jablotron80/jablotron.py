@@ -225,7 +225,7 @@ class JablotronCommon:
 	@zone.setter
 	def zone(self, zone:Any) -> None:
 		self._zone = zone
-	
+
 	@active.setter
 	@log_change
 	def active(self,active: bool) -> None:
