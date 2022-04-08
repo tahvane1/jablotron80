@@ -7,7 +7,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 class JablotronEntity(Entity):
-	
+
 	def __init__(
 			self,
 			cu: JA80CentralUnit,
@@ -85,7 +85,10 @@ class JablotronEntity(Entity):
 		#	return
 		#self._state = state
 
-	
+		# override internal configured name is it's been setup in the UI
+		if self.registry_entry.name is not None:
+			self._object.name = self.registry_entry.name
+
 	async def async_will_remove_from_hass(self) -> None:
 		"""Entity being removed from hass."""
 		self._object.remove_callback(self.async_write_ha_state)

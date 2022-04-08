@@ -225,7 +225,7 @@ class JablotronCommon:
 	@zone.setter
 	def zone(self, zone:Any) -> None:
 		self._zone = zone
-	
+
 	@active.setter
 	@log_change
 	def active(self,active: bool) -> None:
@@ -1212,7 +1212,7 @@ class JA80CentralUnit(object):
 		self.central_device = JablotronControlPanel(0)
 		self.central_device.model = CENTRAL_UNIT_MODEL
 		# device that receives fault alerts such as tamper alarms and communication failures
-		self.central_device.name = "Control panel"
+		self.central_device.name = f'{CENTRAL_UNIT_MODEL} Control panel'
 		self.central_device.manufacturer = MANUFACTURER
 		self.central_device.type = DEVICE_CONTROL_PANEL
 		self._devices = {}
