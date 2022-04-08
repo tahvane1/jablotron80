@@ -406,7 +406,7 @@ class JablotronDevice(JablotronCommon):
 	
 	@property
 	def is_central_unit(self) -> bool:
-		return self.device_id == 0
+		return self.device_id == 0 or self.device_id == 51
 		
 	@property
 	def tampered(self) -> bool:
@@ -1548,24 +1548,37 @@ class JA80CentralUnit(object):
 	def _activate_source(self,source_id:bytes ,type=None) -> None:
 		source  = self._get_source(source_id)
 		if isinstance(source,JablotronDevice):
-			#source is device
-			
-			source.active = True
-			self._active_devices[source.device_id] = source
-			zone = self._get_zone_via_object(source)
-			if not zone is None:
-				zone.device_activated(source)
+			self._activate_device(source)
 		elif isinstance(source,JablotronCode):
-			# source is code
-			# is there need to trigger state for code?
+			self._activate_code(source)
+		else:
+			LOGGER.warn(f'Unknown source type {source_id}')
 
+	def _activate_code(self, code_id):
+		code  = self._get_source(code_id)
+		self._activate_code_object(code)
+
+	def _clear_code(self, code_id):
+		code  = self._get_source(code_id)
+		if isinstance(code,JablotronCode):
+			code.active = False
+
+	def _activate_code_object(self, source):
+		# is there need to trigger state for code?
+		if isinstance(source,JablotronCode):
 			self._active_codes[source._id] = source
 			source.active = True
 			zone = self._get_zone_via_object(source)
 			if not zone is None:
 				zone.code_activated(source)
-		else:
-			LOGGER.warn(f'Unknown source type {source_id}')
+
+	def _activate_device(self, source):
+		if isinstance(source,JablotronDevice):
+			source.active = True
+			self._active_devices[source.device_id] = source
+			zone = self._get_zone_via_object(source)
+			if not zone is None:
+				zone.device_activated(source)
 	
 	def _fault_source(self,source_id:bytes) -> None:
 		source  = self._get_source(source_id)
@@ -1622,8 +1635,8 @@ class JA80CentralUnit(object):
 			self._device_tampered(source)
 			self._activate_source(source)
 			warn = True
-			if source == 0x0:
-				event_name += ", Control panel"
+			#if source == 0x0:
+			#	event_name += ", Control panel"
 		elif event_type == 0x06:
 			event_name = "Tampering key pad (wrong code?)"
 			warn = True
@@ -1635,24 +1648,21 @@ class JA80CentralUnit(object):
 			self._fault_source(source)
 		elif event_type == 0x08:
 			event_name = "Setting"
-			code  = self._get_source(source)
-			code.active = True
+			self._activate_code(source)
 			self._clear_triggers()
 			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x09:
 			event_name = "Unsetting"
 			# unsetting, source = by which code
-			code  = self._get_source(source)
+			self._clear_code(source)
 			self._call_zones(function_name="disarm",source_id=source)
-			code.active = False
 		elif event_type == 0x0c:
 			event_name = "Completely set without code"
 			# self._zones[JablotronSettings.ZONE_UNSPLIT].armed(source)
 			self._call_zones(function_name="arming",source_id=source)
 		elif event_type == 0x0d:
 			event_name = "Partial Set A"
-			code  = self._get_source(source)
-			code.active = True
+			self._activate_code(source)
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x0e:
 			event_name = "Lost communication with device"
@@ -1681,18 +1691,15 @@ class JA80CentralUnit(object):
 			self._activate_source(source)
 		elif event_type == 0x1a:
 			event_name = "Setting Zone A"
-			code  = self._get_source(source)
-			code.active = True
+			self._activate_code(source)
 			self._call_zone(1,by = source,function_name="arming")
 		elif event_type == 0x1b:
 			event_name = "Setting Zone B"
-			code  = self._get_source(source)
-			code.active = True
+			self._activate_code(source)
 			self._call_zone(2,by = source,function_name="arming")
 		elif event_type == 0x21:
 			event_name = "Partial Set A,B"
-			code  = self._get_source(source)
-			code.active = True
+			self._activate_code(source)
 			self._call_zone(1,by = source,function_name="arming")
 			self._call_zone(2,by = source,function_name="arming")
 		elif event_type == 0x40:
@@ -1725,14 +1732,14 @@ class JA80CentralUnit(object):
 			self._clear_battery()
 		elif event_type == 0x5a:
 			event_name = "Unconfirmed alarm"
-			if source == 0x00:
+			if not self._get_source(source).is_central_unit:
+				self._activate_source(source)
+#			else:
 				# This event occurs when an entrance delay is caused by an unconfirmed alarm
 				# It looks to me like a bug in the firmware to show this as the alarm should only be triggered once
 				# the second detector is triggered. But the aim of this software is to replicate the alerts of the alarm system.
 				# TODO: Check the alarm logs to see what is registered. 
-				event_name = event_name + ", Control panel"
-			else:
-				self._activate_source(source)
+#				event_name = event_name + ", Control panel"
 			warn = True
 		elif event_type == 0x5c:
 			event_name = "PGX On"
@@ -1747,10 +1754,10 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown timestamp event data={packet_data}')
 		#crc = data[7]
 
-		if source == 0x0:
-			log = f'{event_name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
-		else:
-			log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
+#		if source == 0x0:
+#			log = f'{event_name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
+#		else:
+		log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 
 		if warn:
 			LOGGER.warn(log)
@@ -1949,7 +1956,8 @@ class JA80CentralUnit(object):
 			# Unconfirmed alarm
 			warn = True
 			activity_name = 'Unconfirmed alarm'
-			self._activate_source(detail)
+			if not self._get_source(detail).is_central_unit:
+				self._activate_source(detail)
 
 		elif activity == 0x16:
 			activity_name = 'Triggered detector (multiple)'
