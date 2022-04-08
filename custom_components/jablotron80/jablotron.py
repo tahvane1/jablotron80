@@ -1,3 +1,4 @@
+from distutils.command.config import config
 import sys
 import queue
 import time
@@ -13,6 +14,7 @@ import os
 import logging
 import serial
 import sys
+import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
@@ -833,6 +835,7 @@ class JablotronKeyPress():
 		return JablotronKeyPress._BEEP_OPTIONS[code]
 	
 class JablotronMessage():
+
 	TYPE_STATE = 'State'
 	TYPE_EVENT = 'Event'
 	TYPE_EVENT_LIST = 'EventList'
@@ -866,7 +869,7 @@ class JablotronMessage():
 		0xba: TYPE_PING_OR_OTHER,
 		0xc6: TYPE_PING,
 		0xe7: TYPE_EVENT,
-		0xec: TYPE_SAVING, # seen when saving took really long
+		0xec: TYPE_SAVING,
 		0xfe: TYPE_BEEP, # on setup
 		0xff: TYPE_CONFIRM # with JA-80T cable
 	}
@@ -880,7 +883,7 @@ class JablotronMessage():
 		0xe8: 4,
 		0xe9: 6,
 		0xe7: 9,
-		0xec: 10,
+		0xec: 5,
 		0xff: 1
 	}
 	_RECORD_E6_LENGTHS = {
@@ -945,10 +948,33 @@ class JablotronMessage():
 	@staticmethod
 	def validate_length(main_type: str, record:bytes ) -> bool:
 		return len(record) == JablotronMessage.get_length(main_type,record)
-			
+
 	@staticmethod
-	def check_crc(data: bytes) -> bool:
-		#TODO algorithm not yet known
+	def check_crc(packet: bytes) -> bool:
+
+		length = len(packet)
+
+		if length <= 2:
+			LOGGER.debug('Short packet, no CRC to check')
+			return True
+
+		assert packet[length-1] == 0xff
+		expected_checksum = packet[length-2]
+		data = packet[:length-2]
+
+		# first attempt to check CRC with one algo
+		crcchecker = crccheck.crc.Crc(8, 70, initvalue=49, xor_output=0, reflect_input=False, reflect_output=False)
+		checksum = crcchecker.calc(data)
+
+		# crc is always < 0x7f, probably dropped top bit because otherwise could be seen as end of packet (0xff). However have verified it is not an CRC7 algo!
+		if not checksum & 0x7f == expected_checksum:
+			# second attempt to check CRC with second algo, don't know why 2 different CRC algs required..... probabyl incorrect, but will see with more data, perhaps the xor_output value is derived from somewhere else?
+			crcchecker = crccheck.crc.Crc(8, 70, initvalue=49, xor_output=35, reflect_input=False, reflect_output=False)
+			checksum = crcchecker.calc(data)
+
+			if not checksum & 0x7f == expected_checksum:
+				return False
+
 		return True
 	
 	@staticmethod
@@ -967,19 +993,18 @@ class JablotronMessage():
 		   # LOGGER.error('Error determining msg type from buffer: %s', ex)
 			#  msg type is still none so next call will work
 		if message_type is None:
-			LOGGER.error(
-					f'Unknown message type {hex(record[0])} with data {packet_data} received')
-			return None
+			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
 			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
 				# don't validate length for a PING_OR_OTHER as it's may contains it's own message
 				return message_type
-			elif JablotronMessage.validate_length(message_type,record) and JablotronMessage.check_crc(record):
+			elif not JablotronMessage.check_crc(record):
+				LOGGER.warn(f'Invalid CRC for {packet_data}')
+			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
-				# likely a corrupt message
-				LOGGER.debug(f'Invalid message of type {message_type} received {packet_data}')
+				LOGGER.warn(f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
 class JablotronState():
