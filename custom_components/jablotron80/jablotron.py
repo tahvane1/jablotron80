@@ -1,19 +1,14 @@
-from distutils.command.config import config
-import sys
 import queue
 import time
 import datetime
 from dataclasses import dataclass, field
 import traceback
-from typing import List,Any,Type,Optional,Union
-import binascii
+from typing import List,Any,Optional,Union
 import threading
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-import os
 import logging
 import serial
-import sys
 import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
