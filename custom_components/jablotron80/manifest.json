@@ -7,5 +7,5 @@
 	"issue_tracker": "https://github.com/tahvane1/jablotron80/issues",
 	"dependencies": [],
 	"codeowners": ["@tahvane1"],
-	"requirements": []
+	"requirements": ["crccheck"]
 }
