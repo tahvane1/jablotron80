@@ -1816,8 +1816,6 @@ class JA80CentralUnit(object):
 		# this is probably rf strength 00 = 0%, 0A = 10%, 1E = 75%, 28 = 100%?
 		self.rf_level = int(data[7]) / 40.0 * 100.0
 		#crc = data[8]
-		# calc = binascii.crc32(bytearray(data[0:8]))&0xff
-		# LOGGER.info(f'crc received={crc},={crc:x},calculate={calc},{calc:x}')
 		self._last_state = status
 
 		by = detail if detail in [0x06, 0x12] else None
@@ -2054,7 +2052,7 @@ class JA80CentralUnit(object):
 			index = data[2]
 			# running list index value specific to selection
 			setting_value = data[3]
-			crc = data[4]
+			# crc = data[4]
 			pass
 		elif setting_type_1 == 0x03:
 			# E6 03 00 00 21 FF 
@@ -2198,7 +2196,7 @@ class JA80CentralUnit(object):
 				# id range 0-7
 				id_ = int(data[3])
 				setting = data[4]
-				crc = data[5]
+				# crc = data[5]
 				pass
 			elif setting_type_2 == 0x09:
 				# E6 06 09 00 00 4B FF 
