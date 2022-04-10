@@ -905,7 +905,6 @@ class JablotronMessage():
 	TYPE_KEYPRESS = 'KeyPress'
 	TYPE_BEEP = 'Beep'
 	TYPE_PING = 'Ping' # regular messages that have no clear meaning (perhaps yet)
-	TYPE_PING_OR_OTHER = 'Ping or Other' # message that have no payload or otherwise the payload is a message of other type
 	TYPE_SAVING = 'Saving'
 	TYPE_CONFIRM = 'Confirm'
 	# e8,e9,e5,
@@ -922,11 +921,11 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
-		0xb3: TYPE_PING_OR_OTHER,
-		0xb4: TYPE_PING_OR_OTHER,
+		0xb3: TYPE_PING,
+		0xb4: TYPE_PING,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
-		0xba: TYPE_PING_OR_OTHER,
+		0xba: TYPE_PING,
 		0xc6: TYPE_PING,
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING,
@@ -1055,10 +1054,7 @@ class JablotronMessage():
 		if message_type is None:
 			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
-			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
-				# don't validate length for a PING_OR_OTHER as it's may contains it's own message
-				return message_type
-			elif not JablotronMessage.check_crc(record):
+			if not JablotronMessage.check_crc(record):
 				LOGGER.warn(f'Invalid CRC for {packet_data}')
 			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
@@ -2344,11 +2340,6 @@ class JA80CentralUnit(object):
 		elif message_type == JablotronMessage.TYPE_KEYPRESS:
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
-		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
-			if len(data) != 2:
-				LOGGER.debug(f"Embedded Ping: {packet_data}")
-				# process message without the ping prefix
-				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
 			beep = JablotronKeyPress.get_beep_option(data[0]& 0x0f)
 			LOGGER.info("Keypad Beep: " + hex(data[0]) + ", " + str(beep['desc']))
