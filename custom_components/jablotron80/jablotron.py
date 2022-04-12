@@ -590,14 +590,12 @@ class JablotronZone(JablotronCommon):
 class JablotronCommand():
 	name: str = None
 	code: str = None
-	confirmation_required: bool = True
-	confirm_prefix: str = None
+	complete_prefix: str = None
 	accepted_prefix: str = None
 	max_records: int = 10
 	
 	def __post_init__(self) -> None:
-		if self.confirmation_required:
-			self._event = threading.Event()
+		self._event = threading.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
 		while not self._event.is_set():
@@ -662,9 +660,8 @@ class JablotronConnection():
 	 
 		# get one command
 		cmd = self._cmd_q.get_nowait()
-		if cmd.confirmation_required == False:
-			# we could postpone this until command has been confirmed
-			self._cmd_q.task_done()
+		# we postpone this until command has been confirmed
+		self._cmd_q.task_done()
 	   
 		return cmd
 	
@@ -698,7 +695,6 @@ class JablotronConnection():
 		LOGGER.debug('Loop endlessly reading serial')
 		while not self._stop.is_set():
 			try:
-				confirmed = False
 				if not self.is_connected():
 					LOGGER.warning('Not connected to JA80, abort')
 					return []
@@ -713,36 +709,46 @@ class JablotronConnection():
 						LOGGER.debug(f'Sending new command {send_cmd}')
 						self._connection.write(cmd)
 						LOGGER.debug(f'Command sent {cmd}')
-					if send_cmd.confirmation_required:
-						# confirmation required, read until confirmation or to limit
-						for i in range(send_cmd.max_records):
-							if confirmed:
-								break 
-							records_tmp = self._read_data()
-							self._forward_records(records_tmp)
-							for record in records_tmp:
-								packet_data = " ".join(["%02x" % c for c in record])
-								LOGGER.warn(f'record:{i}:{packet_data}')
-								if self._confirmed(record, send_cmd):
-									LOGGER.info(f"confirmation for command {send_cmd} received")
-									confirmed=True
-									send_cmd.confirm(True)
-									time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
-						if not confirmed:
-							# no confirmation received
-							LOGGER.warn(f"no confirmation for command {send_cmd} received")
-							send_cmd.confirm(False)       
-						self._cmd_q.task_done()
-						
+
+					if self.read_until_found(send_cmd.accepted_prefix):
+						LOGGER.info(f"command {send_cmd} accepted")
+
+						if send_cmd.complete_prefix is not None:
+							# confirmation required, read until confirmation or to limit
+							if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
+								LOGGER.info(f"command {send_cmd} completed")
+								send_cmd.confirm(True)
+								self._cmd_q.task_done()
+							else:
+								LOGGER.warn(f"no completion message found for command {send_cmd}")
+								send_cmd.confirm(False)
+								
+						else:
+							send_cmd.confirm(True)
+
+					else:
+						LOGGER.warn(f"no accepted message for command {send_cmd} received")
+						send_cmd.confirm(False)
+				
+					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 				else:
-					# no new command to send. Read status
-					#self._forward_records(records)
-					# sleep for a while
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
-				#await asyncio.sleep(0)
 			except Exception as ex:
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
+
+	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
+
+		for i in range(max_records):
+			records_tmp = self._read_data()
+			self._forward_records(records_tmp)
+			for record in records_tmp:
+				packet_data = " ".join(["%02x" % c for c in record])
+				LOGGER.warn(f'record:{i}:{packet_data}')
+				if record[:len(prefix)] == prefix:
+					return True
+		
+		return False
 
 
 class JablotronConnectionHID(JablotronConnection):
@@ -780,13 +786,6 @@ class JablotronConnectionHID(JablotronConnection):
 	def _get_cmd(self, code: bytes) -> str:
 		return b'\x00\x02\x01' + code
 
-
-	def _confirmed(self, record, send_cmd: JablotronCommand):
-
-		if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix:
-			return True
-		else:
-			return False
 
 class JablotronConnectionSerial(JablotronConnection):
 
@@ -827,15 +826,6 @@ class JablotronConnectionSerial(JablotronConnection):
 
 	def _get_cmd(self, code: bytes):
 		return code
-
-
-	def _confirmed(self, record, send_cmd: JablotronCommand):
-
-		if record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix \
-			or send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff':
-			return True
-		else:
-			return False
 
 
 class JablotronKeyPress():
@@ -2373,25 +2363,25 @@ class JA80CentralUnit(object):
 	def send_elevated_mode_command(self) -> None: 
 		if not self._system_status in self.STATUS_ELEVATED:
 			self._connection.add_command(JablotronCommand(name="Elevated mode first part",
-				code=b'\x8f', confirm_prefix=b'\xa0\xff'))
+				code=b'\x8f', accepted_prefix=b'\xa0\xff'))
 			self._connection.add_command(JablotronCommand(name="Elevated mode second part",
-				code=b'\x80', confirm_prefix=b'\xa0\xff'))
+				code=b'\x80', accepted_prefix=b'\xa0\xff'))
 
 	def send_return_mode_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		self._connection.add_command(JablotronCommand(name="Esc / back",
-			code=b'\x8e', confirm_prefix=b'\xa1\xff'))
+			code=b'\x8e', accepted_prefix=b'\xa1\xff'))
 
 	async def send_settings_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		command = JablotronCommand(name="Get settings",
-				code=b'\x8a', accepted_prefix=b'\xa4\xff', confirm_prefix=b'\xe6\x04', max_records=300)
+				code=b'\x8a', accepted_prefix=b'\xa4\xff', complete_prefix=b'\xe6\x04', max_records=300)
 		self._connection.add_command(command)
 		return await command.wait_for_confirmation()
 
 	def send_detail_command(self) -> None:
 		self._connection.add_command(JablotronCommand(name="Details",
-			code=b'\x8e', confirm_prefix=b'\xa4\xff'))
+			code=b'\x8e', accepted_prefix=b'\xa4\xff'))
 
 	def enter_elevated_mode(self, code: str) -> bool:
 		# mode service/maintenance depends on pin send after this
@@ -2400,7 +2390,7 @@ class JA80CentralUnit(object):
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
 			self.send_elevated_mode_command()
-			self.send_key_press(code)
+			self.send_key_press(code, b'\xa1')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
@@ -2430,7 +2420,7 @@ class JA80CentralUnit(object):
 			return result
 		return False
 
-	def send_key_press(self, key: str) -> None:
+	def send_key_press(self, key: str, accepted_prefix: bytes) -> None:
 		for i in range(0, len(key)):
 			cmd = key[i] 
 			value = JablotronKeyPress.get_key_command(cmd)
@@ -2438,12 +2428,12 @@ class JA80CentralUnit(object):
 			if JablotronSettings.HIDE_KEY_PRESS:
 				name = "*HIDDEN*"
 			if i == len(key)-1:
-				confirm=b'\xa1\xff'
+				accepted=accepted_prefix + b'\xff'
 			else:
-				confirm=b'\xa0\xff'
+				accepted=b'\xa0\xff'
 			self._connection.add_command(
 
-				JablotronCommand(name=f'keypress {name}',code=value, confirm_prefix=confirm))
+				JablotronCommand(name=f'keypress {name}',code=value, accepted_prefix=accepted))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
@@ -2452,15 +2442,15 @@ class JA80CentralUnit(object):
 
 	def arm(self,code: str,zone:str=None) -> None:
 		if zone is None:
-			self.send_key_press(code)
+			self.send_key_press(code, b'\xa1')
 		else:
-			self.send_key_press({"A":"*2","B":"*3","C":"*1"}[zone]+code)
+			self.send_key_press({"A":"*2","B":"*3","C":"*1"}[zone]+code, b'\xa1')
 	
 	def disarm(self,code:str,zone:str=None) -> None:
-		self.send_key_press(code)
+		self.send_key_press(code, b'\xa2')
 		if JablotronState.is_alarm_state(self._last_state):
 			#confirm alarm
-			self.send_key_press("?")
+			self.send_detail_command
 		
 	async def processing_loop(self) -> None:
 		previous_record = None
@@ -2481,8 +2471,7 @@ class JA80CentralUnit(object):
 		while not self._stop.is_set():
 			LOGGER.info(f'{self}')
 			await asyncio.sleep(60)
-			#self.send_key_press(self._master_code)
-
+			#self.send_key_press(self._master_code, b'\xa1')
 
 if __name__ == "__main__":
 	
