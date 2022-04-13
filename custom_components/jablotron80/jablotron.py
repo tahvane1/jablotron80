@@ -704,33 +704,49 @@ class JablotronConnection():
 		
 				if send_cmd is not None:
 					# new command in queue
-					if not send_cmd.code is None:
-						cmd = self._get_cmd(send_cmd.code)																
-						LOGGER.debug(f'Sending new command {send_cmd}')
-						self._connection.write(cmd)
-						LOGGER.debug(f'Command sent {cmd}')
 
-					if self.read_until_found(send_cmd.accepted_prefix):
-						LOGGER.info(f"command {send_cmd} accepted")
+					accepted = False
+					confirmed = False
+					retries = 1
 
-						if send_cmd.complete_prefix is not None:
-							# confirmation required, read until confirmation or to limit
-							if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
-								LOGGER.info(f"command {send_cmd} completed")
-								send_cmd.confirm(True)
-								self._cmd_q.task_done()
+					while retries >= 0 and not (accepted and confirmed):
+						retries -=1
+						for i in range(0,len(send_cmd.code)):
+							if i == len(send_cmd.code)-1:
+								accepted_prefix = send_cmd.accepted_prefix
 							else:
-								LOGGER.warn(f"no completion message found for command {send_cmd}")
-								send_cmd.confirm(False)
-								
-						else:
-							send_cmd.confirm(True)
+								accepted_prefix =b'\xa0\xff'
 
-					else:
-						LOGGER.warn(f"no accepted message for command {send_cmd} received")
-						send_cmd.confirm(False)
-				
+							if not send_cmd.code is None:
+								cmd = self._get_cmd(send_cmd.code[i].to_bytes(1,byteorder='big'))
+								LOGGER.debug(f'Sending new command {cmd}')
+								self._connection.write(cmd)
+								LOGGER.debug(f'Command sent {cmd}')
+
+							if self.read_until_found(accepted_prefix):
+								LOGGER.info(f"command {cmd} accepted")
+								accepted = True
+							else:
+								LOGGER.warn(f"no accepted message for command {send_cmd} received")
+
+						if accepted:
+							if send_cmd.complete_prefix is not None:
+								# confirmation required, read until confirmation or to limit
+								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
+									LOGGER.info(f"command {send_cmd[i]} completed")
+									send_cmd.confirm(True)
+									confirmed = True
+									self._cmd_q.task_done()
+								else:
+									LOGGER.warn(f"no completion message found for command {send_cmd[i]}")
+									send_cmd.confirm(False)
+									
+							else:
+								send_cmd.confirm(True)
+								confirmed = True
+
 					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
+
 				else:
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 			except Exception as ex:
@@ -824,7 +840,7 @@ class JablotronConnectionSerial(JablotronConnection):
 		return ret_val
 
 
-	def _get_cmd(self, code: bytes):
+	def _get_cmd(self, code: bytes) -> str:
 		return code
 
 
@@ -2421,19 +2437,20 @@ class JA80CentralUnit(object):
 		return False
 
 	def send_key_press(self, key: str, accepted_prefix: bytes) -> None:
+
+		value = b''
+
+		if JablotronSettings.HIDE_KEY_PRESS:
+			name = "*HIDDEN*"
+		else:
+			name = str
+		
 		for i in range(0, len(key)):
 			cmd = key[i] 
-			value = JablotronKeyPress.get_key_command(cmd)
-			name = cmd
-			if JablotronSettings.HIDE_KEY_PRESS:
-				name = "*HIDDEN*"
-			if i == len(key)-1:
-				accepted=accepted_prefix + b'\xff'
-			else:
-				accepted=b'\xa0\xff'
-			self._connection.add_command(
+			value = value + JablotronKeyPress.get_key_command(cmd)
 
-				JablotronCommand(name=f'keypress {name}',code=value, accepted_prefix=accepted))
+		self._connection.add_command(
+			JablotronCommand(name=f'keypress {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
