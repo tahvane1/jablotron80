@@ -1945,6 +1945,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
 
+		elif activity == 0x0a:
+			activity_name = 'Set/Unset'
+
 		elif activity == 0x0b:
 			activity_name = 'Bypass'
 
