@@ -1286,11 +1286,11 @@ class JA80CentralUnit(object):
 #		self._connection = JablotronConnection(CABLE_MODEL_JA80T,'socket://192.168.0.8:23?logging=debug')
 #		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
 		self._connection = JablotronConnectionSerial(config[CONFIGURATION_SERIAL_PORT])
-#		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
-#		if device_count == 0:
-#			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
-#		else:
-#			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
+		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
+		if device_count == 0:
+			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
+		else:
+			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
