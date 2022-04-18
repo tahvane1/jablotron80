@@ -1957,6 +1957,9 @@ class JA80CentralUnit(object):
 		elif activity == 0x0d:
 			activity_name = 'Entrance delay'
 
+		elif activity == 0x0e:
+			activity_name = 'Test OK'
+
 		elif activity == 0x10:
 			# permanent trigger during standard (unset) mode, e.g. a door open detector
 			activity_name = 'Triggered detector'
