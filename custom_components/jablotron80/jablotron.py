@@ -716,7 +716,7 @@ class JablotronConnection():
 
 					accepted = False
 					confirmed = False
-					retries = 1
+					retries = 2
 
 					while retries >= 0 and not (accepted and confirmed):
 						retries -=1
