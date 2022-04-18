@@ -1945,6 +1945,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Discharged battery'
 			self._device_battery_low(detail)
 
+		elif activity == 0x0a:
+			activity_name = 'Set/Unset'
+
 		elif activity == 0x0b:
 			activity_name = 'Bypass'
 
@@ -1953,6 +1956,9 @@ class JA80CentralUnit(object):
 
 		elif activity == 0x0d:
 			activity_name = 'Entrance delay'
+
+		elif activity == 0x0e:
+			activity_name = 'Test OK'
 
 		elif activity == 0x10:
 			# permanent trigger during standard (unset) mode, e.g. a door open detector
