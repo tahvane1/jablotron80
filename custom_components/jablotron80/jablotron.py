@@ -610,8 +610,17 @@ class JablotronCommand():
 	def __str__(self) -> str:
 		s = f'Command name={self.name}'
 		return s
-	
+
+
+
 class JablotronConnection():
+
+	@staticmethod
+	def factory(cable_model: str, serial_port: str):
+		if cable_model == CABLE_MODEL_JA82T:
+			return JablotronConnectionHID(serial_port)
+		else:
+			return JablotronConnectionSerial(serial_port)
 
 	# device is mandatory at initiation
 	def __init__(self, device: str) -> None:
@@ -1285,9 +1294,7 @@ class JA80CentralUnit(object):
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
-#		self._connection = JablotronConnection(CABLE_MODEL_JA80T,'socket://192.168.0.8:23?logging=debug')
-#		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
-		self._connection = JablotronConnectionSerial(config[CONFIGURATION_SERIAL_PORT])
+		self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
 		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		if device_count == 0:
 			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
