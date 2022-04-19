@@ -360,10 +360,12 @@ class JablotronDevice(JablotronCommon):
 	def name(self) -> str:
 		if self._name is None:
 			
-			if self.model is not None and self.serial_number is not None:
-				return f'{self.model}_{self.serial_number}'
+			if self.model is None and self.serial_number is not None:
+				return f'S/N:{self.serial_number}'
+			elif self.model is not None and self.serial_number is not None:
+				return f'{self.model} S/N:{self.serial_number}'
 			elif self.model is not None:
-				return f'{self.model}_{self.device_id}'
+				return f'{self.model} device_{self.device_id}'
 			else:
 
 				# device 52 & 53 are visible in Bypass
@@ -784,7 +786,7 @@ class JablotronConnection():
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
 
-	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
+	def read_until_found(self, prefix: str, max_records: int = 15) -> bool:
 
 		for i in range(max_records):
 			records_tmp = self._read_data()
@@ -2229,7 +2231,7 @@ class JA80CentralUnit(object):
 						or data[5:7] == b'\x08\x03' \
 						or data[5:7] == b'\x09\x01' \
 						or data[5:7] == b'\x09\x03':
-						device.model = 'RC-86 (80)' # fob
+						device.model = 'RC-86' # fob
 
 					if data[5:7] == b'\x05\x04':
 						device.model = 'JA-84P' # pir camera
@@ -2240,7 +2242,8 @@ class JA80CentralUnit(object):
 					if data[5:7] == b'\x01\x04':
 						device.model = 'JA-82M' # magnetic contact
 
-					if data[5:7] == b'\x00\x05':
+					if data[5:7] == b'\x05\x08' \
+						or data[5:7] == b'\x05\x09':
 						device.model = 'JA-80L' # wireless intenal siren
 
 					device.manufacturer = MANUFACTURER
@@ -2487,7 +2490,7 @@ class JA80CentralUnit(object):
 				f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
-		await asyncio.sleep(5)
+		await asyncio.sleep(2)
 		if self.enter_elevated_mode(self._master_code):
 			result = await self.send_settings_command()
 			self.send_return_mode_command()
