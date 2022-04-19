@@ -669,8 +669,6 @@ class JablotronConnection():
 	 
 		# get one command
 		cmd = self._cmd_q.get_nowait()
-		# we postpone this until command has been confirmed
-		self._cmd_q.task_done()
 	   
 		return cmd
 	
@@ -737,22 +735,22 @@ class JablotronConnection():
 								accepted = True
 							else:
 								LOGGER.warn(f"no accepted message for command {send_cmd} received")
+								accepted = False
+								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
 
 						if accepted:
 							if send_cmd.complete_prefix is not None:
 								# confirmation required, read until confirmation or to limit
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
-									LOGGER.info(f"command {send_cmd[i]} completed")
-									send_cmd.confirm(True)
-									confirmed = True
-									self._cmd_q.task_done()
+									LOGGER.info(f"command {send_cmd} completed")
 								else:
-									LOGGER.warn(f"no completion message found for command {send_cmd[i]}")
+									LOGGER.warn(f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
+									continue
 									
-							else:
-								send_cmd.confirm(True)
-								confirmed = True
+							send_cmd.confirm(True)
+							confirmed = True
+							self._cmd_q.task_done()
 
 					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 
@@ -769,7 +767,7 @@ class JablotronConnection():
 			self._forward_records(records_tmp)
 			for record in records_tmp:
 				packet_data = " ".join(["%02x" % c for c in record])
-				LOGGER.warn(f'record:{i}:{packet_data}')
+				LOGGER.debug(f'record:{i}:{packet_data}')
 				if record[:len(prefix)] == prefix:
 					return True
 		
@@ -2383,13 +2381,6 @@ class JA80CentralUnit(object):
 				s += f'{code}\n'
 		return s
 
-	def send_elevated_mode_command(self) -> None: 
-		if not self._system_status in self.STATUS_ELEVATED:
-			self._connection.add_command(JablotronCommand(name="Elevated mode first part",
-				code=b'\x8f', accepted_prefix=b'\xa0\xff'))
-			self._connection.add_command(JablotronCommand(name="Elevated mode second part",
-				code=b'\x80', accepted_prefix=b'\xa0\xff'))
-
 	def send_return_mode_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		self._connection.add_command(JablotronCommand(name="Esc / back",
@@ -2398,7 +2389,7 @@ class JA80CentralUnit(object):
 	async def send_settings_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		command = JablotronCommand(name="Get settings",
-				code=b'\x8a', accepted_prefix=b'\xa4\xff', complete_prefix=b'\xe6\x04', max_records=300)
+				code=b'\x8a', accepted_prefix=b'\xa1\xff', complete_prefix=b'\xe6\x04', max_records=300)
 		self._connection.add_command(command)
 		return await command.wait_for_confirmation()
 
@@ -2412,8 +2403,7 @@ class JA80CentralUnit(object):
 			# do nothing already on elevated mode
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
-			self.send_elevated_mode_command()
-			self.send_keypress_sequence(code, b'\xa1')
+			self.send_keypress_sequence("*0" + code, b'\xa1')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
