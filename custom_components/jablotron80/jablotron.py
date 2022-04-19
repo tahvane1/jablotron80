@@ -726,15 +726,15 @@ class JablotronConnection():
 
 							if not send_cmd.code is None:
 								cmd = self._get_cmd(send_cmd.code[i].to_bytes(1,byteorder='big'))
-								LOGGER.debug(f'Sending new command {cmd}')
+								LOGGER.debug(f'Sending keypress, sequence:{i}')
 								self._connection.write(cmd)
-								LOGGER.debug(f'Command sent {cmd}')
+								LOGGER.debug(f'keypress sent, sequence:{i}')
 
 							if self.read_until_found(accepted_prefix):
-								LOGGER.info(f"command {cmd} accepted")
+								LOGGER.debug(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
-								LOGGER.warn(f"no accepted message for command {send_cmd} received")
+								LOGGER.warn(f'no accepted message for sequence:{i} received')
 								accepted = False
 								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
 
@@ -742,7 +742,7 @@ class JablotronConnection():
 							if send_cmd.complete_prefix is not None:
 								# confirmation required, read until confirmation or to limit
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
-									LOGGER.info(f"command {send_cmd} completed")
+									LOGGER.debug(f"command {send_cmd} completed")
 								else:
 									LOGGER.warn(f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
