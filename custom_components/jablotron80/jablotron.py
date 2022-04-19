@@ -2381,13 +2381,6 @@ class JA80CentralUnit(object):
 				s += f'{code}\n'
 		return s
 
-	def send_elevated_mode_command(self) -> None: 
-		if not self._system_status in self.STATUS_ELEVATED:
-			self._connection.add_command(JablotronCommand(name="Elevated mode first part",
-				code=b'\x8f', accepted_prefix=b'\xa0\xff'))
-			self._connection.add_command(JablotronCommand(name="Elevated mode second part",
-				code=b'\x80', accepted_prefix=b'\xa0\xff'))
-
 	def send_return_mode_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		self._connection.add_command(JablotronCommand(name="Esc / back",
@@ -2410,7 +2403,6 @@ class JA80CentralUnit(object):
 			# do nothing already on elevated mode
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
-			#self.send_elevated_mode_command()
 			self.send_keypress_sequence("*0" + code, b'\xa1')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
