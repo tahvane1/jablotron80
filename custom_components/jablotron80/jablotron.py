@@ -2413,7 +2413,7 @@ class JA80CentralUnit(object):
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
 			self.send_elevated_mode_command()
-			self.send_key_press(code, b'\xa1')
+			self.send_keypress_sequence(code, b'\xa1')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
@@ -2443,7 +2443,7 @@ class JA80CentralUnit(object):
 			return result
 		return False
 
-	def send_key_press(self, key: str, accepted_prefix: bytes) -> None:
+	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes) -> None:
 
 		value = b''
 
@@ -2452,12 +2452,12 @@ class JA80CentralUnit(object):
 		else:
 			name = str
 		
-		for i in range(0, len(key)):
-			cmd = key[i] 
+		for i in range(0, len(key_sequence)):
+			cmd = key_sequence[i] 
 			value = value + JablotronKeyPress.get_key_command(cmd)
 
 		self._connection.add_command(
-			JablotronCommand(name=f'keypress {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
+			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
@@ -2466,12 +2466,12 @@ class JA80CentralUnit(object):
 
 	def arm(self,code: str,zone:str=None) -> None:
 		if zone is None:
-			self.send_key_press(code, b'\xa1')
+			self.send_keypress_sequence(code, b'\xa1')
 		else:
-			self.send_key_press({"A":"*2","B":"*3","C":"*1"}[zone]+code, b'\xa1')
+			self.send_keypress_sequence({"A":"*2","B":"*3","C":"*1"}[zone]+code, b'\xa1')
 	
 	def disarm(self,code:str,zone:str=None) -> None:
-		self.send_key_press(code, b'\xa2')
+		self.send_keypress_sequence(code, b'\xa2')
 		if JablotronState.is_alarm_state(self._last_state):
 			#confirm alarm
 			self.send_detail_command
