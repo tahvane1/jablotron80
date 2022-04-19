@@ -755,7 +755,7 @@ class JablotronConnection():
 								LOGGER.debug(f'keypress sent, sequence:{i}')
 
 							if self.read_until_found(accepted_prefix):
-								LOGGER.debug(f'keypress accepted, sequence:{i}')
+								LOGGER.info(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
 								LOGGER.warn(f'no accepted message for sequence:{i} received')
@@ -766,7 +766,7 @@ class JablotronConnection():
 							if send_cmd.complete_prefix is not None:
 								# confirmation required, read until confirmation or to limit
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
-									LOGGER.debug(f"command {send_cmd} completed")
+									LOGGER.info(f"command {send_cmd} completed")
 								else:
 									LOGGER.warn(f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
