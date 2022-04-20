@@ -94,7 +94,7 @@ class JablotronSettings:
 	#sleep when no command
 	SERIAL_SLEEP_NO_COMMAND = 0.2
 	#sleep when command
-	SERIAL_SLEEP_COMMAND = 0
+	SERIAL_SLEEP_COMMAND = 0.2
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  
@@ -590,13 +590,12 @@ class JablotronZone(JablotronCommon):
 class JablotronCommand():
 	name: str = None
 	code: str = None
-	confirmation_required: bool = True
-	confirm_prefix: str = None
+	complete_prefix: str = None
+	accepted_prefix: str = None
 	max_records: int = 10
 	
 	def __post_init__(self) -> None:
-		if self.confirmation_required:
-			self._event = threading.Event()
+		self._event = threading.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
 		while not self._event.is_set():
@@ -611,18 +610,26 @@ class JablotronCommand():
 	def __str__(self) -> str:
 		s = f'Command name={self.name}'
 		return s
-	
+
+
+
 class JablotronConnection():
 
+	@staticmethod
+	def factory(cable_model: str, serial_port: str):
+		if cable_model == CABLE_MODEL_JA82T:
+			return JablotronConnectionHID(serial_port)
+		else:
+			return JablotronConnectionSerial(serial_port)
+
 	# device is mandatory at initiation
-	def __init__(self, type: str, device: str) -> None:
-		LOGGER.info(f'Init JablotronConnection of type {type} with device {device}')
-		self._type = type
+	def __init__(self, device: str) -> None:
 		self._device = device
 		self._cmd_q = queue.Queue()
 		self._output_q = queue.Queue()
 		self._stop = threading.Event()
-	
+		self._connection = None
+			
 	def get_record(self) -> List[bytearray]:
 		if self._output_q.empty():
 			return None
@@ -635,22 +642,6 @@ class JablotronConnection():
 	def device(self):
 		return self._device
 	
-	def connect(self) -> None:
-		LOGGER.info(f'Connecting to JA80 via {self._type} using {self._device}...')
-		if self._type == CABLE_MODEL_JA82T:
-			self._connection = open(self._device, 'w+b',buffering=0)
-			LOGGER.debug('Sending startup message')
-			self._connection.write(b'\x00\x00\x01\x01')
-			LOGGER.debug('Successfully sent startup message')
-		elif self._type == CABLE_MODEL_JA80T:
-			self._connection = serial.serial_for_url(url=self._device,
-                                    baudrate=9600,
-                                    parity=serial.PARITY_NONE,
-                                    bytesize=serial.EIGHTBITS,
-                                    dsrdtr=True,# stopbits=serial.STOPBITS_ONE
-                                    timeout=1)
-
-
 	def disconnect(self) -> None:
 		if self.is_connected():
 			LOGGER.info('Disconnecting from JA80...')
@@ -678,9 +669,6 @@ class JablotronConnection():
 	 
 		# get one command
 		cmd = self._cmd_q.get_nowait()
-		if cmd.confirmation_required == False:
-			# we could postpone this until command has been confirmed
-			self._cmd_q.task_done()
 	   
 		return cmd
 	
@@ -696,47 +684,24 @@ class JablotronConnection():
 		#	formatted_data = " ".join(["%02x" % c for c in data])
 		#	LOGGER.debug(f'Received raw data {formatted_data}')
 
+	def connect(self) -> None:
+		raise NotImplementedError
+
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
-		read_buffer = []
-		ret_val = []
+		raise NotImplementedError
 
-		if self._type == CABLE_MODEL_JA82T:
-			for j in range(max_package_sections):
-				data = self._connection.read(64)
-				self._log_detail(data)
-				if len(data) > 0 and data[0] == 0x82:
-					size = data[1] 
-					read_buffer.append(data[2:2+int(size)])
-					if data[1 + int(size)] == 0xff:
-						# return data received
-						ret_bytes = []
-						for i in b''.join(read_buffer):
-							ret_bytes.append(i)
-							if i == 0xff:
-								ret_val.append(bytearray(ret_bytes))
-								ret_bytes.clear()
-						return ret_val
-			return ret_val
-		
-		elif self._type == CABLE_MODEL_JA80T:
-			data = self._connection.read_until(b'\xff')
-			self._log_detail(data)
-			ret_bytes = []
-			read_buffer.append(data)
-			for i in b''.join(read_buffer):
-				ret_bytes.append(i)
-				if i == 0xff:
-					ret_val.append(bytearray(ret_bytes))
-					ret_bytes.clear()
-			return ret_val
+	def _get_cmd(self, code: bytes) -> str:
+		raise NotImplementedError
 
-	   
+	def _confirmed(self, record, send_cmd: JablotronCommand):
+		raise NotImplementedError
+
+
 	def read_send_packet_loop(self) -> None:
 		# keep reading bytes untill 0xff which indicates end of packet
 		LOGGER.debug('Loop endlessly reading serial')
 		while not self._stop.is_set():
 			try:
-				confirmed = False
 				if not self.is_connected():
 					LOGGER.warning('Not connected to JA80, abort')
 					return []
@@ -746,52 +711,146 @@ class JablotronConnection():
 		
 				if send_cmd is not None:
 					# new command in queue
-					if not send_cmd.code is None:
 
-						if self._type == CABLE_MODEL_JA80T:
-							cmd = send_cmd.code											
-						else:
-							cmd = b'\x00\x02\x01' + send_cmd.code
-						
-						LOGGER.debug(f'Sending new command {send_cmd}')
-						self._connection.write(cmd)
-						LOGGER.debug(f'Command sent {cmd}')
-					if send_cmd.confirmation_required:
-						# confirmation required, read until confirmation or to limit
-						records_cmd = []
-						for i in range(send_cmd.max_records):
-							time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
-							if confirmed:
-								break 
-							records_tmp = self._read_data()
-							self._forward_records(records_tmp)
-							for record in records_tmp:
-								if (self._type == CABLE_MODEL_JA82T and record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix) \
-										or (self._type == CABLE_MODEL_JA80T and \
-											((send_cmd.confirm_prefix == send_cmd.code and record[1:2] == b'\xff') or \
-											record[:len(send_cmd.confirm_prefix)] == send_cmd.confirm_prefix)):
-									LOGGER.info(
-										f"confirmation for command {send_cmd} received")
-									confirmed=True
-									send_cmd.confirm(True)
-							
-						if not confirmed:
-							# no confirmation received
-							LOGGER.warn(
-											f"no confirmation for command {send_cmd} received")
-							send_cmd.confirm(False)       
-						self._cmd_q.task_done()
-						
+					accepted = False
+					confirmed = False
+					retries = 2
+
+					while retries >= 0 and not (accepted and confirmed):
+						retries -=1
+						for i in range(0,len(send_cmd.code)):
+							if i == len(send_cmd.code)-1:
+								accepted_prefix = send_cmd.accepted_prefix
+							else:
+								accepted_prefix =b'\xa0\xff'
+
+							if not send_cmd.code is None:
+								cmd = self._get_cmd(send_cmd.code[i].to_bytes(1,byteorder='big'))
+								LOGGER.debug(f'Sending keypress, sequence:{i}')
+								self._connection.write(cmd)
+								LOGGER.debug(f'keypress sent, sequence:{i}')
+
+							if self.read_until_found(accepted_prefix):
+								LOGGER.debug(f'keypress accepted, sequence:{i}')
+								accepted = True
+							else:
+								LOGGER.warn(f'no accepted message for sequence:{i} received')
+								accepted = False
+								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
+
+						if accepted:
+							if send_cmd.complete_prefix is not None:
+								# confirmation required, read until confirmation or to limit
+								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
+									LOGGER.debug(f"command {send_cmd} completed")
+								else:
+									LOGGER.warn(f"no completion message found for command {send_cmd}")
+									send_cmd.confirm(False)
+									continue
+									
+							send_cmd.confirm(True)
+							confirmed = True
+							self._cmd_q.task_done()
+
+					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
+
 				else:
-					# no new command to send. Read status
-					#self._forward_records(records)
-					# sleep for a while
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
-				#await asyncio.sleep(0)
 			except Exception as ex:
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
+
+	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
+
+		for i in range(max_records):
+			records_tmp = self._read_data()
+			self._forward_records(records_tmp)
+			for record in records_tmp:
+				packet_data = " ".join(["%02x" % c for c in record])
+				LOGGER.debug(f'record:{i}:{packet_data}')
+				if record[:len(prefix)] == prefix:
+					return True
 		
+		return False
+
+
+class JablotronConnectionHID(JablotronConnection):
+
+	def connect(self) -> None:
+
+		LOGGER.info(f'Connecting to JA80 via HID using {self._device}...')
+		self._connection = open(self._device, 'w+b',buffering=0)
+		LOGGER.debug('Sending startup message')
+		self._connection.write(b'\x00\x00\x01\x01')
+		LOGGER.debug('Successfully sent startup message')
+
+
+	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
+		read_buffer = []
+		ret_val = []
+
+		for j in range(max_package_sections):
+			data = self._connection.read(64)
+			self._log_detail(data)
+			if len(data) > 0 and data[0] == 0x82:
+				size = data[1] 
+				read_buffer.append(data[2:2+int(size)])
+				if data[1 + int(size)] == 0xff:
+					# return data received
+					ret_bytes = []
+					for i in b''.join(read_buffer):
+						ret_bytes.append(i)
+						if i == 0xff:
+							ret_val.append(bytearray(ret_bytes))
+							ret_bytes.clear()
+					return ret_val
+		return ret_val
+
+	def _get_cmd(self, code: bytes) -> str:
+		return b'\x00\x02\x01' + code
+
+
+class JablotronConnectionSerial(JablotronConnection):
+
+	def connect(self) -> None:
+
+		LOGGER.info(f'Connecting to JA80 via Serial using {self._device}...')
+
+		while self._connection is None:
+
+			try:
+				self._connection = serial.serial_for_url(url=self._device,
+											baudrate=9600,
+											parity=serial.PARITY_NONE,
+											bytesize=serial.EIGHTBITS,
+											dsrdtr=True,# stopbits=serial.STOPBITS_ONE
+											timeout=1)
+			except serial.SerialException as ex:
+				if "timed out" in f'{ex}':
+					LOGGER.info('Timeout, retrying')
+				else:
+					raise
+
+	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
+		read_buffer = []
+		ret_val = []
+
+		data = self._connection.read_until(b'\xff')
+		self._log_detail(data)
+		ret_bytes = []
+		read_buffer.append(data)
+		for i in b''.join(read_buffer):
+			ret_bytes.append(i)
+			if i == 0xff:
+				ret_val.append(bytearray(ret_bytes))
+				ret_bytes.clear()
+		return ret_val
+
+
+	def _get_cmd(self, code: bytes) -> str:
+		return code
+
+
 class JablotronKeyPress():
 	
 	_KEY_MAP = {
@@ -810,12 +869,31 @@ class JablotronKeyPress():
 		"*": b'\x8f'
 	}
 	_KEYPRESS_OPTIONS = {
-		0x0: {'val': '0', 'desc': 'Key 0 pressed on keypad'}, 0x1: {'val': '1', 'desc': 'Key 1 (^) pressed on keypad'}, 0x2: {'val': '2', 'desc': 'Key 2 pressed on keypad'}, 0x3: {'val': '3', 'desc': 'Key 3 pressed on keypad'}, 0x4: {'val': '4', 'desc': 'Key 4 (<) pressed on keypad'}, 0x5: {'val': '5', 'desc': 'Key 5 pressed on keypad'}, 0x6: {'val': '6', 'desc': 'Key 6 (>) pressed on keypad'}, 0x7: {'val': '7', 'desc': 'Key 7 (v) pressed on keypad'}, 0x8: {'val': '8', 'desc': 'Key 8 pressed on keypad'}, 0x9: {'val': '9', 'desc': 'Key 9 pressed on keypad'}, 0xe: {'val': '#', 'desc': 'Key # (ESC/OFF) pressed on keypad'}, 0xf: {'val': '*', 'desc': 'Key * (ON) pressed on keypad'}
+		0x0: {'val': '0', 'desc': 'Key 0 pressed on keypad'}, 
+		0x1: {'val': '1', 'desc': 'Key 1 (^) pressed on keypad'},
+		0x2: {'val': '2', 'desc': 'Key 2 pressed on keypad'},
+		0x3: {'val': '3', 'desc': 'Key 3 pressed on keypad'}, 
+	 	0x4: {'val': '4', 'desc': 'Key 4 (<) pressed on keypad'}, 
+		0x5: {'val': '5', 'desc': 'Key 5 pressed on keypad'}, 
+		0x6: {'val': '6', 'desc': 'Key 6 (>) pressed on keypad'},
+		0x7: {'val': '7', 'desc': 'Key 7 (v) pressed on keypad'},
+		0x8: {'val': '8', 'desc': 'Key 8 pressed on keypad'}, 
+		0x9: {'val': '9', 'desc': 'Key 9 pressed on keypad'}, 
+		0xe: {'val': '#', 'desc': 'Key # (ESC/OFF) pressed on keypad'}, 
+		0xf: {'val': '*', 'desc': 'Key * (ON) pressed on keypad'}
 	}
 	
 	_BEEP_OPTIONS = {
 		# happens when warning appears on keypad (e.g. after alarm)
-		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'}, 0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'}, 0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'}, 0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'}, 0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'}, 0x5: {'val': '3s', 'desc': '3 subtle (short) beeps, 1 then 2'}, 0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'}, 0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'}, 0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
+		0x0: {'val': '1s', 'desc': '1 subtle (short) beep triggered'},
+	 	0x1: {'val': '1l', 'desc': '1 loud (long) beep triggered'},
+		0x2: {'val': '2l', 'desc': '2 loud (long) beeps triggered'},
+		0x3: {'val': '3l', 'desc': '3 loud (long) beeps triggered'},
+		0x4: {'val': '4s', 'desc': '4 subtle (short) beeps triggered'},
+		0x5: {'val': '3s', 'desc': '3 subtle (short) beeps, 1 then 2'},
+		0x7: {'val': '0(1)', 'desc': 'no audible beep(1)'},
+		0x8: {'val': '0(2)', 'desc': 'no audible beep(2)'},
+		0xe: {'val': '?', 'desc': 'unknown beep(s) triggered'}
 	}
 	@staticmethod
 	def get_key_command(key):
@@ -840,7 +918,6 @@ class JablotronMessage():
 	TYPE_KEYPRESS = 'KeyPress'
 	TYPE_BEEP = 'Beep'
 	TYPE_PING = 'Ping' # regular messages that have no clear meaning (perhaps yet)
-	TYPE_PING_OR_OTHER = 'Ping or Other' # message that have no payload or otherwise the payload is a message of other type
 	TYPE_SAVING = 'Saving'
 	TYPE_CONFIRM = 'Confirm'
 	# e8,e9,e5,
@@ -857,11 +934,11 @@ class JablotronMessage():
 		0xe9: TYPE_SETTINGS,
 		0x80: TYPE_KEYPRESS,
 		0xa0: TYPE_BEEP,
-		0xb3: TYPE_PING_OR_OTHER,
-		0xb4: TYPE_PING_OR_OTHER,
+		0xb3: TYPE_PING,
+		0xb4: TYPE_PING,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
-		0xba: TYPE_PING_OR_OTHER,
+		0xba: TYPE_PING,
 		0xc6: TYPE_PING,
 		0xe7: TYPE_EVENT,
 		0xec: TYPE_SAVING,
@@ -990,10 +1067,7 @@ class JablotronMessage():
 		if message_type is None:
 			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
-			if message_type == JablotronMessage.TYPE_PING_OR_OTHER:
-				# don't validate length for a PING_OR_OTHER as it's may contains it's own message
-				return message_type
-			elif not JablotronMessage.check_crc(record):
+			if not JablotronMessage.check_crc(record):
 				LOGGER.warn(f'Invalid CRC for {packet_data}')
 			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
@@ -1218,8 +1292,7 @@ class JA80CentralUnit(object):
 		self._config: Dict[str, Any] = config
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
-#		self._connection = JablotronConnection(CABLE_MODEL_JA80T,'socket://192.168.0.8:23?logging=debug')
-		self._connection = JablotronConnection(config[CABLE_MODEL],config[CONFIGURATION_SERIAL_PORT])
+		self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
 		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
 		if device_count == 0:
 			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
@@ -2276,11 +2349,6 @@ class JA80CentralUnit(object):
 		elif message_type == JablotronMessage.TYPE_KEYPRESS:
 			#keypress = JablotronMessage.get_keypress_option(data[0]& 0x0f)
 			pass
-		elif message_type == JablotronMessage.TYPE_PING_OR_OTHER:
-			if len(data) != 2:
-				LOGGER.debug(f"Embedded Ping: {packet_data}")
-				# process message without the ping prefix
-				self._process_message(data[1:])
 		elif message_type == JablotronMessage.TYPE_BEEP:
 			beep = JablotronKeyPress.get_beep_option(data[0]& 0x0f)
 			LOGGER.info("Keypad Beep: " + hex(data[0]) + ", " + str(beep['desc']))
@@ -2311,28 +2379,21 @@ class JA80CentralUnit(object):
 				s += f'{code}\n'
 		return s
 
-	def send_elevated_mode_command(self) -> None: 
-		if not self._system_status in self.STATUS_ELEVATED:
-			self._connection.add_command(JablotronCommand(name="Elevated mode first part",
-				code=b'\x8f', confirm_prefix=b'\x8f'))
-			self._connection.add_command(JablotronCommand(name="Elevated mode second part",
-				code=b'\x80', confirm_prefix=b'\x80'))
-
 	def send_return_mode_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		self._connection.add_command(JablotronCommand(name="Esc / back",
-			code=b'\x8e', confirm_prefix=b'\x8e'))
+			code=b'\x8e', accepted_prefix=b'\xa1\xff'))
 
 	async def send_settings_command(self) -> None:
 		#if self.system_status in self.STATUS_ELEVATED:
 		command = JablotronCommand(name="Get settings",
-				code=b'\x8a', confirm_prefix=b'\xe6\x04', max_records=300)
+				code=b'\x8a', accepted_prefix=b'\xa1\xff', complete_prefix=b'\xe6\x04', max_records=300)
 		self._connection.add_command(command)
 		return await command.wait_for_confirmation()
 
 	def send_detail_command(self) -> None:
 		self._connection.add_command(JablotronCommand(name="Details",
-			code=b'\x8e', confirm_prefix=b'\x8e'))
+			code=b'\x8e', accepted_prefix=b'\xa4\xff'))
 
 	def enter_elevated_mode(self, code: str) -> bool:
 		# mode service/maintenance depends on pin send after this
@@ -2340,8 +2401,7 @@ class JA80CentralUnit(object):
 			# do nothing already on elevated mode
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
-			self.send_elevated_mode_command()
-			self.send_key_press(code)
+			self.send_keypress_sequence("*0" + code, b'\xa1')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
@@ -2371,14 +2431,21 @@ class JA80CentralUnit(object):
 			return result
 		return False
 
-	def send_key_press(self, key: str) -> None:
-		for cmd in key:
-			value = JablotronKeyPress.get_key_command(cmd)
-			name = cmd
-			if JablotronSettings.HIDE_KEY_PRESS:
-				name = "*HIDDEN*"
-			self._connection.add_command(
-				JablotronCommand(name=f'keypress {name}',code=value, confirm_prefix=value))
+	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes) -> None:
+
+		value = b''
+
+		if JablotronSettings.HIDE_KEY_PRESS:
+			name = "*HIDDEN*"
+		else:
+			name = str
+		
+		for i in range(0, len(key_sequence)):
+			cmd = key_sequence[i] 
+			value = value + JablotronKeyPress.get_key_command(cmd)
+
+		self._connection.add_command(
+			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
@@ -2387,15 +2454,15 @@ class JA80CentralUnit(object):
 
 	def arm(self,code: str,zone:str=None) -> None:
 		if zone is None:
-			self.send_key_press(code)
+			self.send_keypress_sequence(code, b'\xa1')
 		else:
-			self.send_key_press({"A":"*2","B":"*3","C":"*1"}[zone]+code)
+			self.send_keypress_sequence({"A":"*2","B":"*3","C":"*1"}[zone]+code, b'\xa1')
 	
 	def disarm(self,code:str,zone:str=None) -> None:
-		self.send_key_press(code)
+		self.send_keypress_sequence(code, b'\xa2')
 		if JablotronState.is_alarm_state(self._last_state):
 			#confirm alarm
-			self.send_key_press("?")
+			self.send_detail_command
 		
 	async def processing_loop(self) -> None:
 		previous_record = None
@@ -2416,8 +2483,7 @@ class JA80CentralUnit(object):
 		while not self._stop.is_set():
 			LOGGER.info(f'{self}')
 			await asyncio.sleep(60)
-			#self.send_key_press(self._master_code)
-
+			#self.send_key_press(self._master_code, b'\xa1')
 
 if __name__ == "__main__":
 	
