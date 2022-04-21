@@ -361,11 +361,11 @@ class JablotronDevice(JablotronCommon):
 		if self._name is None:
 			
 			if self.model is None and self.serial_number is not None:
-				return f'S/N:{self.serial_number}'
+				return f'Ser:{self.serial_number}'
 			elif self.model is not None and self.serial_number is not None:
-				return f'{self.model} S/N:{self.serial_number}'
+				return f'{self.model},Ser:{self.serial_number}'
 			elif self.model is not None:
-				return f'{self.model} device_{self.device_id}'
+				return f'{self.model},Device:{self.device_id}'
 			else:
 
 				# device 52 & 53 are visible in Bypass
@@ -385,7 +385,7 @@ class JablotronDevice(JablotronCommon):
 				elif self.device_id == 63:
 					return 'Device on line'	
         
-				return f'device_{self.device_id}'
+				return f'Device:{self.device_id}'
 		return self._name
 
 	@name.setter
