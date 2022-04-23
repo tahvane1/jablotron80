@@ -2086,6 +2086,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Active output'
 			self._activate_source(detail)
 
+		elif activity == 0x13:
+			activity_name = 'Codes'
+
 		elif activity == 0x14:
 			# Unconfirmed alarm
 			warn = True
