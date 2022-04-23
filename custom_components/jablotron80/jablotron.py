@@ -618,7 +618,7 @@ class JablotronCommand():
 	code: str = None
 	complete_prefix: str = None
 	accepted_prefix: str = None
-	max_records: int = 10
+	max_records: int = 20
 	
 	def __post_init__(self) -> None:
 		self._event = threading.Event()
@@ -786,7 +786,7 @@ class JablotronConnection():
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
 
-	def read_until_found(self, prefix: str, max_records: int = 15) -> bool:
+	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
 
 		for i in range(max_records):
 			records_tmp = self._read_data()
@@ -2467,7 +2467,7 @@ class JA80CentralUnit(object):
 			# do nothing already on elevated mode
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
-			self.send_keypress_sequence("*0" + code, b'\xa1')
+			self.send_keypress_sequence("*0" + code, b'\xa1', b'\xb8\xff')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
@@ -2497,7 +2497,7 @@ class JA80CentralUnit(object):
 			return result
 		return False
 
-	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes) -> None:
+	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes, complete_prefix: bytes = None) -> None:
 
 		value = b''
 
@@ -2511,7 +2511,7 @@ class JA80CentralUnit(object):
 			value = value + JablotronKeyPress.get_key_command(cmd)
 
 		self._connection.add_command(
-			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
+			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff', complete_prefix=complete_prefix))
 			
 	def shutdown(self) -> None:
 		self._stop.set()
