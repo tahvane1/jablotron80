@@ -94,8 +94,6 @@ class JablotronSettings:
 	HIDE_KEY_PRESS = True
 	#sleep when no command
 	SERIAL_SLEEP_NO_COMMAND = 0.2
-	#sleep when command
-	SERIAL_SLEEP_COMMAND = 0.5
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  
@@ -621,11 +619,10 @@ class JablotronCommand():
 	max_records: int = 20
 	
 	def __post_init__(self) -> None:
-		self._event = threading.Event()
+		self._event = asyncio.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
-		while not self._event.is_set():
-			await asyncio.sleep(5)
+		await asyncio.wait_for(self._event.wait(), None)
 		return self._confirmed
 		
 	def confirm(self,confirmed: bool) -> None:
@@ -726,7 +723,7 @@ class JablotronConnection():
 	def read_send_packet_loop(self) -> None:
 		# keep reading bytes untill 0xff which indicates end of packet
 		LOGGER.debug('Loop endlessly reading serial')
-		while not self._stop.is_set():
+		while not self._stop.is_set() or self._cmd_q.unfinished_tasks > 0:
 			try:
 				if not self.is_connected():
 					LOGGER.warning('Not connected to JA80, abort')
@@ -777,8 +774,6 @@ class JablotronConnection():
 							send_cmd.confirm(True)
 							confirmed = True
 							self._cmd_q.task_done()
-
-					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 
 				else:
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
@@ -1374,6 +1369,8 @@ class JA80CentralUnit(object):
 		self._mode = None
 		self._connection.connect()
 		self._stop = threading.Event()
+		self._havestate = asyncio.Event()
+
 		if CONFIGURATION_CENTRAL_SETTINGS in config:
 			self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
 			self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, not config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM])
@@ -1413,6 +1410,7 @@ class JA80CentralUnit(object):
 		#loop.create_task(self.status_loop())
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
 		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
+		await asyncio.wait_for(self._havestate.wait(), None)
 		LOGGER.info(f"initialization done.")
 
 
@@ -1902,7 +1900,10 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
+
 		status = data[1]
+		self._havestate.set()
+
 		activity = data[2] & 0x3f # take lower bit below 0x40
 		detail = data[3]
 		leds = data[4]
@@ -2490,7 +2491,6 @@ class JA80CentralUnit(object):
 				f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
-		await asyncio.sleep(5)
 		if self.enter_elevated_mode(self._master_code):
 			result = await self.send_settings_command()
 			self.send_return_mode_command()
@@ -2514,8 +2514,8 @@ class JA80CentralUnit(object):
 			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff', complete_prefix=complete_prefix))
 			
 	def shutdown(self) -> None:
-		self._stop.set()
 		self._connection.shutdown()
+		self._stop.set()
 
 
 	def arm(self,code: str,zone:str=None) -> None:
@@ -2533,13 +2533,13 @@ class JA80CentralUnit(object):
 	async def processing_loop(self) -> None:
 		previous_record = None
 		while not self._stop.is_set():
+			await asyncio.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 			try:
 				while (records := self._connection.get_record()) is not None: 
 					for record in records:
 						if record  != previous_record:
 							previous_record = record
 							self._process_message(record)
-				await asyncio.sleep(1)
 			except Exception as ex:
 				LOGGER.error(f'Unexpected error:{record}:  {traceback.format_exc()}')
 			

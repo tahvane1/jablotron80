@@ -35,7 +35,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     cu =  JA80CentralUnit(hass, entry.data, entry.options)
     await cu.initialize()
-    await asyncio.sleep(5)
     
     device_registry = await dr.async_get_registry(hass)
     device_registry.async_get_or_create(
