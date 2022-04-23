@@ -2031,7 +2031,7 @@ class JA80CentralUnit(object):
 			activity_name = 'Enrollment'
 
 		elif activity == 0x04:
-			activity_name = 'Key pressed'
+			activity_name = 'Complete entry'
 
 		elif activity == 0x06:
 			warn = True
