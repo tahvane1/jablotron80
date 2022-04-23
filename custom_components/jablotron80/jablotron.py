@@ -2490,7 +2490,7 @@ class JA80CentralUnit(object):
 				f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
-		await asyncio.sleep(5)
+		await asyncio.sleep(2)
 		if self.enter_elevated_mode(self._master_code):
 			result = await self.send_settings_command()
 			self.send_return_mode_command()
