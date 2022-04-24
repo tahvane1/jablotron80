@@ -13,6 +13,7 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
+_loop = None
 
 from typing import Any, Dict, Optional, Union,Callable
 from homeassistant import config_entries
@@ -627,9 +628,8 @@ class JablotronCommand():
 		
 	def confirm(self,confirmed: bool) -> None:
 		self._confirmed = confirmed
-		self._event.set()
+		_loop.call_soon_threadsafe(self._event.set)
 		
-	
 	def __str__(self) -> str:
 		s = f'Command name={self.name}'
 		return s
@@ -1412,6 +1412,8 @@ class JA80CentralUnit(object):
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
 		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
 		await asyncio.wait_for(self._havestate.wait(), None)
+		global _loop
+		_loop = asyncio.get_running_loop()
 		LOGGER.info(f"initialization done.")
 
 
