@@ -3,17 +3,17 @@
 		"step": {
 			"user": {
 				"title": "Jablotron 80",
-				"description": "To enable devices support insert administrator's code and total number of devices",
+				"description": "Insert Master code. To setup devices, tick box and select number of wired devices, wireless devices will be found automatically",
 				"data": {
 					"serial_port": "Serial port",
 					"password": "Master code",
 					"cable_model": "Cable model",
-					"number_of_devices": "Number of devices"
+					"number_of_wired_devices": "Number of wired devices"
 				}
 			},
 			"devices": {
 				"title": "Jablotron 80 / Devices",
-				"description": "Please confirm type and name for each device",
+				"description": "Please confirm type and optionally override the default name for each device",
 				"data": {
 					"device_001_name":"Device 1",
 					"device_002_name":"Device 2",
@@ -115,9 +115,8 @@
 					"device_048_type":"Device 48 type ",
 					"device_049_type":"Device 49 type ",
 					"device_050_type":"Device 50 type "
-					}
-			},
-			"codes": {
+				}
+			},  "codes": {
 				"title": "Jablotron 80 / Codes",
 				"description": "Please name users of codes",
 				"data": {
@@ -171,7 +170,7 @@
 					"code_047_name":"Code 47",
 					"code_048_name":"Code 48",
 					"code_049_name":"Code 49",
-					"code_050_name":"Code 50"					
+					"code_050_name":"Code 50"
 					}
 			}
 		},

@@ -13,6 +13,7 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
+_loop = None
 
 from typing import Any, Dict, Optional, Union,Callable
 from homeassistant import config_entries
@@ -26,7 +27,7 @@ from homeassistant.const import (
 if __name__ == "__main__":
 	from const import (
 		CONFIGURATION_SERIAL_PORT,
-		CONFIGURATION_NUMBER_OF_DEVICES,
+#		CONFIGURATION_NUMBER_OF_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
 		MANUFACTURER,
@@ -40,7 +41,8 @@ if __name__ == "__main__":
 else:
 	from .const import (
 		CONFIGURATION_SERIAL_PORT,
-		CONFIGURATION_NUMBER_OF_DEVICES,
+		CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
+		MIN_NUMBER_OF_WIRED_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
 		MANUFACTURER,
@@ -93,8 +95,6 @@ class JablotronSettings:
 	HIDE_KEY_PRESS = True
 	#sleep when no command
 	SERIAL_SLEEP_NO_COMMAND = 0.2
-	#sleep when command
-	SERIAL_SLEEP_COMMAND = 0.2
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  
@@ -358,10 +358,13 @@ class JablotronDevice(JablotronCommon):
 	@property	
 	def name(self) -> str:
 		if self._name is None:
-			if not self.model is None and not self.model == "wired":
-				return self.model
-			elif not self.model is None:
-				return f'device_{self.model}_{self.device_id}'
+			
+			if self.model is None and self.serial_number is not None:
+				return f'serial {self.serial_number}'
+			elif self.model is not None and self.serial_number is not None:
+				return f'{self.model} serial {self.serial_number}'
+			elif self.model is not None:
+				return f'{self.model} device {self.device_id}'
 			else:
 
 				# device 52 & 53 are visible in Bypass
@@ -381,7 +384,7 @@ class JablotronDevice(JablotronCommon):
 				elif self.device_id == 63:
 					return 'Device on line'	
         
-				return f'device_{self.device_id}'
+				return f'device {self.device_id}'
 		return self._name
 
 	@name.setter
@@ -396,11 +399,33 @@ class JablotronDevice(JablotronCommon):
 	def serial_number(self, serial_number:str) -> None:
 		self._serial_number = serial_number
 	
-	# can other devices have serial numbers?
 	@property
-	def is_control_panel(self) -> bool:
-		return not self.serial_number is None
-	
+	def is_keypad(self) -> bool:
+		return self.model == "JA-81F"
+
+	@property
+	def is_motion(self) -> bool:
+		return self.model == "JA-80W" \
+			or self.model == "JA-86P" \
+			or self.model == "JA-84P"
+
+	@property
+	def is_outdoor_siren(self) -> bool:
+		return self.model == "JA-80A"
+
+	@property
+	def is_indoor_siren(self) -> bool:
+		return self.model == "JA-80L"
+
+	@property
+	def is_door(self) -> bool:
+		return self.model == "JA-82M"
+
+	@property
+	def is_keyfob(self) -> bool:
+		return self.model == "RC-86" \
+			or self.model == "RC-86 (80)"
+
 	@property
 	def is_central_unit(self) -> bool:
 		return self.device_id == 0 or self.device_id == 51
@@ -592,21 +617,19 @@ class JablotronCommand():
 	code: str = None
 	complete_prefix: str = None
 	accepted_prefix: str = None
-	max_records: int = 10
+	max_records: int = 20
 	
 	def __post_init__(self) -> None:
-		self._event = threading.Event()
+		self._event = asyncio.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
-		while not self._event.is_set():
-			await asyncio.sleep(5)
+		await asyncio.wait_for(self._event.wait(), None)
 		return self._confirmed
 		
 	def confirm(self,confirmed: bool) -> None:
 		self._confirmed = confirmed
-		self._event.set()
+		_loop.call_soon_threadsafe(self._event.set)
 		
-	
 	def __str__(self) -> str:
 		s = f'Command name={self.name}'
 		return s
@@ -700,7 +723,7 @@ class JablotronConnection():
 	def read_send_packet_loop(self) -> None:
 		# keep reading bytes untill 0xff which indicates end of packet
 		LOGGER.debug('Loop endlessly reading serial')
-		while not self._stop.is_set():
+		while not self._stop.is_set() or self._cmd_q.unfinished_tasks > 0:
 			try:
 				if not self.is_connected():
 					LOGGER.warning('Not connected to JA80, abort')
@@ -731,7 +754,7 @@ class JablotronConnection():
 								LOGGER.debug(f'keypress sent, sequence:{i}')
 
 							if self.read_until_found(accepted_prefix):
-								LOGGER.debug(f'keypress accepted, sequence:{i}')
+								LOGGER.info(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
 								LOGGER.warn(f'no accepted message for sequence:{i} received')
@@ -742,7 +765,7 @@ class JablotronConnection():
 							if send_cmd.complete_prefix is not None:
 								# confirmation required, read until confirmation or to limit
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
-									LOGGER.debug(f"command {send_cmd} completed")
+									LOGGER.info(f"command {send_cmd} completed")
 								else:
 									LOGGER.warn(f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
@@ -751,8 +774,6 @@ class JablotronConnection():
 							send_cmd.confirm(True)
 							confirmed = True
 							self._cmd_q.task_done()
-
-					time.sleep(JablotronSettings.SERIAL_SLEEP_COMMAND)
 
 				else:
 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
@@ -936,6 +957,7 @@ class JablotronMessage():
 		0xa0: TYPE_BEEP,
 		0xb3: TYPE_PING,
 		0xb4: TYPE_PING,
+		0xb6: TYPE_PING,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
 		0xba: TYPE_PING,
@@ -1293,11 +1315,11 @@ class JA80CentralUnit(object):
 		self._options: Dict[str, Any] = options
 		self._settings = JablotronSettings()
 		self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
-		device_count = config[CONFIGURATION_NUMBER_OF_DEVICES]
-		if device_count == 0:
-			self._max_number_of_devices = MAX_NUMBER_OF_DEVICES
-		else:
-			self._max_number_of_devices = config[CONFIGURATION_NUMBER_OF_DEVICES]
+		try:
+			self._max_number_of_wired_devices = config[CONFIGURATION_NUMBER_OF_WIRED_DEVICES]
+		except KeyError:
+			self._max_number_of_wired_devices = MIN_NUMBER_OF_WIRED_DEVICES
+
 		self._zones = {}
 		self._zones[1] = JablotronZone(1)  
 		self._zones[2] = JablotronZone(2)  
@@ -1348,6 +1370,8 @@ class JA80CentralUnit(object):
 		self._mode = None
 		self._connection.connect()
 		self._stop = threading.Event()
+		self._havestate = asyncio.Event()
+
 		if CONFIGURATION_CENTRAL_SETTINGS in config:
 			self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
 			self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, not config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM])
@@ -1387,6 +1411,9 @@ class JA80CentralUnit(object):
 		#loop.create_task(self.status_loop())
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
 		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
+		await asyncio.wait_for(self._havestate.wait(), None)
+		global _loop
+		_loop = asyncio.get_running_loop()
 		LOGGER.info(f"initialization done.")
 
 
@@ -1399,7 +1426,17 @@ class JA80CentralUnit(object):
 
 	@property
 	def devices(self) -> List[JablotronDevice]:
-		return [self.get_device(i) for i in range(1,self._max_number_of_devices+1)]
+
+		def registered(device: JablotronDevice):
+
+			if (device.serial_number is not None \
+				and device.reaction != JablotronConstants.REACTION_OFF) \
+				or device.model == "wired":
+				return True
+			
+			return False
+
+		return list(filter(registered, [self.get_device(i) for i in range(1,MAX_NUMBER_OF_DEVICES)] ) )
 
 	@property
 	def zones(self) -> List[JablotronZone]:
@@ -1866,7 +1903,10 @@ class JA80CentralUnit(object):
 		self._device_query_pending = False
 
 	def _process_state(self, data: bytearray, packet_data: str) -> None:
+
 		status = data[1]
+		self._havestate.set()
+
 		activity = data[2] & 0x3f # take lower bit below 0x40
 		detail = data[3]
 		leds = data[4]
@@ -1994,7 +2034,7 @@ class JA80CentralUnit(object):
 			activity_name = 'Enrollment'
 
 		elif activity == 0x04:
-			activity_name = 'Key pressed'
+			activity_name = 'Complete entry'
 
 		elif activity == 0x06:
 			warn = True
@@ -2049,6 +2089,9 @@ class JA80CentralUnit(object):
 			activity_name = 'Active output'
 			self._activate_source(detail)
 
+		elif activity == 0x13:
+			activity_name = 'Codes'
+
 		elif activity == 0x14:
 			# Unconfirmed alarm
 			warn = True
@@ -2093,6 +2136,9 @@ class JA80CentralUnit(object):
 						state_text = state_text + ", " + message 
 					elif message != '':
 						state_text = message
+
+				if warn:
+					LOGGER.warn(message)
 
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
@@ -2172,17 +2218,47 @@ class JA80CentralUnit(object):
 				# 04 08 06 02 08 0D = hex 48628D, serial 04743821 (of JA-81F)
 				# crc = data[11]
 				device = self.get_device(device_id)
-				if not data[5:11] == b'\x0f\x0f\x00\x00\x00\x00':
+				if device_id >=1 and device_id <= self._max_number_of_wired_devices:
+					device.model = "wired"
+				elif not data[5:7] == b'\x0f\x0f':
 					serial_hex_string = "".join(
 						map(lambda x: hex(x)[2:], data[5:11]))
 					serial_int_string = int(serial_hex_string, 16)
 					device.serial_number = f'{serial_int_string:08d}'
 					if data[5:7] == b'\x04\x08':
-						# not sure if this is the logic
-						device.model = 'JA-81F'
-						device.manufacturer = MANUFACTURER
+						device.model = 'JA-81F' # wireless keypad
+
+					if data[5:7] == b'\x07\x0e':
+						device.model = 'JA-80W' # motion
+
+					if data[5:7] == b'\x06\x0e':
+						device.model = 'JA-86P' # dual band motion
+
+					if data[5:7] == b'\x05\x00':
+						device.model = 'JA-80A' # external siren
+						
+					if data[5:7] == b'\x08\x01' \
+						or data[5:7] == b'\x08\x03' \
+						or data[5:7] == b'\x09\x01' \
+						or data[5:7] == b'\x09\x03':
+						device.model = 'RC-86' # fob
+
+					if data[5:7] == b'\x05\x04':
+						device.model = 'JA-84P' # pir camera
+
+					if data[5:7] == b'\x01\x01':
+						device.model = 'JA-80S' # smoke
+
+					if data[5:7] == b'\x01\x04':
+						device.model = 'JA-82M' # magnetic contact
+
+					if data[5:7] == b'\x05\x08' \
+						or data[5:7] == b'\x05\x09':
+						device.model = 'JA-80L' # wireless intenal siren
+
+					device.manufacturer = MANUFACTURER
 				else:
-					device.model = "wired"
+					device.model = None
 			elif setting_type_2 == 0x01:
 				# E6 06 01 00 01 01 01 2B FF 
 				# device reactions and associated zones
@@ -2401,7 +2477,7 @@ class JA80CentralUnit(object):
 			# do nothing already on elevated mode
 			pass
 		elif JablotronState.is_disarmed_state(self._last_state):
-			self.send_keypress_sequence("*0" + code, b'\xa1')
+			self.send_keypress_sequence("*0" + code, b'\xa1', b'\xb8\xff')
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
@@ -2424,14 +2500,13 @@ class JA80CentralUnit(object):
 				f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
-		await asyncio.sleep(5)
 		if self.enter_elevated_mode(self._master_code):
 			result = await self.send_settings_command()
 			self.send_return_mode_command()
 			return result
 		return False
 
-	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes) -> None:
+	def send_keypress_sequence(self, key_sequence: str, accepted_prefix: bytes, complete_prefix: bytes = None) -> None:
 
 		value = b''
 
@@ -2445,11 +2520,11 @@ class JA80CentralUnit(object):
 			value = value + JablotronKeyPress.get_key_command(cmd)
 
 		self._connection.add_command(
-			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff'))
+			JablotronCommand(name=f'key sequence {name}',code=value, accepted_prefix=accepted_prefix + b'\xff', complete_prefix=complete_prefix))
 			
 	def shutdown(self) -> None:
-		self._stop.set()
 		self._connection.shutdown()
+		self._stop.set()
 
 
 	def arm(self,code: str,zone:str=None) -> None:
@@ -2467,13 +2542,13 @@ class JA80CentralUnit(object):
 	async def processing_loop(self) -> None:
 		previous_record = None
 		while not self._stop.is_set():
+			await asyncio.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 			try:
 				while (records := self._connection.get_record()) is not None: 
 					for record in records:
 						if record  != previous_record:
 							previous_record = record
 							self._process_message(record)
-				await asyncio.sleep(1)
 			except Exception as ex:
 				LOGGER.error(f'Unexpected error:{record}:  {traceback.format_exc()}')
 			

@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 from .jablotron import JA80CentralUnit,JablotronConstants,JablotronDevice,JablotronCode
 from .const import (
 	CONFIGURATION_SERIAL_PORT,
-	CONFIGURATION_NUMBER_OF_DEVICES,
+	CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
 	CONFIGURATION_PASSWORD,
 	CONFIGURATION_DEVICES,
 	CONFIGURATION_CODES,
@@ -19,10 +19,17 @@ from .const import (
     CABLE_MODELS,
     CABLE_MODEL,
     DEFAULT_CABLE_MODEL,
+	DEVICE_CONTROL_PANEL,
+	DEVICE_KEY_FOB,
+	DEVICE_MOTION_DETECTOR,
+	DEVICE_OTHER,
+	DEVICE_SIREN_INDOOR,
+	DEVICE_SIREN_OUTDOOR,
 	DOMAIN,
 	DEFAULT_SERIAL_PORT,
-	MAX_NUMBER_OF_DEVICES,
- 	NAME,
+	MAX_NUMBER_OF_WIRED_DEVICES,
+	MIN_NUMBER_OF_WIRED_DEVICES,
+	NAME,
 	DEVICES,
  	DEVICE_DOOR_OPENING_DETECTOR,
 	DEVICE_KEYPAD,
@@ -75,7 +82,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
        			CABLE_MODEL: cables_by_names[user_input[CABLE_MODEL]],
 				CONFIGURATION_SERIAL_PORT: user_input[CONFIGURATION_SERIAL_PORT],
 				CONFIGURATION_PASSWORD: user_input[CONFIGURATION_PASSWORD],
-				CONFIGURATION_NUMBER_OF_DEVICES: user_input[CONFIGURATION_NUMBER_OF_DEVICES],
+				CONFIGURATION_NUMBER_OF_WIRED_DEVICES: user_input[CONFIGURATION_NUMBER_OF_WIRED_DEVICES],
 		
 			}
 			cu = JA80CentralUnit(None, self._config, None)
@@ -83,15 +90,12 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 			result = await cu.read_settings()
 			self._config[CONFIGURATION_CENTRAL_SETTINGS] = {DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM:cu.is_code_required_for_arm(),
                                     DEVICE_CONFIGURATION_SYSTEM_MODE:cu.mode}
-			await asyncio.sleep(5)
 			cu.shutdown()
-			
-			
 
 			if result:
 				self._devices = cu.devices
 				self._codes = cu.codes
-				if result and user_input[CONFIGURATION_NUMBER_OF_DEVICES] == 0:
+				if result and user_input[CONFIGURATION_NUMBER_OF_WIRED_DEVICES] == 0:
 					if len(self._codes) == 0: 
 						return self.async_create_entry(title=NAME, data=self._config)
 					return await self.async_step_codes()
@@ -114,7 +118,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         			vol.Required(CABLE_MODEL, default=DEFAULT_CABLE_MODEL): vol.In(list(CABLE_MODELS.values())),
 					vol.Required(CONFIGURATION_SERIAL_PORT, default=DEFAULT_SERIAL_PORT): str,
 					vol.Required(CONFIGURATION_PASSWORD): str,
-					vol.Optional(CONFIGURATION_NUMBER_OF_DEVICES, default=5): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_NUMBER_OF_DEVICES)),
+					vol.Optional(CONFIGURATION_NUMBER_OF_WIRED_DEVICES, default=MIN_NUMBER_OF_WIRED_DEVICES): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_NUMBER_OF_WIRED_DEVICES)),
 				}
 			),
 			errors=errors,
@@ -125,8 +129,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 		devices_by_names = {value:key for key, value in DEVICES.items()}
 		if user_input is not None:
 			try:
-
-				
+	
 				devices = {}
 				for device in self._devices:
 					devices[device.id] = {"serial_number":device.serial_number,
@@ -154,17 +157,30 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 		fields = OrderedDict()
 
-		for i in range(1, self._config[CONFIGURATION_NUMBER_OF_DEVICES] + 1):
-			default_device = DEVICE_DOOR_OPENING_DETECTOR
-			device = self._devices[i-1]
-			if device.is_control_panel: 
+		for device in self._devices:
+
+			LOGGER.debug(f'{device.id}')
+
+			if device.is_keypad: 
 				default_device = DEVICES[DEVICE_KEYPAD]
 			elif device.reaction == JablotronConstants.REACTION_FIRE_ALARM:
 				default_device = DEVICES[DEVICE_SMOKE_DETECTOR]
-			else: 
+			elif device.is_motion:
+				default_device = DEVICES[DEVICE_MOTION_DETECTOR]
+			elif device.is_keyfob:
+				default_device = DEVICES[DEVICE_KEY_FOB]
+			elif device.is_central_unit:
+				default_device = DEVICES[DEVICE_CONTROL_PANEL]
+			elif device.is_outdoor_siren:
+				default_device = DEVICES[DEVICE_SIREN_OUTDOOR]
+			elif device.is_indoor_siren:
+				default_device = DEVICES[DEVICE_SIREN_INDOOR]
+			elif device.is_door:
 				default_device = DEVICES[DEVICE_DOOR_OPENING_DETECTOR]
-			fields[vol.Required("device_{:03}_type".format(i),default=default_device)] = vol.In(list(DEVICES.values()))
-			fields[vol.Required("device_{:03}_name".format(i),default=device.name)] = str
+			else:
+				default_device = DEVICES[DEVICE_OTHER]
+			fields[vol.Required("device_{:03}_type".format(device.id),default=default_device)] = vol.In(list(DEVICES.values()))
+			fields[vol.Required("device_{:03}_name".format(device.id),default=device.name)] = str
 
 		return self.async_show_form(
 			step_id="devices",
