@@ -957,6 +957,7 @@ class JablotronMessage():
 		0xa0: TYPE_BEEP,
 		0xb3: TYPE_PING,
 		0xb4: TYPE_PING,
+		0xb6: TYPE_PING,
 		0xb7: TYPE_BEEP, # beep on set/unset (for all but setting AB)
 		0xb8: TYPE_BEEP, # on setup
 		0xba: TYPE_PING,
@@ -2133,6 +2134,9 @@ class JA80CentralUnit(object):
 						state_text = state_text + ", " + message 
 					elif message != '':
 						state_text = message
+
+				if warn:
+					LOGGER.warn(message)
 
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
