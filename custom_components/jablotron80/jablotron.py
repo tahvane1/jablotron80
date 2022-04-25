@@ -1401,23 +1401,18 @@ class JA80CentralUnit(object):
 			code.enabled = True
 
 	async def initialize(self) -> None:
+		global _loop
 		def shutdown_event(_):
 			self.shutdown()
 		LOGGER.info("initializing")
 		if not self._hass is None:
 			self._hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, shutdown_event)
-		loop = asyncio.get_event_loop()
-		loop.create_task(self.processing_loop())
-		#loop.create_task(self.status_loop())
+		_loop = asyncio.get_event_loop()
+		_loop.create_task(self.processing_loop())
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
-		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
-		await asyncio.wait_for(self._havestate.wait(), None)
-		global _loop
-		_loop = asyncio.get_running_loop()
+		_loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
+		await asyncio.wait_for(self._havestate.wait(), 60)
 		LOGGER.info(f"initialization done.")
-
-
-		
 
 		
 	def is_code_required_for_arm(self) -> bool:
