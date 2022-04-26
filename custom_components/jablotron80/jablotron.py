@@ -13,7 +13,8 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
-_loop = None
+_loop = None # global variable to store event loop
+
 
 from typing import Any, Dict, Optional, Union,Callable
 from homeassistant import config_entries
@@ -90,11 +91,13 @@ def log_change(func):
 
 
 class JablotronSettings:
+	#sleep when no command
+	#SERIAL_SLEEP_NO_COMMAND = 0.2
+
 	#these are hiding sensitive output from logs
 	HIDE_CODE = True
 	HIDE_KEY_PRESS = True
-	#sleep when no command
-	SERIAL_SLEEP_NO_COMMAND = 0.2
+
 	#this is just to control with zone is used in unsplit system
 	ZONE_UNSPLIT = 3
  
@@ -623,7 +626,7 @@ class JablotronCommand():
 		self._event = asyncio.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
-		await asyncio.wait_for(self._event.wait(), None)
+		await self._event.wait()
 		return self._confirmed
 		
 	def confirm(self,confirmed: bool) -> None:
@@ -652,15 +655,20 @@ class JablotronConnection():
 		self._output_q = queue.Queue()
 		self._stop = threading.Event()
 		self._connection = None
-			
+		self._messages = asyncio.Event() # are there messages to process
+
 	def get_record(self) -> List[bytearray]:
-		if self._output_q.empty():
-			return None
-		record = self._output_q.get_nowait()
-		if not record is None:
+		
+		# build up multiple records from many queue entries
+		# multiple records are not used in normal running as single messages are process one at a time
+		records = []
+		while not self._output_q.empty():
+			for record in self._output_q.get_nowait():
+				records.append(record)
 			self._output_q.task_done()
-		return record
-	
+
+		return records
+		
 	@property
 	def device(self):
 		return self._device
@@ -697,7 +705,8 @@ class JablotronConnection():
 	
 	def _forward_records(self,records: List[bytearray]) -> None:
 		self._output_q.put(records)
-		
+		LOGGER.debug(f'Forwarding {len(records)} records')
+		_loop.call_soon_threadsafe(self._messages.set)
 
 	def _log_detail(self, data):
 
@@ -775,9 +784,11 @@ class JablotronConnection():
 							confirmed = True
 							self._cmd_q.task_done()
 
-				else:
-					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
-			except Exception as ex:
+# No sleep needed in notmal running as serial read blocks
+#				else:
+#					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
+
+			except Exception:
 				LOGGER.error('Unexpected error: %s', traceback.format_exc())
 		self.disconnect()
 
@@ -806,7 +817,7 @@ class JablotronConnectionHID(JablotronConnection):
 		LOGGER.debug('Successfully sent startup message')
 
 
-	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
+	def _read_data(self, max_package_sections: int = 30)->List[bytearray]:
 		read_buffer = []
 		ret_val = []
 
@@ -1370,7 +1381,7 @@ class JA80CentralUnit(object):
 		self._mode = None
 		self._connection.connect()
 		self._stop = threading.Event()
-		self._havestate = asyncio.Event()
+		self._havestate = asyncio.Event() # has the first state message been received
 
 		if CONFIGURATION_CENTRAL_SETTINGS in config:
 			self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
@@ -1401,23 +1412,18 @@ class JA80CentralUnit(object):
 			code.enabled = True
 
 	async def initialize(self) -> None:
+		global _loop
 		def shutdown_event(_):
 			self.shutdown()
 		LOGGER.info("initializing")
 		if not self._hass is None:
 			self._hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, shutdown_event)
-		loop = asyncio.get_event_loop()
-		loop.create_task(self.processing_loop())
-		#loop.create_task(self.status_loop())
+		_loop = asyncio.get_event_loop()
+		_loop.create_task(self.processing_loop())
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
-		loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
-		await asyncio.wait_for(self._havestate.wait(), None)
-		global _loop
-		_loop = asyncio.get_running_loop()
+		_loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
+		await asyncio.wait_for(self._havestate.wait(), 20)
 		LOGGER.info(f"initialization done.")
-
-
-		
 
 		
 	def is_code_required_for_arm(self) -> bool:
@@ -2542,15 +2548,20 @@ class JA80CentralUnit(object):
 	async def processing_loop(self) -> None:
 		previous_record = None
 		while not self._stop.is_set():
-			await asyncio.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
+			await self._connection._messages.wait()
 			try:
-				while (records := self._connection.get_record()) is not None: 
+				while (records := self._connection.get_record()) != []: 
+					LOGGER.debug(f'Received {len(records)} records')
 					for record in records:
-						if record  != previous_record:
+						if record != previous_record:
 							previous_record = record
 							self._process_message(record)
+							await asyncio.sleep(0) # sleep on every message processed to not block event loop
+				
+				self._connection._messages.clear() # once all messages are processed, clear flag
+				
 			except Exception as ex:
-				LOGGER.error(f'Unexpected error:{record}:  {traceback.format_exc()}')
+				LOGGER.error(f'Unexpected error:{record}: {traceback.format_exc()}')
 			
 	# this is just for console testing
 	async def status_loop(self) -> None:
