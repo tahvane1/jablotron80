@@ -626,7 +626,7 @@ class JablotronCommand():
 		self._event = asyncio.Event()
 	
 	async def wait_for_confirmation(self) -> bool:
-		await asyncio.wait_for(self._event.wait(), None)
+		await self._event.wait()
 		return self._confirmed
 		
 	def confirm(self,confirmed: bool) -> None:
@@ -1422,7 +1422,7 @@ class JA80CentralUnit(object):
 		_loop.create_task(self.processing_loop())
 		io_pool_exc = ThreadPoolExecutor(max_workers=1)
 		_loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
-		await asyncio.wait_for(self._havestate.wait(), 60)
+		await asyncio.wait_for(self._havestate.wait(), 20)
 		LOGGER.info(f"initialization done.")
 
 		
@@ -2556,9 +2556,8 @@ class JA80CentralUnit(object):
 						if record != previous_record:
 							previous_record = record
 							self._process_message(record)
-					await asyncio.sleep(0)
-
-				LOGGER.debug(f'No messages on queue')							
+							await asyncio.sleep(0) # sleep on every message processed to not block event loop
+				
 				self._connection._messages.clear() # once all messages are processed, clear flag
 				
 			except Exception as ex:
