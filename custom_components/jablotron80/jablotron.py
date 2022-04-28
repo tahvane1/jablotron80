@@ -785,7 +785,7 @@ class JablotronConnection():
 							confirmed = True
 							self._cmd_q.task_done()
 
-# No sleep needed in notmal running as serial read blocks
+# No sleep needed in normal running as serial read blocks
 #				else:
 #					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 
