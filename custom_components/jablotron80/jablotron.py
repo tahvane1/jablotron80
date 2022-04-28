@@ -89,6 +89,8 @@ def log_change(func):
 						asyncio.get_event_loop().create_task(update_op())
 	return wrapper
 
+def format_packet(data):
+		return " ".join(["%02x" % c for c in data])
 
 class JablotronSettings:
 	#sleep when no command
@@ -711,10 +713,9 @@ class JablotronConnection():
 	def _log_detail(self, data):
 
 		pass
-		#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+		# UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
 		#if LOGGER.isEnabledFor(logging.DEBUG):
-		#	formatted_data = " ".join(["%02x" % c for c in data])
-		#	LOGGER.debug(f'Received raw data {formatted_data}')
+		#	LOGGER.debug(f'Received raw data {format_packet(data)}')
 
 	def connect(self) -> None:
 		raise NotImplementedError
@@ -798,8 +799,7 @@ class JablotronConnection():
 			records_tmp = self._read_data()
 			self._forward_records(records_tmp)
 			for record in records_tmp:
-				packet_data = " ".join(["%02x" % c for c in record])
-				LOGGER.debug(f'record:{i}:{packet_data}')
+				LOGGER.debug(f'record:{i}:{format_packet(record)}')
 				if record[:len(prefix)] == prefix:
 					return True
 		
@@ -825,7 +825,10 @@ class JablotronConnectionHID(JablotronConnection):
 			data = self._connection.read(64)
 			self._log_detail(data)
 			if len(data) > 0 and data[0] == 0x82:
-				size = data[1] 
+				size = data[1]
+				if size+2 > len(data):
+					size = len(data) - 2 # still process what we have, but make sure we don't overshoot buffer
+					LOGGER.warn(f'Corrupt packet section: {format_packet(data)}')
 				read_buffer.append(data[2:2+int(size)])
 				if data[1 + int(size)] == 0xff:
 					# return data received
@@ -833,7 +836,9 @@ class JablotronConnectionHID(JablotronConnection):
 					for i in b''.join(read_buffer):
 						ret_bytes.append(i)
 						if i == 0xff:
-							ret_val.append(bytearray(ret_bytes))
+							record = bytearray(ret_bytes)
+							LOGGER.debug(f'received record: {format_packet(record)}')
+							ret_val.append(record)
 							ret_bytes.clear()
 					return ret_val
 		return ret_val
@@ -868,13 +873,14 @@ class JablotronConnectionSerial(JablotronConnection):
 		ret_val = []
 
 		data = self._connection.read_until(b'\xff')
-		self._log_detail(data)
 		ret_bytes = []
 		read_buffer.append(data)
 		for i in b''.join(read_buffer):
 			ret_bytes.append(i)
 			if i == 0xff:
-				ret_val.append(bytearray(ret_bytes))
+				record = bytearray(ret_bytes)
+				LOGGER.debug(f'received record: {format_packet(record)}')
+				ret_val.append(record)
 				ret_bytes.clear()
 		return ret_val
 
@@ -2411,7 +2417,7 @@ class JA80CentralUnit(object):
 			LOGGER.error(f'Unknown state detail received data={packet_data}')
 
 	def _process_message(self, data: bytearray) -> None:
-		packet_data = " ".join(["%02x" % c for c in data])
+		packet_data = format_packet(data)
 		message_type = JablotronMessage.get_message_type_from_record(data,packet_data)
 		if message_type is None:
 			return
