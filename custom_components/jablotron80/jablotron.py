@@ -869,19 +869,10 @@ class JablotronConnectionSerial(JablotronConnection):
 					raise
 
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
-		read_buffer = []
 		ret_val = []
-
 		data = self._connection.read_until(b'\xff')
-		ret_bytes = []
-		read_buffer.append(data)
-		for i in b''.join(read_buffer):
-			ret_bytes.append(i)
-			if i == 0xff:
-				record = bytearray(ret_bytes)
-				LOGGER.debug(f'received record: {format_packet(record)}')
-				ret_val.append(record)
-				ret_bytes.clear()
+		LOGGER.debug(f'received record: {format_packet(data)}')
+		ret_val.append(data)
 		return ret_val
 
 
