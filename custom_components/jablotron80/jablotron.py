@@ -684,6 +684,12 @@ class JablotronConnection():
 		else:
 			LOGGER.info('No need to disconnect; not connected')
 
+	def reconnect(self):
+		LOGGER.warn('connection failed, reconnecting')
+		time.sleep(1)
+		self.disconnect()
+		self.connect()
+
 	def shutdown(self) -> None:
 		self._stop.set()
 		
@@ -822,7 +828,13 @@ class JablotronConnectionHID(JablotronConnection):
 		ret_val = []
 
 		for j in range(max_package_sections):
-			data = self._connection.read(64)
+			data = b''
+			while data == b'':
+				try:
+					data = self._connection.read(64)
+				except OSError:
+					self.reconnect()
+
 			self._log_detail(data)
 			if len(data) > 0 and data[0] == 0x82:
 				size = data[1]
@@ -870,7 +882,15 @@ class JablotronConnectionSerial(JablotronConnection):
 
 	def _read_data(self, max_package_sections: int =15)->List[bytearray]:
 		ret_val = []
-		data = self._connection.read_until(b'\xff')
+		data = b''
+
+		while data == b'':
+			data = self._connection.read_until(b'\xff')
+
+			if data == b'':
+				self.reconnect()
+				self._connection.read_until(b'\xff') # throw away first record as will be corrupt
+
 		LOGGER.debug(f'received record: {format_packet(data)}')
 		ret_val.append(data)
 		return ret_val
