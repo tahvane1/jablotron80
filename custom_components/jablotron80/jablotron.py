@@ -685,7 +685,7 @@ class JablotronConnection():
 			LOGGER.info('No need to disconnect; not connected')
 
 	def reconnect(self):
-		LOGGER.warn('connection failed, reconnecting')
+		LOGGER.warning('connection failed, reconnecting')
 		time.sleep(1)
 		self.disconnect()
 		self.connect()
@@ -773,7 +773,7 @@ class JablotronConnection():
 								LOGGER.info(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
-								LOGGER.warn(f'no accepted message for sequence:{i} received')
+								LOGGER.warning(f'no accepted message for sequence:{i} received')
 								accepted = False
 								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
 
@@ -783,7 +783,7 @@ class JablotronConnection():
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
 									LOGGER.info(f"command {send_cmd} completed")
 								else:
-									LOGGER.warn(f"no completion message found for command {send_cmd}")
+									LOGGER.warning(f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
 									continue
 									
@@ -840,7 +840,7 @@ class JablotronConnectionHID(JablotronConnection):
 				size = data[1]
 				if size+2 > len(data):
 					size = len(data) - 2 # still process what we have, but make sure we don't overshoot buffer
-					LOGGER.warn(f'Corrupt packet section: {format_packet(data)}')
+					LOGGER.warning(f'Corrupt packet section: {format_packet(data)}')
 				read_buffer.append(data[2:2+int(size)])
 				if data[1 + int(size)] == 0xff:
 					# return data received
@@ -1118,12 +1118,12 @@ class JablotronMessage():
 			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
 			if not JablotronMessage.check_crc(record):
-				LOGGER.warn(f'Invalid CRC for {packet_data}')
+				LOGGER.warning(f'Invalid CRC for {packet_data}')
 			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
-				LOGGER.warn(f'Invalid message of type {message_type} received {packet_data}')
+				LOGGER.warning(f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
 class JablotronState():
@@ -1705,7 +1705,7 @@ class JA80CentralUnit(object):
 		elif isinstance(source,JablotronCode):
 			self._activate_code(source)
 		else:
-			LOGGER.warn(f'Unknown source type {source_id}')
+			LOGGER.warning(f'Unknown source type {source_id}')
 
 	def _activate_code(self, code_id):
 		code  = self._get_source(code_id)
@@ -1913,7 +1913,7 @@ class JA80CentralUnit(object):
 		log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 
 		if warn:
-			LOGGER.warn(log)
+			LOGGER.warning(log)
 
 		self.central_device.last_event = log
 
@@ -2161,12 +2161,12 @@ class JA80CentralUnit(object):
 						state_text = message
 
 				if warn:
-					LOGGER.warn(message)
+					LOGGER.warning(message)
 
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
 				if message != self.alert.message and message != '':
-					LOGGER.warn(message)
+					LOGGER.warning(message)
 					self.alert.message = message
 
 			if state_text != self.statustext.message:
@@ -2504,8 +2504,7 @@ class JA80CentralUnit(object):
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
-			LOGGER.warning(
-				f'Trying to enter elevated mode but not reliable status yet')
+			LOGGER.warning(f'Trying to enter elevated mode but not reliable status yet')
 			return False
 		else:
 			LOGGER.error(
@@ -2519,8 +2518,7 @@ class JA80CentralUnit(object):
 		elif not JablotronState.is_disarmed_state(self._last_state):
 			self.send_return_mode_command()
 		else:
-			LOGGER.warning(
-				f'Trying to enter normal mode but state is {self.last_state}')
+			LOGGER.warning(f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
 		if self.enter_elevated_mode(self._master_code):
