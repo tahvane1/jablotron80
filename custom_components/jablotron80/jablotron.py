@@ -752,10 +752,9 @@ class JablotronConnection():
 
 					accepted = False
 					confirmed = False
-					retries = 2
+					retries = 2 # 2 retries signifies 3 attempts
 
 					while retries >= 0 and not (accepted and confirmed):
-						retries -=1
 						level = logging.INFO
 						for i in range(0,len(send_cmd.code)):
 							if i == len(send_cmd.code)-1:
@@ -773,7 +772,7 @@ class JablotronConnection():
 								LOGGER.debug(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
-								if retries < 0:
+								if retries == 0:
 									level = logging.WARN
 
 								LOGGER.log(level, f'no accepted message for sequence:{i} received')
@@ -786,7 +785,7 @@ class JablotronConnection():
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
 									LOGGER.info(f"command {send_cmd} completed")
 								else:
-									if retries < 0:
+									if retries == 0:
 										level = logging.WARN	
 									LOGGER.log(level, f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
@@ -796,6 +795,7 @@ class JablotronConnection():
 							confirmed = True
 							self._cmd_q.task_done()
 
+						retries -=1
 # No sleep needed in normal running as serial read blocks
 #				else:
 #					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
