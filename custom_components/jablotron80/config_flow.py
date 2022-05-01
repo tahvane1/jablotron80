@@ -150,8 +150,8 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 					return self.async_create_entry(title=NAME, data=self._config)
 				return await self.async_step_codes()
 
-			except Exception as ex:
-				LOGGER.error(f'Unexpected error: {traceback.format_exc()}')
+			except Exception:
+				LOGGER.exception(f'Unexpected error')
 
 				return self.async_abort(reason="unknown")
 

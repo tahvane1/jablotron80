@@ -2,7 +2,6 @@ import queue
 import time
 import datetime
 from dataclasses import dataclass, field
-import traceback
 from typing import List,Any,Optional,Union
 import threading
 import asyncio
@@ -742,7 +741,7 @@ class JablotronConnection():
 		while not self._stop.is_set() or self._cmd_q.unfinished_tasks > 0:
 			try:
 				if not self.is_connected():
-					LOGGER.warning('Not connected to JA80, abort')
+					LOGGER.error('Not connected to JA80, abort')
 					return []
 				records = self._read_data()
 				self._forward_records(records)
@@ -757,6 +756,7 @@ class JablotronConnection():
 
 					while retries >= 0 and not (accepted and confirmed):
 						retries -=1
+						level = logging.INFO
 						for i in range(0,len(send_cmd.code)):
 							if i == len(send_cmd.code)-1:
 								accepted_prefix = send_cmd.accepted_prefix
@@ -770,10 +770,13 @@ class JablotronConnection():
 								LOGGER.debug(f'keypress sent, sequence:{i}')
 
 							if self.read_until_found(accepted_prefix):
-								LOGGER.info(f'keypress accepted, sequence:{i}')
+								LOGGER.debug(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
-								LOGGER.warning(f'no accepted message for sequence:{i} received')
+								if retries < 0:
+									level = logging.WARN
+
+								LOGGER.log(level, f'no accepted message for sequence:{i} received')
 								accepted = False
 								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
 
@@ -783,7 +786,9 @@ class JablotronConnection():
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
 									LOGGER.info(f"command {send_cmd} completed")
 								else:
-									LOGGER.warning(f"no completion message found for command {send_cmd}")
+									if retries < 0:
+										level = logging.WARN	
+									LOGGER.log(level, f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
 									continue
 									
@@ -796,7 +801,7 @@ class JablotronConnection():
 #					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 
 			except Exception:
-				LOGGER.error('Unexpected error: %s', traceback.format_exc())
+				LOGGER.exception('Unexpected error: %s')
 		self.disconnect()
 
 	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
@@ -2575,8 +2580,8 @@ class JA80CentralUnit(object):
 				
 				self._connection._messages.clear() # once all messages are processed, clear flag
 				
-			except Exception as ex:
-				LOGGER.error(f'Unexpected error:{record}: {traceback.format_exc()}')
+			except Exception:
+				LOGGER.exception(f'Unexpected error processing record: {record}')
 			
 	# this is just for console testing
 	async def status_loop(self) -> None:
