@@ -12,6 +12,8 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
+expected_warning_level = logging.warn
+verbose_connection_logging = False
 _loop = None # global variable to store event loop
 
 
@@ -42,6 +44,8 @@ else:
 	from .const import (
 		CONFIGURATION_SERIAL_PORT,
 		CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
+		CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
+		CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
 		MIN_NUMBER_OF_WIRED_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
@@ -712,15 +716,14 @@ class JablotronConnection():
 	
 	def _forward_records(self,records: List[bytearray]) -> None:
 		self._output_q.put(records)
-		LOGGER.debug(f'Forwarding {len(records)} records')
+		self._log_detail(f'Forwarding {len(records)} records')
 		_loop.call_soon_threadsafe(self._messages.set)
 
-	def _log_detail(self, data):
+	def _log_detail(self, log: str):
 
-		pass
-		# UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-		#if LOGGER.isEnabledFor(logging.DEBUG):
-		#	LOGGER.debug(f'Received raw data {format_packet(data)}')
+		if verbose_connection_logging:
+			level = LOGGER.getEffectiveLevel()
+			LOGGER.log(level, log)
 
 	def connect(self) -> None:
 		raise NotImplementedError
@@ -840,7 +843,7 @@ class JablotronConnectionHID(JablotronConnection):
 				except OSError:
 					self.reconnect()
 
-			self._log_detail(data)
+			self._log_detail(f'Received raw data {format_packet(data)}')
 			if len(data) > 0 and data[0] == 0x82:
 				size = data[1]
 				if size+2 > len(data):
@@ -854,7 +857,7 @@ class JablotronConnectionHID(JablotronConnection):
 						ret_bytes.append(i)
 						if i == 0xff:
 							record = bytearray(ret_bytes)
-							LOGGER.debug(f'received record: {format_packet(record)}')
+							self._log_detail(f'received record: {format_packet(record)}')
 							ret_val.append(record)
 							ret_bytes.clear()
 					return ret_val
@@ -896,7 +899,7 @@ class JablotronConnectionSerial(JablotronConnection):
 				self.reconnect()
 				self._connection.read_until(b'\xff') # throw away first record as will be corrupt
 
-		LOGGER.debug(f'received record: {format_packet(data)}')
+		self._log_detail(f'received record: {format_packet(data)}')
 		ret_val.append(data)
 		return ret_val
 
@@ -1120,15 +1123,15 @@ class JablotronMessage():
 		   # LOGGER.error('Error determining msg type from buffer: %s', ex)
 			#  msg type is still none so next call will work
 		if message_type is None:
-			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
+			LOGGER.log(expected_warning_level, f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
 			if not JablotronMessage.check_crc(record):
-				LOGGER.warning(f'Invalid CRC for {packet_data}')
+				LOGGER.log(expected_warning_level, f'Invalid CRC for {packet_data}')
 			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
-				LOGGER.warning(f'Invalid message of type {message_type} received {packet_data}')
+				LOGGER.log(expected_warning_level, f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
 class JablotronState():
@@ -1432,6 +1435,21 @@ class JA80CentralUnit(object):
 			code.code1 = value["code1"]
 			code.code2 = value["code2"]
 			code.enabled = True
+
+		global expected_warning_level
+		try:
+			if options[CONFIGURATION_QUIETEN_EXPECTED_WARNINGS]:
+				expected_warning_level = logging.DEBUG
+			else:
+				expected_warning_level = logging.WARN
+		except KeyError:
+			pass
+
+		global verbose_connection_logging
+		try:
+			verbose_connection_logging = options[CONFIGURATION_VERBOSE_CONNECTION_LOGGING]
+		except KeyError:
+			pass
 
 	async def initialize(self) -> None:
 		global _loop
@@ -2571,7 +2589,7 @@ class JA80CentralUnit(object):
 			await self._connection._messages.wait()
 			try:
 				while (records := self._connection.get_record()) != []: 
-					LOGGER.debug(f'Received {len(records)} records')
+					self._connection._log_detail(f'Received {len(records)} records')
 					for record in records:
 						if record != previous_record:
 							previous_record = record
