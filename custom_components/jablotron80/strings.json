@@ -188,7 +188,9 @@
 				"title": "Options",
 				"data": {
 					"require_code_to_arm": "Require code to arm",
-					"require_code_to_disarm": "Require code to disarm"
+					"require_code_to_disarm": "Require code to disarm",
+					"quieten_expected_warnings": "Quieten expected warnings",
+					"verbose_connection_logging": "Verbose connection logging"
 				}
 			}
 		}

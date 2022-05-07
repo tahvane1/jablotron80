@@ -2,7 +2,6 @@ import queue
 import time
 import datetime
 from dataclasses import dataclass, field
-import traceback
 from typing import List,Any,Optional,Union
 import threading
 import asyncio
@@ -13,6 +12,8 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
+expected_warning_level = logging.warn
+verbose_connection_logging = False
 _loop = None # global variable to store event loop
 
 
@@ -43,6 +44,8 @@ else:
 	from .const import (
 		CONFIGURATION_SERIAL_PORT,
 		CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
+		CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
+		CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
 		MIN_NUMBER_OF_WIRED_DEVICES,
 		CONFIGURATION_PASSWORD,
 		CENTRAL_UNIT_MODEL,
@@ -685,7 +688,7 @@ class JablotronConnection():
 			LOGGER.info('No need to disconnect; not connected')
 
 	def reconnect(self):
-		LOGGER.warn('connection failed, reconnecting')
+		LOGGER.warning('connection failed, reconnecting')
 		time.sleep(1)
 		self.disconnect()
 		self.connect()
@@ -713,15 +716,14 @@ class JablotronConnection():
 	
 	def _forward_records(self,records: List[bytearray]) -> None:
 		self._output_q.put(records)
-		LOGGER.debug(f'Forwarding {len(records)} records')
+		self._log_detail(f'Forwarding {len(records)} records')
 		_loop.call_soon_threadsafe(self._messages.set)
 
-	def _log_detail(self, data):
+	def _log_detail(self, log: str):
 
-		pass
-		# UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-		#if LOGGER.isEnabledFor(logging.DEBUG):
-		#	LOGGER.debug(f'Received raw data {format_packet(data)}')
+		if verbose_connection_logging:
+			level = LOGGER.getEffectiveLevel()
+			LOGGER.log(level, log)
 
 	def connect(self) -> None:
 		raise NotImplementedError
@@ -742,7 +744,7 @@ class JablotronConnection():
 		while not self._stop.is_set() or self._cmd_q.unfinished_tasks > 0:
 			try:
 				if not self.is_connected():
-					LOGGER.warning('Not connected to JA80, abort')
+					LOGGER.error('Not connected to JA80, abort')
 					return []
 				records = self._read_data()
 				self._forward_records(records)
@@ -753,10 +755,10 @@ class JablotronConnection():
 
 					accepted = False
 					confirmed = False
-					retries = 2
+					retries = 2 # 2 retries signifies 3 attempts
 
 					while retries >= 0 and not (accepted and confirmed):
-						retries -=1
+						level = logging.INFO
 						for i in range(0,len(send_cmd.code)):
 							if i == len(send_cmd.code)-1:
 								accepted_prefix = send_cmd.accepted_prefix
@@ -770,10 +772,13 @@ class JablotronConnection():
 								LOGGER.debug(f'keypress sent, sequence:{i}')
 
 							if self.read_until_found(accepted_prefix):
-								LOGGER.info(f'keypress accepted, sequence:{i}')
+								LOGGER.debug(f'keypress accepted, sequence:{i}')
 								accepted = True
 							else:
-								LOGGER.warn(f'no accepted message for sequence:{i} received')
+								if retries == 0:
+									level = logging.WARN
+
+								LOGGER.log(level, f'no accepted message for sequence:{i} received')
 								accepted = False
 								break # break from for loop into retry loop, has effect of starting full command sequence from scratch
 
@@ -783,7 +788,9 @@ class JablotronConnection():
 								if self.read_until_found(send_cmd.complete_prefix, send_cmd.max_records):
 									LOGGER.info(f"command {send_cmd} completed")
 								else:
-									LOGGER.warn(f"no completion message found for command {send_cmd}")
+									if retries == 0:
+										level = logging.WARN	
+									LOGGER.log(level, f"no completion message found for command {send_cmd}")
 									send_cmd.confirm(False)
 									continue
 									
@@ -791,12 +798,13 @@ class JablotronConnection():
 							confirmed = True
 							self._cmd_q.task_done()
 
+						retries -=1
 # No sleep needed in normal running as serial read blocks
 #				else:
 #					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 
 			except Exception:
-				LOGGER.error('Unexpected error: %s', traceback.format_exc())
+				LOGGER.exception('Unexpected error: %s')
 		self.disconnect()
 
 	def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
@@ -835,12 +843,12 @@ class JablotronConnectionHID(JablotronConnection):
 				except OSError:
 					self.reconnect()
 
-			self._log_detail(data)
+			self._log_detail(f'Received raw data {format_packet(data)}')
 			if len(data) > 0 and data[0] == 0x82:
 				size = data[1]
 				if size+2 > len(data):
 					size = len(data) - 2 # still process what we have, but make sure we don't overshoot buffer
-					LOGGER.warn(f'Corrupt packet section: {format_packet(data)}')
+					LOGGER.warning(f'Corrupt packet section: {format_packet(data)}')
 				read_buffer.append(data[2:2+int(size)])
 				if data[1 + int(size)] == 0xff:
 					# return data received
@@ -849,7 +857,7 @@ class JablotronConnectionHID(JablotronConnection):
 						ret_bytes.append(i)
 						if i == 0xff:
 							record = bytearray(ret_bytes)
-							LOGGER.debug(f'received record: {format_packet(record)}')
+							self._log_detail(f'received record: {format_packet(record)}')
 							ret_val.append(record)
 							ret_bytes.clear()
 					return ret_val
@@ -891,7 +899,7 @@ class JablotronConnectionSerial(JablotronConnection):
 				self.reconnect()
 				self._connection.read_until(b'\xff') # throw away first record as will be corrupt
 
-		LOGGER.debug(f'received record: {format_packet(data)}')
+		self._log_detail(f'received record: {format_packet(data)}')
 		ret_val.append(data)
 		return ret_val
 
@@ -1115,15 +1123,15 @@ class JablotronMessage():
 		   # LOGGER.error('Error determining msg type from buffer: %s', ex)
 			#  msg type is still none so next call will work
 		if message_type is None:
-			LOGGER.error(f'Unknown message type {hex(record[0])} with data {packet_data} received')
+			LOGGER.log(expected_warning_level, f'Unknown message type {hex(record[0])} with data {packet_data} received')
 		else:
 			if not JablotronMessage.check_crc(record):
-				LOGGER.warn(f'Invalid CRC for {packet_data}')
+				LOGGER.log(expected_warning_level, f'Invalid CRC for {packet_data}')
 			elif JablotronMessage.validate_length(message_type,record):
 				LOGGER.debug(f'Message of type {message_type} received {packet_data}')
 				return message_type
 			else:
-				LOGGER.warn(f'Invalid message of type {message_type} received {packet_data}')
+				LOGGER.log(expected_warning_level, f'Invalid message of type {message_type} received {packet_data}')
 		return None
 	
 class JablotronState():
@@ -1428,6 +1436,21 @@ class JA80CentralUnit(object):
 			code.code2 = value["code2"]
 			code.enabled = True
 
+		global expected_warning_level
+		try:
+			if options[CONFIGURATION_QUIETEN_EXPECTED_WARNINGS]:
+				expected_warning_level = logging.DEBUG
+			else:
+				expected_warning_level = logging.WARN
+		except KeyError:
+			pass
+
+		global verbose_connection_logging
+		try:
+			verbose_connection_logging = options[CONFIGURATION_VERBOSE_CONNECTION_LOGGING]
+		except KeyError:
+			pass
+
 	async def initialize(self) -> None:
 		global _loop
 		def shutdown_event(_):
@@ -1705,7 +1728,7 @@ class JA80CentralUnit(object):
 		elif isinstance(source,JablotronCode):
 			self._activate_code(source)
 		else:
-			LOGGER.warn(f'Unknown source type {source_id}')
+			LOGGER.warning(f'Unknown source type {source_id}')
 
 	def _activate_code(self, code_id):
 		code  = self._get_source(code_id)
@@ -1913,7 +1936,7 @@ class JA80CentralUnit(object):
 		log = f'{event_name}, {source}:{self._get_source(source).name}, {date_time_obj.strftime("%H:%M %a %d %b")}'
 
 		if warn:
-			LOGGER.warn(log)
+			LOGGER.warning(log)
 
 		self.central_device.last_event = log
 
@@ -2161,12 +2184,12 @@ class JA80CentralUnit(object):
 						state_text = message
 
 				if warn:
-					LOGGER.warn(message)
+					LOGGER.warning(message)
 
 			# log the message as an alert/alarm since the warning triangle is lit
 			else:
 				if message != self.alert.message and message != '':
-					LOGGER.warn(message)
+					LOGGER.warning(message)
 					self.alert.message = message
 
 			if state_text != self.statustext.message:
@@ -2504,8 +2527,7 @@ class JA80CentralUnit(object):
 		elif self._last_state == JablotronState.BYPASS:
 			self.send_return_mode_command()
 		elif self._last_state == None:
-			LOGGER.warning(
-				f'Trying to enter elevated mode but not reliable status yet')
+			LOGGER.warning(f'Trying to enter elevated mode but not reliable status yet')
 			return False
 		else:
 			LOGGER.error(
@@ -2519,8 +2541,7 @@ class JA80CentralUnit(object):
 		elif not JablotronState.is_disarmed_state(self._last_state):
 			self.send_return_mode_command()
 		else:
-			LOGGER.warning(
-				f'Trying to enter normal mode but state is {self.last_state}')
+			LOGGER.warning(f'Trying to enter normal mode but state is {self.last_state}')
 
 	async def read_settings(self) -> bool:
 		if self.enter_elevated_mode(self._master_code):
@@ -2568,7 +2589,7 @@ class JA80CentralUnit(object):
 			await self._connection._messages.wait()
 			try:
 				while (records := self._connection.get_record()) != []: 
-					LOGGER.debug(f'Received {len(records)} records')
+					self._connection._log_detail(f'Received {len(records)} records')
 					for record in records:
 						if record != previous_record:
 							previous_record = record
@@ -2577,8 +2598,8 @@ class JA80CentralUnit(object):
 				
 				self._connection._messages.clear() # once all messages are processed, clear flag
 				
-			except Exception as ex:
-				LOGGER.error(f'Unexpected error:{record}: {traceback.format_exc()}')
+			except Exception:
+				LOGGER.exception(f'Unexpected error processing record: {record}')
 			
 	# this is just for console testing
 	async def status_loop(self) -> None:
