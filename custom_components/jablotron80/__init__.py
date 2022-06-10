@@ -36,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     cu =  JA80CentralUnit(hass, entry.data, entry.options)
     await cu.initialize()
     
-    device_registry = await dr.async_get_registry(hass)
+    device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
 		config_entry_id=entry.entry_id,
 		identifiers={(DOMAIN, cu.serial_port)},
