@@ -137,13 +137,17 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 	async def async_alarm_arm_away(self, code=None) -> None:
 		if not self._cu.is_code_required_for_arm():
 			code = ""
-		elif not self.code_arm_required : 
+		elif not self.code_arm_required :
 			code = self._cu._master_code
 		if code == None:
 			return
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-			# just one zone so input code without any "kinks"
-			self._cu.arm(code)
+			# if we have received a code use it to arm the system
+			if len(code) > 0:
+				self._cu.arm(code)
+			#  otherwise simulate an ABC key press (zone C means all zones)
+			else:
+				self._cu.arm(code, "C")
 		elif self._cu.mode in [JA80CentralUnit.SYSTEM_MODE_PARTIAL,JA80CentralUnit.SYSTEM_MODE_SPLIT]:
 			self._cu.arm(code,"C")
 
