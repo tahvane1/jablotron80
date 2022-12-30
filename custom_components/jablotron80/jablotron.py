@@ -1992,7 +1992,7 @@ class JA80CentralUnit(object):
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
 
-			if activity == 0x00 and not self.led_alarm:
+			if activity == 0x00:# and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
 
