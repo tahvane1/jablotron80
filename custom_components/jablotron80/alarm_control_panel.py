@@ -82,12 +82,12 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 	@property
 	def supported_features(self) -> int:
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-			return SUPPORT_ALARM_ARM_AWAY
+			return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_TRIGGER
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
-			return SUPPORT_ALARM_ARM_AWAY|SUPPORT_ALARM_ARM_HOME|SUPPORT_ALARM_ARM_NIGHT
+			return SUPPORT_ALARM_ARM_AWAY|SUPPORT_ALARM_ARM_HOME|SUPPORT_ALARM_ARM_NIGHT | SUPPORT_ALARM_TRIGGER
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT:
-			return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_ARM_HOME
-		return SUPPORT_ALARM_ARM_AWAY
+			return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_ARM_HOME | SUPPORT_ALARM_TRIGGER
+		return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_TRIGGER
 
 	@property
 	def code_arm_required(self) -> bool:
@@ -161,8 +161,11 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
 			self._cu.arm(code,"B")
 
-	async  def async_alarm_trigger(self, code=None) -> None:
-		raise NotImplementedError()
+	async def async_alarm_trigger(self, code=None) -> None:
+		if self.state == STATE_ALARM_DISARMED:
+			self._cu.send_keypress_sequence("*7" + self._cu._master_code, b'\xa1')
+		else:
+			self._cu.send_keypress_sequence("*7" + self._cu._master_code, b'\xa2')
 
 	async  def async_alarm_arm_custom_bypass(self, code=None) -> None:
 		raise NotImplementedError()
