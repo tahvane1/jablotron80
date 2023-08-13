@@ -12,7 +12,7 @@ import crccheck
 
 from custom_components.jablotron80.const import DEVICE_CONTROL_PANEL
 LOGGER = logging.getLogger(__package__)
-expected_warning_level = logging.warn
+expected_warning_level = logging.WARN
 verbose_connection_logging = False
 _loop = None # global variable to store event loop
 
