@@ -661,6 +661,7 @@ class JablotronConnection():
 		self._stop = threading.Event()
 		self._connection = None
 		self._messages = asyncio.Event() # are there messages to process
+		self.update_devices = False
 
 	def get_record(self) -> List[bytearray]:
 		
@@ -796,6 +797,8 @@ class JablotronConnection():
 									
 							send_cmd.confirm(True)
 							confirmed = True
+							if send_cmd.name == 'Details':
+								self.update_devices = True
 							self._cmd_q.task_done()
 
 						retries -=1
@@ -1408,6 +1411,8 @@ class JA80CentralUnit(object):
 		self._stop = threading.Event()
 		self._havestate = asyncio.Event() # has the first state message been received
 
+		self._force_query = False
+
 		if CONFIGURATION_CENTRAL_SETTINGS in config:
 			self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
 			self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, not config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM])
@@ -1694,13 +1699,13 @@ class JA80CentralUnit(object):
 			return object.zone
 	
 	def _clear_triggers(self) -> None:
-		for device in self._active_devices.values():
+		for device in self._devices.values():
 			#if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			#    device.deactivate()
 			#else:
 			device.active = False
 		self._active_devices.clear()
-		for code in self._active_codes.values():
+		for code in self._codes.values():
     			#if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			#    device.deactivate()
 			#else:
@@ -1747,6 +1752,14 @@ class JA80CentralUnit(object):
 			zone = self._get_zone_via_object(source)
 			if not zone is None:
 				zone.code_activated(source)
+
+	def _update_device(self):
+		for device in self._devices.values():
+			if device.device_id in self._active_devices:
+				device.active = True
+			else:
+				device.active = False
+		self._active_devices.clear()
 
 	def _activate_device(self, source):
 		if isinstance(source,JablotronDevice):
@@ -1992,7 +2005,7 @@ class JA80CentralUnit(object):
 			self.status = JA80CentralUnit.STATUS_NORMAL
 			self._call_zones(function_name="disarm")
 
-			if activity == 0x00:# and not self.led_alarm:
+			if activity == 0x00 and not self.led_alarm:
 				# clear active statuses
 				self._clear_triggers()
 
@@ -2123,8 +2136,9 @@ class JA80CentralUnit(object):
 			# something is active
 			if detail == 0x00:
 				# don't send query if we already have "triggered detector" displayed
-				if activity_name not in self.statustext.message or activity_name == self.statustext.message:
-					self._send_device_query()				
+				if activity_name not in self.statustext.message or activity_name == self.statustext.message or self._force_query:
+					self._send_device_query()
+					self._force_query = False
 				else:
 					log = False
 			else:
@@ -2154,6 +2168,8 @@ class JA80CentralUnit(object):
 			else:
 				self._activate_source(detail)
 				self._confirm_device_query()
+
+			self._force_query = True
 
 		else:
 			warn = True
@@ -2197,6 +2213,10 @@ class JA80CentralUnit(object):
 
 		else:
 			LOGGER.debug('message: ' + message)
+
+		if self._connection.update_devices:
+			self._update_device()
+			self._connection.update_devices = False
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
