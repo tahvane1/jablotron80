@@ -661,6 +661,7 @@ class JablotronConnection():
 		self._stop = threading.Event()
 		self._connection = None
 		self._messages = asyncio.Event() # are there messages to process
+		self.update_devices = False
 
 	def get_record(self) -> List[bytearray]:
 		
@@ -796,6 +797,8 @@ class JablotronConnection():
 									
 							send_cmd.confirm(True)
 							confirmed = True
+							if send_cmd.name == 'Details':
+								self.update_devices = True
 							self._cmd_q.task_done()
 
 						retries -=1
@@ -1694,13 +1697,13 @@ class JA80CentralUnit(object):
 			return object.zone
 	
 	def _clear_triggers(self) -> None:
-		for device in self._active_devices.values():
+		for device in self._devices.values():
 			#if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			#    device.deactivate()
 			#else:
 			device.active = False
 		self._active_devices.clear()
-		for code in self._active_codes.values():
+		for code in self._codes.values():
     			#if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
 			#    device.deactivate()
 			#else:
@@ -1747,6 +1750,14 @@ class JA80CentralUnit(object):
 			zone = self._get_zone_via_object(source)
 			if not zone is None:
 				zone.code_activated(source)
+
+	def _update_device(self):
+		for device in self._devices.values():
+			if device.device_id in self._active_devices:
+				device.active = True
+			else:
+				device.active = False
+		self._active_devices.clear()
 
 	def _activate_device(self, source):
 		if isinstance(source,JablotronDevice):
@@ -2197,6 +2208,10 @@ class JA80CentralUnit(object):
 
 		else:
 			LOGGER.debug('message: ' + message)
+
+		if self._connection.update_devices:
+			self._update_device()
+			self._connection.update_devices = False
 
 		#LOGGER.info(f'Status: {hex(status)}, {format(status, "008b")}')
 		#LOGGER.info(f'{self}')
