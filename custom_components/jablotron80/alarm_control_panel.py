@@ -221,7 +221,7 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			return STATE_ALARM_TRIGGERED
 			
 		elif zone.status == JablotronZone.STATUS_ARMED and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-			return STATE_ALARM_ARMED_HOME
+			return STATE_ALARM_ARMED_AWAY
 		
 		elif zone.status == JablotronZone.STATUS_ARMED and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT and not zone == self._object:
 			return STATE_ALARM_ARMED_AWAY
