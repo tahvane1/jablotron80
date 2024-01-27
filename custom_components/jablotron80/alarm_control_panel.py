@@ -4,11 +4,8 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import StateType
 from homeassistant.components.alarm_control_panel import (
 	AlarmControlPanelEntity,
-	FORMAT_NUMBER,
- 	SUPPORT_ALARM_ARM_HOME,
-	SUPPORT_ALARM_ARM_AWAY,
-	SUPPORT_ALARM_ARM_NIGHT,
- 	SUPPORT_ALARM_TRIGGER,
+	AlarmControlPanelEntityFeature,
+	CodeFormat,
 	ATTR_CHANGED_BY,
 	ATTR_CODE_ARM_REQUIRED
 )
@@ -72,7 +69,7 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 			code_required = self.code_arm_required
 		else:
 			code_required = self.code_disarm_required
-		return FORMAT_NUMBER if code_required is True else None
+		return CodeFormat.NUMBER if code_required is True else None
 
 	@staticmethod
 	def _check_code(code: Optional[str]) -> Optional[str]:
@@ -82,12 +79,12 @@ class Jablotron80AlarmControl(JablotronEntity,AlarmControlPanelEntity):
 	@property
 	def supported_features(self) -> int:
 		if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-			return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_TRIGGER
+			return AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
-			return SUPPORT_ALARM_ARM_AWAY|SUPPORT_ALARM_ARM_HOME|SUPPORT_ALARM_ARM_NIGHT | SUPPORT_ALARM_TRIGGER
+			return AlarmControlPanelEntityFeature.ARM_AWAY| AlarmControlPanelEntityFeature.ARM_HOME |	AlarmControlPanelEntityFeature.ARM_NIGHT | AlarmControlPanelEntityFeature.TRIGGER
 		elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT:
-			return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_ARM_HOME | SUPPORT_ALARM_TRIGGER
-		return SUPPORT_ALARM_ARM_AWAY | SUPPORT_ALARM_TRIGGER
+			return AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.ARM_HOME | AlarmControlPanelEntityFeature.TRIGGER
+		return AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
 
 	@property
 	def code_arm_required(self) -> bool:
