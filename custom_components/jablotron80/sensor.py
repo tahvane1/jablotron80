@@ -8,10 +8,10 @@ from .const import (
 	DATA_JABLOTRON,
 	DOMAIN)
 
-
-from homeassistant.const import (
-     DEVICE_CLASS_SIGNAL_STRENGTH
+from homeassistant.components.sensor import (
+	SensorDeviceClass
 )
+ 
 import logging
 LOGGER = logging.getLogger(__package__)
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
@@ -64,4 +64,4 @@ class JablotronSignalEntity(JablotronSensorEntity):
 
 	@property
 	def device_class(self) -> str:
-		return DEVICE_CLASS_SIGNAL_STRENGTH
+		return SensorDeviceClass.SIGNAL_STRENGTH
