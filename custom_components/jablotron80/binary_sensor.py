@@ -2,17 +2,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.components.binary_sensor import (
 	BinarySensorEntity,
-	DEVICE_CLASS_CONNECTIVITY,
-	DEVICE_CLASS_DOOR,
-	DEVICE_CLASS_GAS,
-	DEVICE_CLASS_MOISTURE,
-	DEVICE_CLASS_MOTION,
-	DEVICE_CLASS_PROBLEM,
-	DEVICE_CLASS_SAFETY,
-	DEVICE_CLASS_SMOKE,
-	DEVICE_CLASS_WINDOW,
- 	DEVICE_CLASS_LIGHT,
- 	DEVICE_CLASS_POWER,
+	BinarySensorDeviceClass,
 )
 from .const import (
 	DATA_JABLOTRON,
@@ -62,35 +52,35 @@ class JablotronDeviceSensorEntity(JablotronEntity,BinarySensorEntity):
 	def device_class(self) -> Optional[str]:
 		if self._object._id <= 0:
 			if "code" == self._object.type and self._object.reaction == JablotronConstants.REACTION_PANIC:
-				return DEVICE_CLASS_SAFETY
+				return BinarySensorDeviceClass.SAFETY
 			elif "code" == self._object.type and self._object.reaction == JablotronConstants.REACTION_FIRE_ALARM:
-				return DEVICE_CLASS_SMOKE
+				return BinarySensorDeviceClass.SMOKE
 			elif "code" == self._object.type:
-				return DEVICE_CLASS_MOTION
+				return BinarySensorDeviceClass.MOTION
 			elif DEVICE_CONTROL_PANEL == self._object.type:
-				return DEVICE_CLASS_PROBLEM
+				return BinarySensorDeviceClass.PROBLEM
 			elif "power led" == self._object.type:
-				return DEVICE_CLASS_POWER
+				return BinarySensorDeviceClass.POWER
 			elif "armed led" == self._object.type:
-				return DEVICE_CLASS_LIGHT
+				return BinarySensorDeviceClass.LIGHT
 		if self._object.type == DEVICE_MOTION_DETECTOR:
-			return DEVICE_CLASS_MOTION
+			return BinarySensorDeviceClass.MOTION
 		if self._object.type == DEVICE_KEYPAD:
-			return DEVICE_CLASS_PROBLEM
+			return BinarySensorDeviceClass.PROBLEM
 		if self._object.type == DEVICE_WINDOW_OPENING_DETECTOR:
-			return DEVICE_CLASS_WINDOW
+			return BinarySensorDeviceClass.WINDOW
 
 		if self._object.type == DEVICE_DOOR_OPENING_DETECTOR:
-			return DEVICE_CLASS_DOOR
+			return BinarySensorDeviceClass.DOOR
 
 		if self._object.type == DEVICE_FLOOD_DETECTOR:
-			return DEVICE_CLASS_MOISTURE
+			return BinarySensorDeviceClass.MOISTURE
 
 		if self._object.type == DEVICE_GAS_DETECTOR:
-			return DEVICE_CLASS_GAS
+			return BinarySensorDeviceClass.GAS
 
 		if self._object.type == DEVICE_SMOKE_DETECTOR:
-			return DEVICE_CLASS_SMOKE
+			return BinarySensorDeviceClass.SMOKE
 
 		return None
 
