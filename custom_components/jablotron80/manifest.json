@@ -1,11 +1,13 @@
 {
 	"domain": "jablotron80",
 	"name": "Jablotron 80",
-	"version": 0.14,
+	"version": "0.35",
 	"config_flow": true,
 	"documentation": "https://github.com/tahvane1/jablotron80",
+	"integration_type": "hub",
+	"iot_class": "local_polling",
 	"issue_tracker": "https://github.com/tahvane1/jablotron80/issues",
 	"dependencies": [],
-	"codeowners": ["@tahvane1"],
+	"codeowners": ["@tahvane1","@mattsaxon"],
 	"requirements": ["crccheck"]
 }
