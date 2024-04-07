@@ -6,15 +6,14 @@ from homeassistant.components.sensor import DOMAIN as PLATFORM_SENSOR
 from homeassistant.components.button import DOMAIN as PLATFORM_BUTTON
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
-
+from homeassistant.helpers import device_registry as dr, config_validation as cv
 #from . import hub
 from .const import (DOMAIN,DATA_JABLOTRON,	DATA_OPTIONS_UPDATE_UNSUBSCRIBER, NAME,CABLE_MODEL,MANUFACTURER,CABLE_MODELS)
 from .jablotron import JA80CentralUnit
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>
 PLATFORMS = [PLATFORM_ALARM_CONTROL_PANEL,PLATFORM_BINARY_SENSOR,PLATFORM_SENSOR, PLATFORM_BUTTON]
-
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict):
     # Ensure our name space for storing objects is a known type. A dict is
