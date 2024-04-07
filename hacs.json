@@ -2,6 +2,6 @@
 	"name": "Jablotron 80",
 	"content_in_root": false,
 	"domains": ["alarm_control_panel", "binary_sensor","sensor"],
-	"country": ["EN"],
+	"country": ["EN","FR"],
 	"render_readme": true
 }
