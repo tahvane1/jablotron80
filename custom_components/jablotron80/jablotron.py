@@ -888,6 +888,8 @@ class JablotronConnectionSerial(JablotronConnection):
 			except serial.SerialException as ex:
 				if "timed out" in f'{ex}':
 					LOGGER.info('Timeout, retrying')
+				elif "Connection refused" in f'{ex}':
+					LOGGER.info('Connection refused by remote host, retrying')
 				else:
 					raise
 
