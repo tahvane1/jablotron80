@@ -889,7 +889,9 @@ class JablotronConnectionSerial(JablotronConnection):
 				if "timed out" in f'{ex}':
 					LOGGER.info('Timeout, retrying')
 				elif "Connection refused" in f'{ex}':
-					LOGGER.info('Connection refused by remote host, retrying')
+					LOGGER.info('Connection refused by remote serial host, retrying')
+				elif "unreachable" in f'{ex}':
+					LOGGER.info('Remote serial host is currently unreachable, retrying')
 				else:
 					raise
 
