@@ -384,6 +384,8 @@ For Docker users we need to add the following to the docker_compose file to enab
     devices:
       - /dev/hidraw0
 
+Restart your homeassistant docker and you are able to complete the repo configuration from within homeassistant using the virtual /dev/hidraw0.
+
 ## Troubleshooting
 
 Additional logging can be enabled in configuration.yaml
