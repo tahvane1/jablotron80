@@ -49,9 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 	    DATA_OPTIONS_UPDATE_UNSUBSCRIBER: entry.add_update_listener(options_update_listener),
 	}
 
-    
-    for component in PLATFORMS:
-        await hass.config_entries.async_forward_entry_setup(entry,component)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
