@@ -40,9 +40,10 @@ DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_DISARM = True
 DEFAULT_CONFIGURATION_QUIETEN_EXPECTED_WARNINGS = False
 DEFAULT_CONFIGURATION_VERBOSE_CONNECTION_LOGGING = False
 
-LOGGER.setLevel(logging.DEBUG)
+# Set default Log Level to Debug
+# LOGGER.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
+# handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 LOGGER.addHandler(handler)
