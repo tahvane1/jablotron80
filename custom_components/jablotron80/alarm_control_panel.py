@@ -8,21 +8,12 @@ from homeassistant.components.alarm_control_panel import (
     CodeFormat,
     ATTR_CHANGED_BY,
     ATTR_CODE_ARM_REQUIRED,
+    AlarmControlPanelState,
 )
 
 from homeassistant.const import (
     ATTR_CODE,
     ATTR_CODE_FORMAT,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_ARMED_CUSTOM_BYPASS,
-    STATE_ALARM_PENDING,
-    STATE_ALARM_ARMING,
-    STATE_ALARM_DISARMING,
-    STATE_ALARM_TRIGGERED,
-    STATE_UNKNOWN,
 )
 from .const import (
     CONFIGURATION_REQUIRE_CODE_TO_ARM,
@@ -45,7 +36,7 @@ async def async_setup_entry(
 ) -> None:
     cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON]
     # how to handle split system?
-    if not cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT:
+    if cu.mode != JA80CentralUnit.SYSTEM_MODE_SPLIT:
         async_add_entities([Jablotron80AlarmControl(cu, cu.zones)], True)
     else:
         async_add_entities([Jablotron80AlarmControl(cu, cu.zones, 0)], True)
@@ -69,9 +60,10 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         self._zones = zones
         self._changed_by = "ME"
 
+
     @property
     def code_format(self) -> Optional[str]:
-        if self.state == STATE_ALARM_DISARMED:
+        if self.alarm_state == AlarmControlPanelState.DISARMED:
             code_required = self.code_arm_required
         else:
             code_required = self.code_disarm_required
@@ -181,7 +173,7 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
             self._cu.arm(code, "B")
 
     async def async_alarm_trigger(self, code=None) -> None:
-        if self.state == STATE_ALARM_DISARMED:
+        if self.alarm_state == AlarmControlPanelState.DISARMED:
             self._cu.send_keypress_sequence("*7" + self._cu._master_code, b"\xa1")
         else:
             self._cu.send_keypress_sequence("*7" + self._cu._master_code, b"\xa2")
@@ -268,59 +260,59 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         return self._zones[0]
 
     @property
-    def state(self) -> str:
+    def alarm_state(self) -> AlarmControlPanelState | None:
         zone = self.get_active_zone()
         if zone.status == JablotronZone.STATUS_ENTRY_DELAY:
-            return STATE_ALARM_PENDING
+            return AlarmControlPanelState.PENDING
         elif zone.status == JablotronZone.STATUS_ARMING:
-            return STATE_ALARM_ARMING
+            return AlarmControlPanelState.ARMING
         elif zone.status == JablotronZone.STATUS_ALARM:
-            return STATE_ALARM_TRIGGERED
+            return AlarmControlPanelState.TRIGGERED
 
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT
         ):
-            return STATE_ALARM_ARMED_AWAY
+            return AlarmControlPanelState.ARMED_AWAY
 
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT
-            and not zone == self._object
+            and zone != self._object
         ):
-            return STATE_ALARM_ARMED_AWAY
+            return AlarmControlPanelState.ARMED_AWAY
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT
             and zone == self._object
         ):
-            return STATE_ALARM_ARMED_HOME
+            return AlarmControlPanelState.ARMED_HOME
 
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL
             and zone._id == 1
         ):
-            return STATE_ALARM_ARMED_HOME
+            return AlarmControlPanelState.ARMED_HOME
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL
             and zone._id == 2
         ):
-            return STATE_ALARM_ARMED_NIGHT
+            return AlarmControlPanelState.ARMED_NIGHT
         elif (
             zone.status == JablotronZone.STATUS_ARMED
             and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL
             and zone._id == 3
         ):
 
-            return STATE_ALARM_ARMED_AWAY
+            return AlarmControlPanelState.ARMED_AWAY
         elif zone.status == JablotronZone.STATUS_DISARMED:
-            return STATE_ALARM_DISARMED
+            return AlarmControlPanelState.DISARMED
         elif zone.status == JablotronZone.STATUS_DISARMING:
-            return STATE_ALARM_DISARMING
+            return AlarmControlPanelState.DISARMING
 
-        return STATE_UNKNOWN
+        return AlarmControlPanelState.UNKOWN
 
     @property
     def should_poll(self) -> bool:
