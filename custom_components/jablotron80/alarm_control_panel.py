@@ -60,7 +60,6 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         self._zones = zones
         self._changed_by = "ME"
 
-
     @property
     def code_format(self) -> Optional[str]:
         if self.alarm_state == AlarmControlPanelState.DISARMED:
