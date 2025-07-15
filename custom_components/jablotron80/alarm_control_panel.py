@@ -122,9 +122,9 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
             # just one zone so input code without any "kinks"
             # todo check if you can get disarming from serial line
             self._zones[0].status = JablotronZone.STATUS_DISARMING
-            self._cu.disarm(code)
+            await self._cu.disarm(code)
         else:
-            self._cu.disarm(code)
+            await self._cu.disarm(code)
 
     async def async_alarm_arm_home(self, code=None) -> None:
         if not self._cu.is_code_required_for_arm():
@@ -134,12 +134,12 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         if code == None:
             return
         if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
-            self._cu.arm(code, "A")
+            await self._cu.arm(code, "A")
         elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT:
             if self._main_zone == 0:
-                self._cu.arm(code, "A")
+                await self._cu.arm(code, "A")
             else:
-                self._cu.arm(code, "B")
+                await self._cu.arm(code, "B")
 
     async def async_alarm_arm_away(self, code=None) -> None:
         if not self._cu.is_code_required_for_arm():
@@ -151,15 +151,15 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
             # if we have received a code use it to arm the system
             if len(code) > 0:
-                self._cu.arm(code)
+                await self._cu.arm(code)
             #  otherwise simulate an ABC key press (zone C means all zones)
             else:
-                self._cu.arm(code, "C")
+                await self._cu.arm(code, "C")
         elif self._cu.mode in [
             JA80CentralUnit.SYSTEM_MODE_PARTIAL,
             JA80CentralUnit.SYSTEM_MODE_SPLIT,
         ]:
-            self._cu.arm(code, "C")
+            await self._cu.arm(code, "C")
 
     async def async_alarm_arm_night(self, code=None) -> None:
         if not self._cu.is_code_required_for_arm():
@@ -169,7 +169,7 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         if code == None:
             return
         if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
-            self._cu.arm(code, "B")
+            await self._cu.arm(code, "B")
 
     async def async_alarm_trigger(self, code=None) -> None:
         if self.alarm_state == AlarmControlPanelState.DISARMED:

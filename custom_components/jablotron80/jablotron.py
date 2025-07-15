@@ -3,7 +3,6 @@ import time
 import datetime
 from dataclasses import dataclass, field
 from typing import List, Any, Optional, Union
-import threading
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import logging
@@ -664,26 +663,20 @@ class JablotronConnection:
         else:
             return JablotronConnectionSerial(serial_port)
 
-    # device is mandatory at initiation
     def __init__(self, device: str) -> None:
         self._device = device
-        self._cmd_q = queue.Queue()
-        self._output_q = queue.Queue()
-        self._stop = threading.Event()
+        self._cmd_q = asyncio.Queue()
+        self._output_q = asyncio.Queue()
+        self._stop = asyncio.Event()
         self._connection = None
-        self._messages = asyncio.Event()  # are there messages to process
+        self._messages = asyncio.Event()
         self.update_devices = False
 
     def get_record(self) -> List[bytearray]:
-
-        # build up multiple records from many queue entries
-        # multiple records are not used in normal running as single messages are process one at a time
         records = []
         while not self._output_q.empty():
-            for record in self._output_q.get_nowait():
-                records.append(record)
+            records.extend(self._output_q.get_nowait())
             self._output_q.task_done()
-
         return records
 
     @property
@@ -699,9 +692,9 @@ class JablotronConnection:
         else:
             LOGGER.info("No need to disconnect; not connected")
 
-    def reconnect(self):
+    async def reconnect(self):
         LOGGER.warning("connection failed, reconnecting")
-        time.sleep(1)
+        await asyncio.sleep(1)
         self.disconnect()
         self.connect()
 
@@ -711,27 +704,21 @@ class JablotronConnection:
     def is_connected(self) -> bool:
         return self._connection is not None
 
-    def add_command(self, command: JablotronCommand) -> None:
+    async def add_command(self, command: JablotronCommand) -> None:
         LOGGER.debug(f"Adding command {command}")
-        self._cmd_q.put(command)
+        await self._cmd_q.put(command)
 
-    def _get_command(self) -> Union[JablotronCommand, None]:
-        # assume we have a command queue and return command if requested
+    async def _get_command(self) -> Union[JablotronCommand, None]:
         if self._cmd_q.empty():
             return None
+        return await self._cmd_q.get()
 
-        # get one command
-        cmd = self._cmd_q.get_nowait()
-
-        return cmd
-
-    def _forward_records(self, records: List[bytearray]) -> None:
-        self._output_q.put(records)
-        self._log_detail(f"Forwarding {len(records)} records")
-        _loop.call_soon_threadsafe(self._messages.set)
+    async def _forward_records(self, records: List[bytearray]) -> None:
+        await self._output_q.put(records)
+        #self._log_detail(f"Forwarding {len(records)} records")
+        self._messages.set()
 
     def _log_detail(self, log: str):
-
         if verbose_connection_logging:
             level = LOGGER.getEffectiveLevel()
             LOGGER.log(level, log)
@@ -748,195 +735,181 @@ class JablotronConnection:
     def _confirmed(self, record, send_cmd: JablotronCommand):
         raise NotImplementedError
 
-    def read_send_packet_loop(self) -> None:
-        # keep reading bytes untill 0xff which indicates end of packet
+    async def read_send_packet_loop(self) -> None:
         LOGGER.debug("Loop endlessly reading serial")
-        while not self._stop.is_set() or self._cmd_q.unfinished_tasks > 0:
+        while not self._stop.is_set() or not self._cmd_q.empty():
             try:
                 if not self.is_connected():
                     LOGGER.error("Not connected to JA80, abort")
-                    return []
-                records = self._read_data()
-                self._forward_records(records)
-                send_cmd = self._get_command()
+                    return
+
+                records = await self._read_data()
+                await self._forward_records(records)
+                send_cmd = await self._get_command()
 
                 if send_cmd is not None:
-                    # new command in queue
-
                     accepted = False
                     confirmed = False
-                    retries = 2  # 2 retries signifies 3 attempts
+                    retries = 2
 
                     while retries >= 0 and not (accepted and confirmed):
                         level = logging.INFO
-                        for i in range(0, len(send_cmd.code)):
-                            if i == len(send_cmd.code) - 1:
-                                accepted_prefix = send_cmd.accepted_prefix
-                            else:
-                                accepted_prefix = b"\xa0\xff"
+                        for i in range(len(send_cmd.code)):
+                            accepted_prefix = (
+                                send_cmd.accepted_prefix if i == len(send_cmd.code) - 1 else b"\xa0\xff"
+                            )
 
-                            if not send_cmd.code is None:
-                                cmd = self._get_cmd(
-                                    send_cmd.code[i].to_bytes(1, byteorder="big")
-                                )
+                            if send_cmd.code is not None:
+                                cmd = self._get_cmd(send_cmd.code[i].to_bytes(1, byteorder="big"))
                                 LOGGER.debug(f"Sending keypress, sequence:{i}")
-                                self._connection.write(cmd)
+                                self._connection.write(cmd)  # ideally async
                                 LOGGER.debug(f"keypress sent, sequence:{i}")
 
-                            if self.read_until_found(accepted_prefix):
+                            found = await self.read_until_found(accepted_prefix)
+                            if found:
                                 LOGGER.debug(f"keypress accepted, sequence:{i}")
                                 accepted = True
                             else:
                                 if retries == 0:
                                     level = logging.WARN
-
-                                LOGGER.log(
-                                    level,
-                                    f"no accepted message for sequence:{i} received",
-                                )
+                                LOGGER.log(level, f"no accepted message for sequence:{i} received")
                                 accepted = False
-                                break  # break from for loop into retry loop, has effect of starting full command sequence from scratch
+                                break
 
                         if accepted:
                             if send_cmd.complete_prefix is not None:
-                                # confirmation required, read until confirmation or to limit
-                                if self.read_until_found(
+                                confirmed = await self.read_until_found(
                                     send_cmd.complete_prefix, send_cmd.max_records
-                                ):
+                                )
+                                if confirmed:
                                     LOGGER.info(f"command {send_cmd} completed")
                                 else:
                                     if retries == 0:
-                                        level = logging.WARN
-                                    LOGGER.log(
-                                        level,
-                                        f"no completion message found for command {send_cmd}",
-                                    )
+                                        LOGGER.warning(
+                                            f"no completion message found for command {send_cmd}"
+                                        )
                                     send_cmd.confirm(False)
                                     continue
 
                             send_cmd.confirm(True)
-                            confirmed = True
                             if send_cmd.name == "Details":
                                 self.update_devices = True
                             self._cmd_q.task_done()
 
                         retries -= 1
-            # No sleep needed in normal running as serial read blocks
-            # 				else:
-            # 					time.sleep(JablotronSettings.SERIAL_SLEEP_NO_COMMAND)
 
             except Exception:
-                LOGGER.exception("Unexpected error: %s")
+                LOGGER.exception("Unexpected error in packet loop")
         self.disconnect()
 
-    def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
-
+    async def read_until_found(self, prefix: str, max_records: int = 10) -> bool:
         for i in range(max_records):
-            records_tmp = self._read_data()
-            self._forward_records(records_tmp)
+            records_tmp = await self._read_data()
+            await self._forward_records(records_tmp)
             for record in records_tmp:
                 LOGGER.debug(f"record:{i}:{format_packet(record)}")
                 if record[: len(prefix)] == prefix:
                     return True
-
         return False
 
 
 class JablotronConnectionHID(JablotronConnection):
 
-    def connect(self) -> None:
-
+    async def connect(self) -> None:
         LOGGER.info(f"Connecting to JA80 via HID using {self._device}...")
-        self._connection = open(self._device, "w+b", buffering=0)
+        loop = asyncio.get_running_loop()
+
+        self._connection = await loop.run_in_executor(
+            None, open, self._device, "w+b", 0
+        )
+
         LOGGER.debug("Sending startup message")
-        self._connection.write(b"\x00\x00\x01\x01")
+        await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
         LOGGER.debug("Successfully sent startup message")
 
-    def _read_data(self, max_package_sections: int = 30) -> List[bytearray]:
+    def _get_cmd(self, code: bytes) -> bytes:
+        return b"\x00\x02\x01" + code
+
+    async def _read_data(self, max_package_sections: int = 30) -> List[bytearray]:
         read_buffer = []
         ret_val = []
 
-        for j in range(max_package_sections):
+        for _ in range(max_package_sections):
             data = b""
             while data == b"":
                 try:
-                    data = self._connection.read(64)
+                    data = await asyncio.to_thread(self._connection.read, 64)
                 except OSError:
-                    self.reconnect()
+                    await self.reconnect()
+                    return []
 
             self._log_detail(f"Received raw data {format_packet(data)}")
+
             if len(data) > 0 and data[0] == 0x82:
                 size = data[1]
                 if size + 2 > len(data):
-                    size = (
-                        len(data) - 2
-                    )  # still process what we have, but make sure we don't overshoot buffer
+                    size = len(data) - 2
                     LOGGER.warning(f"Corrupt packet section: {format_packet(data)}")
+
                 read_buffer.append(data[2 : 2 + int(size)])
+
                 if data[1 + int(size)] == 0xFF:
-                    # return data received
                     ret_bytes = []
                     for i in b"".join(read_buffer):
                         ret_bytes.append(i)
                         if i == 0xFF:
                             record = bytearray(ret_bytes)
-                            self._log_detail(
-                                f"received record: {format_packet(record)}"
-                            )
+                            self._log_detail(f"received record: {format_packet(record)}")
                             ret_val.append(record)
                             ret_bytes.clear()
                     return ret_val
-        return ret_val
 
-    def _get_cmd(self, code: bytes) -> str:
-        return b"\x00\x02\x01" + code
+        return ret_val
 
 
 class JablotronConnectionSerial(JablotronConnection):
 
-    def connect(self) -> None:
-
+    async def connect(self) -> None:
         LOGGER.info(f"Connecting to JA80 via Serial using {self._device}...")
 
         while self._connection is None:
-
             try:
-                self._connection = serial.serial_for_url(
+                self._connection = await asyncio.to_thread(
+                    serial.serial_for_url,
                     url=self._device,
                     baudrate=9600,
                     parity=serial.PARITY_NONE,
                     bytesize=serial.EIGHTBITS,
-                    dsrdtr=True,  # stopbits=serial.STOPBITS_ONE
+                    dsrdtr=True,
                     timeout=1,
                 )
             except serial.SerialException as ex:
-                if "timed out" in f"{ex}":
+                ex_msg = str(ex).lower()
+                if "timed out" in ex_msg:
                     LOGGER.info("Timeout, retrying")
-                elif "Connection refused" in f"{ex}":
+                elif "connection refused" in ex_msg:
                     LOGGER.info("Connection refused by remote serial host, retrying")
-                elif "unreachable" in f"{ex}":
+                elif "unreachable" in ex_msg:
                     LOGGER.info("Remote serial host is currently unreachable, retrying")
                 else:
                     raise
 
-    def _read_data(self, max_package_sections: int = 15) -> List[bytearray]:
+    async def _read_data(self, max_package_sections: int = 15) -> List[bytearray]:
         ret_val = []
         data = b""
 
         while data == b"":
-            data = self._connection.read_until(b"\xff")
+            data = await asyncio.to_thread(self._connection.read_until, b"\xff")
 
             if data == b"":
-                self.reconnect()
-                self._connection.read_until(
-                    b"\xff"
-                )  # throw away first record as will be corrupt
+                await self.reconnect()
+                await asyncio.to_thread(self._connection.read_until, b"\xff")  # discard first potentially corrupt record
 
         self._log_detail(f"received record: {format_packet(data)}")
         ret_val.append(data)
         return ret_val
 
-    def _get_cmd(self, code: bytes) -> str:
+    def _get_cmd(self, code: bytes) -> bytes:
         return code
 
 
@@ -1501,8 +1474,8 @@ class JA80CentralUnit(object):
         self._device_query_pending = False
         self._last_state = None
         self._mode = None
-        self._connection.connect()
-        self._stop = threading.Event()
+
+        self._stop = asyncio.Event()
         self._havestate = asyncio.Event()  # has the first state message been received
 
         if CONFIGURATION_CENTRAL_SETTINGS in config:
@@ -1556,7 +1529,7 @@ class JA80CentralUnit(object):
             ]
         except:
             pass
-
+    
     async def initialize(self) -> None:
         global _loop
 
@@ -1564,12 +1537,12 @@ class JA80CentralUnit(object):
             self.shutdown()
 
         LOGGER.info("initializing")
+        await self._connection.connect()
         if not self._hass is None:
             self._hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, shutdown_event)
         _loop = asyncio.get_event_loop()
         _loop.create_task(self.processing_loop())
-        io_pool_exc = ThreadPoolExecutor(max_workers=1)
-        _loop.run_in_executor(io_pool_exc, self._connection.read_send_packet_loop)
+        asyncio.create_task(self._connection.read_send_packet_loop())
         await asyncio.wait_for(self._havestate.wait(), 20)
         LOGGER.info(f"initialization done.")
 
@@ -2067,14 +2040,14 @@ class JA80CentralUnit(object):
 
         self.central_device.last_event = log
 
-    def _send_device_query(self) -> None:
+    async def _send_device_query(self) -> None:
         if not self._device_query_pending:
-            self.send_detail_command()
+            await self.send_detail_command()
 
     def _confirm_device_query(self) -> None:
         self._device_query_pending = False
 
-    def _process_state(self, data: bytearray, packet_data: str) -> None:
+    async def _process_state(self, data: bytearray, packet_data: str) -> None:
 
         status = data[1]
         self._havestate.set()
@@ -2256,7 +2229,7 @@ class JA80CentralUnit(object):
                     activity_name not in self.statustext.message
                     or activity_name == self.statustext.message
                 ):
-                    self._send_device_query()
+                    await self._send_device_query()
                 else:
                     log = False
             else:
@@ -2282,7 +2255,7 @@ class JA80CentralUnit(object):
             # multiple things are active
             if detail == 0x00:
                 # no details... ask..
-                self._send_device_query()
+                await self._send_device_query()
             else:
                 self._activate_source(detail)
                 self._confirm_device_query()
@@ -2589,13 +2562,13 @@ class JA80CentralUnit(object):
         else:
             LOGGER.error(f"Unknown state detail received data={packet_data}")
 
-    def _process_message(self, data: bytearray) -> None:
+    async def _process_message(self, data: bytearray) -> None:
         packet_data = format_packet(data)
         message_type = JablotronMessage.get_message_type_from_record(data, packet_data)
         if message_type is None:
             return
         if message_type == JablotronMessage.TYPE_STATE:
-            self._process_state(data, packet_data)
+            await self._process_state(data, packet_data)
         elif (
             message_type == JablotronMessage.TYPE_EVENT
             or message_type == JablotronMessage.TYPE_EVENT_LIST
@@ -2643,9 +2616,9 @@ class JA80CentralUnit(object):
                 s += f"{code}\n"
         return s
 
-    def send_return_mode_command(self) -> None:
+    async def send_return_mode_command(self) -> None:
         # if self.system_status in self.STATUS_ELEVATED:
-        self._connection.add_command(
+        await self._connection.add_command(
             JablotronCommand(
                 name="Esc / back", code=b"\x8e", accepted_prefix=b"\xa1\xff"
             )
@@ -2660,23 +2633,23 @@ class JA80CentralUnit(object):
             complete_prefix=b"\xe6\x04",
             max_records=300,
         )
-        self._connection.add_command(command)
+        await self._connection.add_command(command)
         return await command.wait_for_confirmation()
 
-    def send_detail_command(self) -> None:
-        self._connection.add_command(
+    async def send_detail_command(self) -> None:
+        await self._connection.add_command(
             JablotronCommand(name="Details", code=b"\x8e", accepted_prefix=b"\xa4\xff")
         )
 
-    def enter_elevated_mode(self, code: str) -> bool:
+    async def enter_elevated_mode(self, code: str) -> bool:
         # mode service/maintenance depends on pin send after this
         if JablotronState.is_elevated_state(self._last_state):
             # do nothing already on elevated mode
             pass
         elif JablotronState.is_disarmed_state(self._last_state):
-            self.send_keypress_sequence("*0" + code, b"\xa1", b"\xb8\xff")
+            await self.send_keypress_sequence("*0" + code, b"\xa1", b"\xb8\xff")
         elif self._last_state == JablotronState.BYPASS:
-            self.send_return_mode_command()
+            await self.send_return_mode_command()
         elif self._last_state == None:
             LOGGER.warning(f"Trying to enter elevated mode but not reliable status yet")
             return False
@@ -2687,11 +2660,11 @@ class JA80CentralUnit(object):
             return False
         return True
 
-    def return_mode(self) -> None:
+    async def return_mode(self) -> None:
         if self._last_state == None:
-            self.send_return_mode_command()
+            await self.send_return_mode_command()
         elif not JablotronState.is_disarmed_state(self._last_state):
-            self.send_return_mode_command()
+            await self.send_return_mode_command()
         else:
             LOGGER.warning(
                 f"Trying to enter normal mode but state is {self.last_state}"
@@ -2700,11 +2673,11 @@ class JA80CentralUnit(object):
     async def read_settings(self) -> bool:
         if self.enter_elevated_mode(self._master_code):
             result = await self.send_settings_command()
-            self.send_return_mode_command()
+            await self.send_return_mode_command()
             return result
         return False
 
-    def send_keypress_sequence(
+    async def send_keypress_sequence(
         self, key_sequence: str, accepted_prefix: bytes, complete_prefix: bytes = None
     ) -> None:
 
@@ -2719,7 +2692,7 @@ class JA80CentralUnit(object):
             cmd = key_sequence[i]
             value = value + JablotronKeyPress.get_key_command(cmd)
 
-        self._connection.add_command(
+        await self._connection.add_command(
             JablotronCommand(
                 name=f"key sequence {name}",
                 code=value,
@@ -2732,16 +2705,16 @@ class JA80CentralUnit(object):
         self._connection.shutdown()
         self._stop.set()
 
-    def arm(self, code: str, zone: str = None) -> None:
+    async def arm(self, code: str, zone: str = None) -> None:
         if zone is None:
-            self.send_keypress_sequence(code, b"\xa1")
+            await self.send_keypress_sequence(code, b"\xa1")
         else:
-            self.send_keypress_sequence(
+            await self.send_keypress_sequence(
                 {"A": "*2", "B": "*3", "C": "*1"}[zone] + code, b"\xa1"
             )
 
-    def disarm(self, code: str, zone: str = None) -> None:
-        self.send_keypress_sequence(code, b"\xa2")
+    async def disarm(self, code: str, zone: str = None) -> None:
+        await self.send_keypress_sequence(code, b"\xa2")
         if JablotronState.is_alarm_state(self._last_state):
             # confirm alarm
             self.send_detail_command
@@ -2756,7 +2729,7 @@ class JA80CentralUnit(object):
                     for record in records:
                         if record != previous_record:
                             previous_record = record
-                            self._process_message(record)
+                            await self._process_message(record)
                             await asyncio.sleep(
                                 0
                             )  # sleep on every message processed to not block event loop
