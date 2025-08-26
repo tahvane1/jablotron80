@@ -1,5 +1,3 @@
-"""The Detailed Hello World Push integration."""
-
 import asyncio
 from homeassistant.components.alarm_control_panel import (
     DOMAIN as PLATFORM_ALARM_CONTROL_PANEL,
