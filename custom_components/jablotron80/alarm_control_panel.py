@@ -31,9 +31,7 @@ import logging
 LOGGER = logging.getLogger(__package__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities
-) -> None:
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
     cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON]
     # how to handle split system?
     if cu.mode != JA80CentralUnit.SYSTEM_MODE_SPLIT:
@@ -51,9 +49,7 @@ def check_zone_status(zone: JablotronZone, status: str) -> bool:
 
 class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
 
-    def __init__(
-        self, cu: JA80CentralUnit, zones: List[JablotronZone], main_zone: int = 0
-    ) -> None:
+    def __init__(self, cu: JA80CentralUnit, zones: List[JablotronZone], main_zone: int = 0) -> None:
         self._object = zones[main_zone]
         self._main_zone = main_zone
         self._cu = cu
@@ -75,10 +71,7 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
     @property
     def supported_features(self) -> int:
         if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-            return (
-                AlarmControlPanelEntityFeature.ARM_AWAY
-                | AlarmControlPanelEntityFeature.TRIGGER
-            )
+            return AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
         elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL:
             return (
                 AlarmControlPanelEntityFeature.ARM_AWAY
@@ -92,10 +85,7 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
                 | AlarmControlPanelEntityFeature.ARM_HOME
                 | AlarmControlPanelEntityFeature.TRIGGER
             )
-        return (
-            AlarmControlPanelEntityFeature.ARM_AWAY
-            | AlarmControlPanelEntityFeature.TRIGGER
-        )
+        return AlarmControlPanelEntityFeature.ARM_AWAY | AlarmControlPanelEntityFeature.TRIGGER
 
     @property
     def code_arm_required(self) -> bool:
@@ -181,28 +171,16 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         raise NotImplementedError()
 
     def get_active_zone(self) -> JablotronZone:
-        if (
-            self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT
-            and len(self._zones) == 1
-        ):
+        if self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT and len(self._zones) == 1:
             return self._zones[0]
-        elif (
-            self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL
-            and len(self._zones) == 3
-        ):
+        elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_PARTIAL and len(self._zones) == 3:
             zone_home = self._zones[0]
             zone_night = self._zones[1]
             zone_away = self._zones[2]
-            for zone in [
-                zone
-                for zone in self._zones
-                if check_zone_status(zone, JablotronZone.STATUS_ALARM)
-            ]:
+            for zone in [zone for zone in self._zones if check_zone_status(zone, JablotronZone.STATUS_ALARM)]:
                 return zone
             for zone in [
-                zone
-                for zone in self._zones
-                if check_zone_status(zone, JablotronZone.STATUS_ENTRY_DELAY)
+                zone for zone in self._zones if check_zone_status(zone, JablotronZone.STATUS_ENTRY_DELAY)
             ]:
                 return zone
             if check_zone_status(zone_away, JablotronZone.STATUS_ARMED):
@@ -212,26 +190,18 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
             elif check_zone_status(zone_home, JablotronZone.STATUS_ARMED):
                 return zone_home
             for zone in [
-                zone
-                for zone in self._zones
-                if check_zone_status(zone, JablotronZone.STATUS_ARMING)
+                zone for zone in self._zones if check_zone_status(zone, JablotronZone.STATUS_ARMING)
             ]:
                 return zone
             for zone in [
-                zone
-                for zone in self._zones
-                if check_zone_status(zone, JablotronZone.STATUS_DISARMED)
+                zone for zone in self._zones if check_zone_status(zone, JablotronZone.STATUS_DISARMED)
             ]:
                 return zone
-        elif (
-            self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT and len(self._zones) == 3
-        ):
+        elif self._cu.mode == JA80CentralUnit.SYSTEM_MODE_SPLIT and len(self._zones) == 3:
             zone_home = self._zones[self._main_zone]
             zone_away = self._zones[2]
             for zone in [
-                zone
-                for zone in [zone_home, zone_away]
-                if check_zone_status(zone, JablotronZone.STATUS_ALARM)
+                zone for zone in [zone_home, zone_away] if check_zone_status(zone, JablotronZone.STATUS_ALARM)
             ]:
                 return zone
             for zone in [
@@ -269,8 +239,7 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
             return AlarmControlPanelState.TRIGGERED
 
         elif (
-            zone.status == JablotronZone.STATUS_ARMED
-            and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT
+            zone.status == JablotronZone.STATUS_ARMED and self._cu.mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT
         ):
             return AlarmControlPanelState.ARMED_AWAY
 

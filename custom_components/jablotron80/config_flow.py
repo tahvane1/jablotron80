@@ -71,9 +71,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.OptionsFlow:
         return JablotronOptionsFlow(config_entry)
 
-    async def async_step_user(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Handle the initial step."""
         # This goes through the steps to take the user through the setup process.
         # Using this it is possible to update the UI and prompt for additional
@@ -93,9 +91,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CABLE_MODEL: cables_by_names[user_input[CABLE_MODEL]],
                 CONFIGURATION_SERIAL_PORT: user_input[CONFIGURATION_SERIAL_PORT],
                 CONFIGURATION_PASSWORD: user_input[CONFIGURATION_PASSWORD],
-                CONFIGURATION_NUMBER_OF_WIRED_DEVICES: user_input[
-                    CONFIGURATION_NUMBER_OF_WIRED_DEVICES
-                ],
+                CONFIGURATION_NUMBER_OF_WIRED_DEVICES: user_input[CONFIGURATION_NUMBER_OF_WIRED_DEVICES],
             }
             cu = JA80CentralUnit(None, self._config, None)
             await cu.initialize()
@@ -133,9 +129,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CABLE_MODEL, default=DEFAULT_CABLE_MODEL): vol.In(
                         list(CABLE_MODELS.values())
                     ),
-                    vol.Required(
-                        CONFIGURATION_SERIAL_PORT, default=DEFAULT_SERIAL_PORT
-                    ): str,
+                    vol.Required(CONFIGURATION_SERIAL_PORT, default=DEFAULT_SERIAL_PORT): str,
                     vol.Required(CONFIGURATION_PASSWORD): str,
                     vol.Optional(
                         CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
@@ -149,9 +143,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_devices(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    async def async_step_devices(self, user_input: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         errors = {}
         devices_by_names = {value: key for key, value in DEVICES.items()}
         if user_input is not None:
@@ -168,13 +160,9 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                 for input in sorted(user_input):
                     parts = input.split("_")
-                    if parts[0] == "device" and (
-                        parts[2] == "name" or parts[2] == "type"
-                    ):
+                    if parts[0] == "device" and (parts[2] == "name" or parts[2] == "type"):
                         if parts[2] == "type":
-                            devices[int(parts[1])][parts[2]] = devices_by_names[
-                                user_input[input]
-                            ]
+                            devices[int(parts[1])][parts[2]] = devices_by_names[user_input[input]]
                         else:
                             devices[int(parts[1])][parts[2]] = user_input[input]
 
@@ -212,14 +200,10 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default_device = DEVICES[DEVICE_DOOR_OPENING_DETECTOR]
             else:
                 default_device = DEVICES[DEVICE_OTHER]
-            fields[
-                vol.Required(
-                    "device_{:03}_type".format(device.id), default=default_device
-                )
-            ] = vol.In(list(DEVICES.values()))
-            fields[
-                vol.Required("device_{:03}_name".format(device.id), default=device.name)
-            ] = str
+            fields[vol.Required("device_{:03}_type".format(device.id), default=default_device)] = vol.In(
+                list(DEVICES.values())
+            )
+            fields[vol.Required("device_{:03}_name".format(device.id), default=device.name)] = str
 
         return self.async_show_form(
             step_id="devices",
@@ -227,9 +211,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_codes(
-        self, user_input: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    async def async_step_codes(self, user_input: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         errors = {}
         if user_input is not None:
             try:
@@ -262,9 +244,7 @@ class Jablotron80ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 default_name = "Master"
             if code.id == 63:
                 default_name = "Service"
-            fields[
-                vol.Required("code_{:03}_name".format(code.id), default=default_name)
-            ] = str
+            fields[vol.Required("code_{:03}_name".format(code.id), default=default_name)] = str
 
         return self.async_show_form(
             step_id="codes",
