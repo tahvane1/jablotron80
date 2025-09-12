@@ -786,9 +786,10 @@ class JablotronConnection:
                             send_cmd.confirm(True)
                             if send_cmd.name == "Details":
                                 self.update_devices = True
-                            self._cmd_q.task_done()
 
                         retries -= 1
+
+                    self._cmd_q.task_done()
 
             except Exception:
                 LOGGER.exception("Unexpected error in packet loop")
