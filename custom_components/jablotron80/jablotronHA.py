@@ -53,10 +53,7 @@ class JablotronEntity(Entity):
         }
         if hasattr(self._object, "model") and not self._object.model is None:
             info["model"] = self._object.model
-        if (
-            hasattr(self._object, "manufacturer")
-            and not self._object.manufacturer is None
-        ):
+        if hasattr(self._object, "manufacturer") and not self._object.manufacturer is None:
             info["manufacturer"] = self._object.manufacturer
         return info
 
@@ -98,9 +95,7 @@ class JablotronEntity(Entity):
 
     @property
     def unique_id(self) -> str:
-        return (
-            f"{DOMAIN}.{self._cu.serial_port}.{self._object.id_part}.{self._object._id}"
-        )
+        return f"{DOMAIN}.{self._cu.serial_port}.{self._object.id_part}.{self._object._id}"
 
     async def async_added_to_hass(self) -> None:
         # state = await self.async_get_last_state()

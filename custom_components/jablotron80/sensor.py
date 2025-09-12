@@ -19,12 +19,8 @@ import logging
 LOGGER = logging.getLogger(__package__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities
-) -> None:
-    cu = hass.data[DOMAIN][config_entry.entry_id][
-        DATA_JABLOTRON
-    ]  # type: JA80CentralUnit
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities) -> None:
+    cu = hass.data[DOMAIN][config_entry.entry_id][DATA_JABLOTRON]  # type: JA80CentralUnit
     async_add_entities([JablotronZoneSensorEntity(zone, cu) for zone in cu.zones], True)
     async_add_entities([JablotronSignalEntity(cu.rf_level, cu)], True)
     async_add_entities([JablotronSensorEntity(cu.alert, cu)], True)

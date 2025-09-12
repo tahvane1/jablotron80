@@ -78,9 +78,7 @@ def log_change(func):
             cur = getattr(args[0], f"_{var_name}")
             if not prev == cur:
                 if prev is None:
-                    LOGGER.info(
-                        f"{args[0].__class__.__name__}({_id}): initializing {var_name} to {cur}"
-                    )
+                    LOGGER.info(f"{args[0].__class__.__name__}({_id}): initializing {var_name} to {cur}")
                 else:
                     if args[0].__class__.__name__ == "JablotronSensor" and _id == 1:
                         # RF value changed frequently, only log this as debug
@@ -421,9 +419,7 @@ class JablotronDevice(JablotronCommon):
 
     @property
     def is_motion(self) -> bool:
-        return (
-            self.model == "JA-80W" or self.model == "JA-86P" or self.model == "JA-84P"
-        )
+        return self.model == "JA-80W" or self.model == "JA-86P" or self.model == "JA-84P"
 
     @property
     def is_outdoor_siren(self) -> bool:
@@ -491,9 +487,7 @@ def check_active(func):
             return
         func(*args, **kwargs)
         if not prev == args[0]._status:
-            LOGGER.info(
-                f"{args[0].name} status changed from {prev} to {args[0]._status}"
-            )
+            LOGGER.info(f"{args[0].name} status changed from {prev} to {args[0]._status}")
 
     return wrapper
 
@@ -715,7 +709,7 @@ class JablotronConnection:
 
     async def _forward_records(self, records: List[bytearray]) -> None:
         await self._output_q.put(records)
-        #self._log_detail(f"Forwarding {len(records)} records")
+        # self._log_detail(f"Forwarding {len(records)} records")
         self._messages.set()
 
     def _log_detail(self, log: str):
@@ -785,9 +779,7 @@ class JablotronConnection:
                                     LOGGER.info(f"command {send_cmd} completed")
                                 else:
                                     if retries == 0:
-                                        LOGGER.warning(
-                                            f"no completion message found for command {send_cmd}"
-                                        )
+                                        LOGGER.warning(f"no completion message found for command {send_cmd}")
                                     send_cmd.confirm(False)
                                     continue
 
@@ -819,9 +811,7 @@ class JablotronConnectionHID(JablotronConnection):
         LOGGER.info(f"Connecting to JA80 via HID using {self._device}...")
         loop = asyncio.get_running_loop()
 
-        self._connection = await loop.run_in_executor(
-            None, open, self._device, "w+b", 0
-        )
+        self._connection = await loop.run_in_executor(None, open, self._device, "w+b", 0)
 
         LOGGER.debug("Sending startup message")
         await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
@@ -903,7 +893,9 @@ class JablotronConnectionSerial(JablotronConnection):
 
             if data == b"":
                 await self.reconnect()
-                await asyncio.to_thread(self._connection.read_until, b"\xff")  # discard first potentially corrupt record
+                await asyncio.to_thread(
+                    self._connection.read_until, b"\xff"
+                )  # discard first potentially corrupt record
 
         self._log_detail(f"received record: {format_packet(data)}")
         ret_val.append(data)
@@ -1074,10 +1066,7 @@ class JablotronMessage:
             else:
                 # settings
                 try:
-                    if (
-                        main_type == JablotronMessage.TYPE_SETTINGS
-                        and record[0] == 0xE6
-                    ):
+                    if main_type == JablotronMessage.TYPE_SETTINGS and record[0] == 0xE6:
                         if not record[1] in [0x06, 0x02]:
                             return JablotronMessage._RECORD_E6_LENGTHS[record[1]]
                         if record[1] == 0x06:
@@ -1284,9 +1273,7 @@ class JablotronState:
 
     @staticmethod
     def is_elevated_state(status):
-        return JablotronState.is_service_state(
-            status
-        ) or JablotronState.is_maintenance_state(status)
+        return JablotronState.is_service_state(status) or JablotronState.is_maintenance_state(status)
         # return status in JablotronState.STATES_ELEVATED
 
     @staticmethod
@@ -1299,17 +1286,12 @@ class JablotronState:
 
     @staticmethod
     def is_service_state(status):
-        return (
-            not status & JablotronState.MAINTENANCE
-            and not status & JablotronState.DISARMED
-        )
+        return not status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
         # return status in JablotronState.STATES_SERVICE
 
     @staticmethod
     def is_maintenance_state(status):
-        return (
-            status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
-        )
+        return status & JablotronState.MAINTENANCE and not status & JablotronState.DISARMED
         # return status in JablotronState.STATES_MAINTENANCE
 
     @staticmethod
@@ -1413,13 +1395,9 @@ class JA80CentralUnit(object):
         self._config: Dict[str, Any] = config
         self._options: Dict[str, Any] = options
         self._settings = JablotronSettings()
-        self._connection = JablotronConnection.factory(
-            config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT]
-        )
+        self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
         try:
-            self._max_number_of_wired_devices = config[
-                CONFIGURATION_NUMBER_OF_WIRED_DEVICES
-            ]
+            self._max_number_of_wired_devices = config[CONFIGURATION_NUMBER_OF_WIRED_DEVICES]
         except KeyError:
             self._max_number_of_wired_devices = MIN_NUMBER_OF_WIRED_DEVICES
 
@@ -1434,9 +1412,7 @@ class JA80CentralUnit(object):
         self.central_device.manufacturer = MANUFACTURER
         self.central_device.type = DEVICE_CONTROL_PANEL
         self._devices = {}
-        self._devices[0] = (
-            self.central_device
-        )  # add central device as a device so it gets an entity
+        self._devices[0] = self.central_device  # add central device as a device so it gets an entity
         self._leds = {
             "A": self._create_led(1, "zone A armed", "armed led"),
             "B": self._create_led(2, "zone B armed", "armed led"),
@@ -1479,14 +1455,10 @@ class JA80CentralUnit(object):
         self._havestate = asyncio.Event()  # has the first state message been received
 
         if CONFIGURATION_CENTRAL_SETTINGS in config:
-            self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][
-                DEVICE_CONFIGURATION_SYSTEM_MODE
-            ]
+            self.mode = config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_SYSTEM_MODE]
             self._settings.add_setting(
                 JablotronSettings.SETTING_ARM_WITHOUT_CODE,
-                not config[CONFIGURATION_CENTRAL_SETTINGS][
-                    DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM
-                ],
+                not config[CONFIGURATION_CENTRAL_SETTINGS][DEVICE_CONFIGURATION_REQUIRE_CODE_TO_ARM],
             )
         else:
             self.mode = self.SYSTEM_MODE_UNSPLIT
@@ -1524,12 +1496,10 @@ class JA80CentralUnit(object):
 
         global verbose_connection_logging
         try:
-            verbose_connection_logging = options[
-                CONFIGURATION_VERBOSE_CONNECTION_LOGGING
-            ]
+            verbose_connection_logging = options[CONFIGURATION_VERBOSE_CONNECTION_LOGGING]
         except:
             pass
-    
+
     async def initialize(self) -> None:
         global _loop
 
@@ -1556,8 +1526,7 @@ class JA80CentralUnit(object):
         def registered(device: JablotronDevice):
 
             if (
-                device.serial_number is not None
-                and device.reaction != JablotronConstants.REACTION_OFF
+                device.serial_number is not None and device.reaction != JablotronConstants.REACTION_OFF
             ) or device.model == "wired":
                 return True
 
@@ -1684,10 +1653,7 @@ class JA80CentralUnit(object):
     def mode(self, mode: int) -> None:
         self._mode = mode
         for zone in self._zones.values():
-            if (
-                not mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT
-                or zone._id == JablotronSettings.ZONE_UNSPLIT
-            ):
+            if not mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT or zone._id == JablotronSettings.ZONE_UNSPLIT:
                 zone.enabled = True
             else:
                 zone.enabled = False
@@ -1771,9 +1737,7 @@ class JA80CentralUnit(object):
     def _get_zone(self, zone_id: int) -> JablotronZone:
         return self._zones[zone_id]
 
-    def _call_zone(
-        self, zone_id: int, function_name: str = None, by: str = None
-    ) -> None:
+    def _call_zone(self, zone_id: int, function_name: str = None, by: str = None) -> None:
         zone = self._get_zone(zone_id)
         if zone is not None:
             function = getattr(zone, function_name)
@@ -2084,10 +2048,7 @@ class JA80CentralUnit(object):
             self._call_zone(1, by=by, function_name="alarm")
         elif status == JablotronState.ALARM_B or status == JablotronState.ALARM_B_SPLIT:
             self._call_zone(2, by=by, function_name="alarm")
-        elif (
-            status == JablotronState.ALARM_C
-            or status == JablotronState.ALARM_WITHOUT_ARMING
-        ):
+        elif status == JablotronState.ALARM_C or status == JablotronState.ALARM_WITHOUT_ARMING:
             self._call_zones(by, function_name="alarm")
         elif status == JablotronState.ALARM_C_SPLIT:
             self._call_zone(3, by=by, function_name="alarm")
@@ -2162,9 +2123,7 @@ class JA80CentralUnit(object):
             state_text = ""
         else:
             state_text = "Unknown"
-            LOGGER.error(
-                f"Unknown status message status={hex(status)} received data={packet_data}"
-            )
+            LOGGER.error(f"Unknown status message status={hex(status)} received data={packet_data}")
 
         warn = False  # should a warning message be logged
         log = True  # should a message be logged at all
@@ -2225,10 +2184,7 @@ class JA80CentralUnit(object):
             # something is active
             if detail == 0x00:
                 # don't send query if we already have "triggered detector" displayed
-                if (
-                    activity_name not in self.statustext.message
-                    or activity_name == self.statustext.message
-                ):
+                if activity_name not in self.statustext.message or activity_name == self.statustext.message:
                     await self._send_device_query()
                 else:
                     log = False
@@ -2348,13 +2304,9 @@ class JA80CentralUnit(object):
             setting_value = data[3]
             if index == 0x00:
                 if setting_value == 0x01:
-                    self._settings.add_setting(
-                        JablotronSettings.SETTING_ARM_WITHOUT_CODE, True
-                    )
+                    self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, True)
                 else:
-                    self._settings.add_setting(
-                        JablotronSettings.SETTING_ARM_WITHOUT_CODE, False
-                    )
+                    self._settings.add_setting(JablotronSettings.SETTING_ARM_WITHOUT_CODE, False)
             # crc = data[4]
         elif setting_type_1 == 0x04:
             # some general settings
@@ -2569,10 +2521,7 @@ class JA80CentralUnit(object):
             return
         if message_type == JablotronMessage.TYPE_STATE:
             await self._process_state(data, packet_data)
-        elif (
-            message_type == JablotronMessage.TYPE_EVENT
-            or message_type == JablotronMessage.TYPE_EVENT_LIST
-        ):
+        elif message_type == JablotronMessage.TYPE_EVENT or message_type == JablotronMessage.TYPE_EVENT_LIST:
             # only process an event once
             if self._last_event_data != packet_data[3:21]:
                 self._last_event_data = packet_data[3:21]
@@ -2619,9 +2568,7 @@ class JA80CentralUnit(object):
     async def send_return_mode_command(self) -> None:
         # if self.system_status in self.STATUS_ELEVATED:
         await self._connection.add_command(
-            JablotronCommand(
-                name="Esc / back", code=b"\x8e", accepted_prefix=b"\xa1\xff"
-            )
+            JablotronCommand(name="Esc / back", code=b"\x8e", accepted_prefix=b"\xa1\xff")
         )
 
     async def send_settings_command(self) -> None:
@@ -2654,9 +2601,7 @@ class JA80CentralUnit(object):
             LOGGER.warning(f"Trying to enter elevated mode but not reliable status yet")
             return False
         else:
-            LOGGER.error(
-                f"Trying to enter elevated mode but state is {self._last_state:x}"
-            )
+            LOGGER.error(f"Trying to enter elevated mode but state is {self._last_state:x}")
             return False
         return True
 
@@ -2666,9 +2611,7 @@ class JA80CentralUnit(object):
         elif not JablotronState.is_disarmed_state(self._last_state):
             await self.send_return_mode_command()
         else:
-            LOGGER.warning(
-                f"Trying to enter normal mode but state is {self.last_state}"
-            )
+            LOGGER.warning(f"Trying to enter normal mode but state is {self.last_state}")
 
     async def read_settings(self) -> bool:
         if self.enter_elevated_mode(self._master_code):
@@ -2709,9 +2652,7 @@ class JA80CentralUnit(object):
         if zone is None:
             await self.send_keypress_sequence(code, b"\xa1")
         else:
-            await self.send_keypress_sequence(
-                {"A": "*2", "B": "*3", "C": "*1"}[zone] + code, b"\xa1"
-            )
+            await self.send_keypress_sequence({"A": "*2", "B": "*3", "C": "*1"}[zone] + code, b"\xa1")
 
     async def disarm(self, code: str, zone: str = None) -> None:
         await self.send_keypress_sequence(code, b"\xa2")
@@ -2730,9 +2671,7 @@ class JA80CentralUnit(object):
                         if record != previous_record:
                             previous_record = record
                             await self._process_message(record)
-                            await asyncio.sleep(
-                                0
-                            )  # sleep on every message processed to not block event loop
+                            await asyncio.sleep(0)  # sleep on every message processed to not block event loop
 
                 self._connection._messages.clear()  # once all messages are processed, clear flag
 
