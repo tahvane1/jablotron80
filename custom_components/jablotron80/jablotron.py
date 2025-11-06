@@ -529,6 +529,7 @@ class JablotronZone(JablotronCommon):
             return f"Device {self._by._id}, {self._by.name}"
         elif isinstance(self._by, JablotronCode):
             return f"Code {self._by._id}, {self._by.name}"
+        return "Unknown instance"
 
     @property
     def type(self):
@@ -2615,7 +2616,7 @@ class JA80CentralUnit(object):
             LOGGER.warning(f"Trying to enter normal mode but state is {self.last_state}")
 
     async def read_settings(self) -> bool:
-        if self.enter_elevated_mode(self._master_code):
+        if await self.enter_elevated_mode(self._master_code):
             result = await self.send_settings_command()
             await self.send_return_mode_command()
             return result
@@ -2659,7 +2660,7 @@ class JA80CentralUnit(object):
         await self.send_keypress_sequence(code, b"\xa2")
         if JablotronState.is_alarm_state(self._last_state):
             # confirm alarm
-            self.send_detail_command
+            await self.send_detail_command()
 
     async def processing_loop(self) -> None:
         previous_record = None
@@ -2695,9 +2696,10 @@ if __name__ == "__main__":
         {CONFIGURATION_SERIAL_PORT: "/dev/hidraw0", CONFIGURATION_PASSWORD: "1234"},
     )
     loop = asyncio.get_event_loop()
-    loop.create_task(cu.processing_loop())
-    loop.create_task(cu.status_loop())
-    loop.create_task(cu.read_settings())
+    background_tasks = set()
+    background_tasks.add(loop.create_task(cu.processing_loop()))
+    background_tasks.add(loop.create_task(cu.status_loop()))
+    background_tasks.add(loop.create_task(cu.read_settings()))
     # loop.create_task(cu.status_loop())
     from concurrent.futures import ThreadPoolExecutor
 
