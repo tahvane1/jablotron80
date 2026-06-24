@@ -966,7 +966,10 @@ class JablotronKeyPress:
 
     @staticmethod
     def get_beep_option(code):
-        return JablotronKeyPress._BEEP_OPTIONS[code]
+        # #44: _BEEP_OPTIONS does not cover every code the panel can emit (e.g.
+        # 6). Look up defensively so an unmapped beep code degrades to "Unknown"
+        # instead of raising KeyError and breaking message parsing.
+        return JablotronKeyPress._BEEP_OPTIONS.get(code, "Unknown")
 
 
 class JablotronMessage:
