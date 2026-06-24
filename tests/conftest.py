@@ -16,6 +16,7 @@ We also put the repo root on ``sys.path`` so that
 """
 
 import asyncio
+import enum
 import os
 import sys
 import types
@@ -57,8 +58,19 @@ def _install_homeassistant_stubs() -> None:
     ha_core.HomeAssistant = HomeAssistant
 
     # homeassistant.const  ->  EVENT_HOMEASSISTANT_STOP (a dummy string)
+    # and EntityCategory (binary_sensor.py imports it for #45's diagnostic
+    # battery sensor). Mirror Home Assistant's real StrEnum string values so any
+    # assertion on the underlying value also holds.
     ha_const = types.ModuleType("homeassistant.const")
     ha_const.EVENT_HOMEASSISTANT_STOP = "homeassistant_stop"
+
+    class EntityCategory(str, enum.Enum):
+        """Stand-in for homeassistant.const.EntityCategory."""
+
+        DIAGNOSTIC = "diagnostic"
+        CONFIG = "config"
+
+    ha_const.EntityCategory = EntityCategory
 
     # homeassistant.config_entries  ->  empty module object is sufficient
     ha_config_entries = types.ModuleType("homeassistant.config_entries")

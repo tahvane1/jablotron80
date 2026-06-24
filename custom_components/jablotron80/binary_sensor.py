@@ -1,5 +1,6 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
@@ -113,6 +114,11 @@ class JablotronBatteryBinarySensor(JablotronEntity, BinarySensorEntity):
     @property
     def device_class(self) -> Optional[str]:
         return BinarySensorDeviceClass.BATTERY
+
+    @property
+    def entity_category(self) -> Optional[EntityCategory]:
+        # Battery health is diagnostic, not a primary control/occupancy entity.
+        return EntityCategory.DIAGNOSTIC
 
     @property
     def unique_id(self) -> str:

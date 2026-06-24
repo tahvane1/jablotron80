@@ -160,3 +160,12 @@ def test_battery_sensor_is_on_reads_battery_low(event_loop_for_setters):
     assert sensor.is_on is True
     # device_class on the live instance also resolves to BATTERY.
     assert sensor.device_class == bs.BinarySensorDeviceClass.BATTERY
+
+
+def test_battery_sensor_entity_category_is_diagnostic():
+    """#45: the battery sensor is grouped under the diagnostic entity category."""
+    from homeassistant.const import EntityCategory
+
+    resolved = JablotronBatteryBinarySensor.entity_category.fget(object())
+    assert resolved == EntityCategory.DIAGNOSTIC
+    assert resolved == "diagnostic"
