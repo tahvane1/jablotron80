@@ -16,6 +16,11 @@ expected_warning_level = logging.WARN
 verbose_connection_logging = False
 _loop = None  # global variable to store event loop
 
+# #165/#97: how long the packet loop waits before retrying after a failed
+# reconnect, so a dropped USB/serial link is retried (not abandoned) and the
+# integration recovers automatically once the device returns.
+RECONNECT_BACKOFF_SECONDS = 5
+
 
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
@@ -694,11 +699,14 @@ class JablotronConnection:
         else:
             LOGGER.info("No need to disconnect; not connected")
 
-    async def reconnect(self):
+    async def reconnect(self) -> bool:
         LOGGER.warning("connection failed, reconnecting")
         await asyncio.sleep(1)
         await self.disconnect()
         await self.connect()
+        # #165/#97: report whether the reconnect actually succeeded so callers
+        # (the packet loop) can back off and retry instead of assuming success.
+        return self.is_connected()
 
     def shutdown(self) -> None:
         self._stop.set()
@@ -746,8 +754,17 @@ class JablotronConnection:
         while not self._stop.is_set() or not self._cmd_q.empty():
             try:
                 if not self.is_connected():
-                    LOGGER.error("Not connected to JA80, abort")
-                    return
+                    # #165/#97: do NOT exit the loop on a transient disconnect.
+                    # Keep trying to reconnect with backoff so the integration
+                    # recovers automatically when the device returns. `continue`
+                    # re-enters the while loop (re-checking the stop condition and
+                    # is_connected), and crucially skips the _read_data /
+                    # _forward_records(records) path below so `records` is never
+                    # referenced before assignment on this branch.
+                    LOGGER.warning("Not connected to JA80, attempting to reconnect")
+                    if not await self.reconnect():
+                        await asyncio.sleep(RECONNECT_BACKOFF_SECONDS)
+                    continue
 
                 try:
                     records = await self._read_data()
@@ -828,11 +845,18 @@ class JablotronConnectionHID(JablotronConnection):
         LOGGER.info(f"Connecting to JA80 via HID using {self._device}...")
         loop = asyncio.get_running_loop()
 
-        self._connection = await loop.run_in_executor(None, open, self._device, "w+b", 0)
+        # #165/#97: tolerate a failed open so the reconnect loop can keep
+        # retrying instead of the packet loop dying. On failure we leave
+        # _connection as None (is_connected() stays False) and return.
+        try:
+            self._connection = await loop.run_in_executor(None, open, self._device, "w+b", 0)
 
-        LOGGER.debug("Sending startup message")
-        await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
-        LOGGER.debug("Successfully sent startup message")
+            LOGGER.debug("Sending startup message")
+            await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
+            LOGGER.debug("Successfully sent startup message")
+        except OSError as ex:
+            LOGGER.warning(f"Failed to connect to JA80 ({ex})")
+            self._connection = None
 
     def _get_cmd(self, code: bytes) -> bytes:
         return b"\x00\x02\x01" + code
@@ -899,7 +923,14 @@ class JablotronConnectionSerial(JablotronConnection):
                 elif "unreachable" in ex_msg:
                     LOGGER.info("Remote serial host is currently unreachable, retrying")
                 else:
-                    raise
+                    # #165/#97: tolerate an unexpected open failure instead of
+                    # raising, so the packet loop's reconnect-with-backoff keeps
+                    # retrying. Leave _connection None (is_connected() False) and
+                    # return; the in-loop retries above still cover the known
+                    # transient remote errors.
+                    LOGGER.warning(f"Failed to connect to JA80 ({ex})")
+                    self._connection = None
+                    return
 
     async def _read_data(self, max_package_sections: int = 15) -> List[bytearray]:
         ret_val = []
@@ -1548,6 +1579,7 @@ class JA80CentralUnit(object):
             self._statustext,
             self._alert,
             self._query,
+            self._rf_level,
         ]
         objects = {id(obj): obj for obj in candidates if obj is not None}
         for obj in objects.values():
