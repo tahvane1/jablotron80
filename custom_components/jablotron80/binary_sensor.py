@@ -40,9 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     # binary_sensor (previously only an extra_state_attributes field). One per
     # real detector device, mirroring the main device loop. Devices without a
     # battery concept simply read False.
-    async_add_entities(
-        [JablotronBatteryBinarySensor(device, cu) for device in cu.devices], True
-    )
+    async_add_entities([JablotronBatteryBinarySensor(device, cu) for device in cu.devices], True)
 
 
 class JablotronDeviceSensorEntity(JablotronEntity, BinarySensorEntity):

@@ -23,7 +23,6 @@ from homeassistant.core import HomeAssistant
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
-
 if __name__ == "__main__":
     from const import (
         CONFIGURATION_SERIAL_PORT,
