@@ -20,7 +20,6 @@ _loop = None  # global variable to store event loop
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
-
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 
