@@ -1,5 +1,6 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
@@ -35,6 +36,11 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     async_add_entities([JablotronDeviceSensorEntity(led, cu) for led in cu.leds], True)
     async_add_entities([JablotronDeviceSensorEntity(code, cu) for code in cu.codes], True)
     async_add_entities([JablotronDeviceSensorEntity(cu.statustext, cu)], True)
+    # #45: expose the per-detector battery state as a proper battery
+    # binary_sensor (previously only an extra_state_attributes field). One per
+    # real detector device, mirroring the main device loop. Devices without a
+    # battery concept simply read False.
+    async_add_entities([JablotronBatteryBinarySensor(device, cu) for device in cu.devices], True)
 
 
 class JablotronDeviceSensorEntity(JablotronEntity, BinarySensorEntity):
@@ -86,4 +92,41 @@ class JablotronDeviceSensorEntity(JablotronEntity, BinarySensorEntity):
         if self._object.type == DEVICE_SMOKE_DETECTOR:
             return BinarySensorDeviceClass.SMOKE
 
+        return None
+
+
+class JablotronBatteryBinarySensor(JablotronEntity, BinarySensorEntity):
+    """#45: per-detector low-battery indicator as a battery binary_sensor.
+
+    Reads ``JablotronDevice.battery_low``. ``on`` means the battery is low.
+    Devices that have no battery concept simply report ``False``.
+    """
+
+    def __init__(self, device: JablotronDevice, cu: JA80CentralUnit):
+        super().__init__(cu, device)
+
+    @property
+    def is_on(self) -> bool:
+        return self._object.battery_low
+
+    @property
+    def device_class(self) -> Optional[str]:
+        return BinarySensorDeviceClass.BATTERY
+
+    @property
+    def entity_category(self) -> Optional[EntityCategory]:
+        # Battery health is diagnostic, not a primary control/occupancy entity.
+        return EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        # Distinct from the device's main occupancy/motion sensor.
+        return f"{super().unique_id}.battery"
+
+    @property
+    def name(self) -> str:
+        return f"{super().name} Battery"
+
+    @property
+    def icon(self) -> Optional[str]:
         return None
