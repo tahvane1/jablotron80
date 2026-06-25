@@ -129,6 +129,40 @@ def _install_homeassistant_stubs() -> None:
     ha_helpers.device_registry = ha_dr
     ha_helpers.config_validation = ha_cv
 
+    # homeassistant.helpers.entity / typing / restore_state / dispatcher are
+    # imported by jablotronHA.py. Only the names referenced there are needed:
+    # Entity and RestoreEntity as base classes (JablotronEntity never calls
+    # super().__init__, so plain classes suffice), StateType as an annotation
+    # alias, and async_dispatcher_connect as a callable.
+    ha_helpers_entity = types.ModuleType("homeassistant.helpers.entity")
+
+    class Entity:  # noqa: D401 - dummy stand-in
+        """Dummy Entity base used only so JablotronEntity can subclass it."""
+
+    ha_helpers_entity.Entity = Entity
+
+    ha_helpers_typing = types.ModuleType("homeassistant.helpers.typing")
+    ha_helpers_typing.StateType = object
+
+    ha_helpers_restore = types.ModuleType("homeassistant.helpers.restore_state")
+
+    class RestoreEntity:  # noqa: D401 - dummy stand-in
+        """Dummy RestoreEntity base."""
+
+    ha_helpers_restore.RestoreEntity = RestoreEntity
+
+    ha_helpers_dispatcher = types.ModuleType("homeassistant.helpers.dispatcher")
+
+    def _async_dispatcher_connect(*_args, **_kwargs):
+        return lambda: None
+
+    ha_helpers_dispatcher.async_dispatcher_connect = _async_dispatcher_connect
+
+    ha_helpers.entity = ha_helpers_entity
+    ha_helpers.typing = ha_helpers_typing
+    ha_helpers.restore_state = ha_helpers_restore
+    ha_helpers.dispatcher = ha_helpers_dispatcher
+
     sys.modules["homeassistant"] = ha
     sys.modules["homeassistant.core"] = ha_core
     sys.modules["homeassistant.const"] = ha_const
@@ -142,6 +176,10 @@ def _install_homeassistant_stubs() -> None:
     sys.modules["homeassistant.helpers"] = ha_helpers
     sys.modules["homeassistant.helpers.device_registry"] = ha_dr
     sys.modules["homeassistant.helpers.config_validation"] = ha_cv
+    sys.modules["homeassistant.helpers.entity"] = ha_helpers_entity
+    sys.modules["homeassistant.helpers.typing"] = ha_helpers_typing
+    sys.modules["homeassistant.helpers.restore_state"] = ha_helpers_restore
+    sys.modules["homeassistant.helpers.dispatcher"] = ha_helpers_dispatcher
 
 
 _install_homeassistant_stubs()

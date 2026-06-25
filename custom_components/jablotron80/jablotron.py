@@ -21,6 +21,16 @@ _loop = None  # global variable to store event loop
 # integration recovers automatically once the device returns.
 RECONNECT_BACKOFF_SECONDS = 5
 
+# Time-based, ack-independent staleness sweep (issue #153 follow-up). With many
+# detectors open at once the "?" detail-query response can overflow and never get
+# acked, so the query-gated _update_device() never runs and a detector the panel
+# has stopped reporting (e.g. a closed door) stays stuck active=True. The panel's
+# status-text reports DO come through, so we record the last time each device was
+# reported active and deactivate any active device not re-reported within the
+# timeout. This ONLY deactivates, never activates. 120s is ~3 worst-case cycles.
+DEVICE_STALE_TIMEOUT_SECONDS = 120
+STALE_SWEEP_INTERVAL_SECONDS = 10
+
 
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
@@ -1523,6 +1533,13 @@ class JA80CentralUnit(object):
 
         self._active_devices = {}
         self._active_devices_tmp = {}
+        # #153 follow-up: device_id -> time.monotonic() of last active report,
+        # drives the ack-independent staleness sweep.
+        self._device_last_active = {}
+        # #153 follow-up: device_id -> wall-clock datetime of last active report,
+        # surfaced as a diagnostic entity attribute (the monotonic dict above is
+        # immune to clock changes and stays the source of truth for the sweep).
+        self._device_last_active_wall = {}
         self._active_codes = {}
         self._codes = {}
         self._device_query_pending = False
@@ -1641,6 +1658,8 @@ class JA80CentralUnit(object):
         _loop.create_task(self.processing_loop())
         asyncio.create_task(self._connection.read_send_packet_loop())
         asyncio.create_task(self._connection_watchdog())
+        # #153 follow-up: ack-independent safety-net sweep for stale detectors.
+        asyncio.create_task(self._stale_device_sweep_loop())
         await asyncio.wait_for(self._havestate.wait(), 20)
         LOGGER.info(f"initialization done.")
 
@@ -1944,6 +1963,10 @@ class JA80CentralUnit(object):
         if isinstance(source, JablotronDevice):
             source.active = True
             self._active_devices[source.device_id] = source
+            # #153 follow-up: record when this device was last reported active so
+            # the staleness sweep can deactivate it if the panel stops reporting it.
+            self._device_last_active[source.device_id] = time.monotonic()
+            self._device_last_active_wall[source.device_id] = datetime.datetime.now(datetime.timezone.utc)
             zone = self._get_zone_via_object(source)
             if not zone is None:
                 zone.device_activated(source)
@@ -1954,6 +1977,57 @@ class JA80CentralUnit(object):
         if isinstance(source, JablotronDevice):
             source.active = True
             self._active_devices_tmp[source.device_id] = source
+
+    def _sweep_stale_devices(self) -> list:
+        # #153 follow-up: ack-independent safety net. Deactivate any active device
+        # not re-reported active for longer than DEVICE_STALE_TIMEOUT_SECONDS. This
+        # NEVER activates a device; it only turns off detectors the panel has
+        # silently stopped reporting (e.g. a closed door whose "?" query
+        # reconciliation never ran because the detail-query response overflowed).
+        now = time.monotonic()
+        deactivated = []
+        for device in self._active_devices.values():
+            if device.active is not True:
+                continue
+            # Default to now so a device with no recorded timestamp is treated as
+            # just-seen and is NOT swept.
+            last = self._device_last_active.get(device.device_id, now)
+            if now - last > DEVICE_STALE_TIMEOUT_SECONDS:
+                LOGGER.info(
+                    f"Detector {device.device_id} not reported for "
+                    f">{DEVICE_STALE_TIMEOUT_SECONDS}s, marking inactive"
+                )
+                device.active = False
+                deactivated.append(device)
+        return deactivated
+
+    def _active_tracked_devices(self) -> list:
+        # #153 follow-up: active detectors that carry a last-active timestamp.
+        # The sweep loop republishes these every tick so their live attributes
+        # (seconds_since_reported / last_reported_active) refresh in the UI -
+        # which otherwise only happens when the device's own state changes.
+        return [
+            device
+            for device in self._active_devices.values()
+            if device.active is True and device.device_id in self._device_last_active
+        ]
+
+    async def _stale_device_sweep_loop(self) -> None:
+        # #153 follow-up: periodically run the ack-independent staleness sweep,
+        # then republish still-active detectors so their staleness attributes
+        # tick live (HA re-reads attributes only when an entity writes state).
+        while not self._stop.is_set():
+            await asyncio.sleep(STALE_SWEEP_INTERVAL_SECONDS)
+            for device in self._sweep_stale_devices():
+                try:
+                    await device.publish_updates()
+                except Exception:
+                    pass
+            for device in self._active_tracked_devices():
+                try:
+                    await device.publish_updates()
+                except Exception:
+                    pass
 
     def _fault_source(self, source_id: bytes) -> None:
         source = self._get_source(source_id)
