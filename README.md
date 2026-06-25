@@ -1,6 +1,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 
 # jablotron80
+
 Home Assistant custom component for JABLOTRON 80 alarm system
 
 ## Preparation
@@ -9,8 +10,8 @@ Home Assistant custom component for JABLOTRON 80 alarm system
 2. Restart the Home Assistant OS
 3. Use the following command line to identify the port:
 
-    ```
-    $ dmesg | grep usb
+    ```bash
+    dmesg | grep usb
     ```
 
     The cable should be connected as `/dev/hidraw[x]`, `/dev/ttyUSB0` or similar.
@@ -39,27 +40,29 @@ This integration has been tested with JA-80K /JA-82K central units, JA-81F keypa
 Tested sensors include wired/wireless PIRs & door sensors and wired/wireless fire alarms.
 
 ## Remote Support
+
 The JA-80T serial cable setup can work with remote serial devices using a device address of 'socket://[ipaddress:socket]' (e.g. socket://192.168.0.1:23) , see section at bottom of page for more details. This can be made to work even without a JA-80T serial cable (as these are hard to source).
 It does also work with a tool called usbipd, 'duplicating' the /dev/hidraw0 device from a server connected to the jablotron alarm to the homeassistant client machine.
 
 ## Examples & configuration
 
 ### Initial configuration
-Integration support configuration flow via UI. 
+
+Integration support configuration flow via UI.
 
 It will ask for serial device to use and master passcode.
-It will ask also for number of devices to be included as jablotron will by default have 50 devices (those could be configured off but at least in my case were not). This is just for convenience. 
+It will ask also for number of devices to be included as jablotron will by default have 50 devices (those could be configured off but at least in my case were not). This is just for convenience.
 Master passcode will be used to fetch configuration from central unit (device types, reactions, serial numbers, codes, arming without code). It will also be used to arm/disarm system if it is allowed without code in Home Assistant side (integration options).
 
 ### Configured integration
+
 <img src="examples/integration.png" alt="Integration overview" width="200" />
 
-
 #### Devices
+
 Integration will create one device per configured devices and additionally one for central unit (tamper alarm), one for connection and one for Home Assistant panel.
 
-<img src="examples/integration_devices.png" alt="Integration devices" width="600"/>
-
+![Integration devices](examples/integration_devices.png)
 
 #### Entities
 
@@ -73,9 +76,9 @@ Each sensor has additional state attributes depending in jablotron configuration
 
 #### Example control panel
 
-Example of a configuration in lovelace which attempts to reproduce the Jablotron panel on top of the standard home assistant alarm panel: 
+Example of a configuration in lovelace which attempts to reproduce the Jablotron panel on top of the standard home assistant alarm panel:
 
-```
+```yaml
 type: vertical-stack
 cards:
   - type: horizontal-stack
@@ -189,11 +192,9 @@ Screenshot of alarm control panel
 
 <img src="examples/lovelace-card.png" alt="Alarm control panel" width="200"/>
 
-
-
 #### Enhanced control panel
 
-If you would like to enhance the example with coloured buttons and flashing Warning and Power 'leds' and are prepared to install the custom button card https://github.com/custom-cards/button-card (installable via HACS), you can use the following snippet
+If you would like to enhance the example with coloured buttons and flashing Warning and Power 'leds' and are prepared to install the custom button card <https://github.com/custom-cards/button-card> (installable via HACS), you can use the following snippet
 
 Screenshot of enhanced alarm control panel
 
@@ -276,6 +277,7 @@ cards:
 ```
 
 ## Remote
+
 Generic remote serial devices are expected to be able to be made to work with this integration.
 
 A confirmed workinging confiuration is documented below:
@@ -294,18 +296,22 @@ USR-TCP232-302 conected to an existing JA-80T serial cable.
 Another solution for remote usage could be via the use of a tool called ```usbip``` that needs to be installed on the server **(jablotron alarm side)** and the client **(homeassistant running this repo.)**
 
 First using the following command ```dmesg | grep hid``` on the **server** to check if (in this case JA-82T) is visible:
-```
+
+```log
 [8740307.349070] hid-generic 0003:16D6:0007.0002: hiddev96,hidraw0: USB HID v1.11 Device [JABLOTRON ALARMS JA-82T PC Interface] on usb-0000:01:00.0-1.3/input0
 ```
+
 Now we know the device we are looking for is hidraw0 and the ID **16D6:0007**, by the way the ID can also be optained if the command ```lsusb``` is executed
-```
+
+```log
 Bus 001 Device 013: ID 16d6:0007 JABLOCOM s.r.o. JA-82T PC Interface
 ```
 
 As stated installation of usbip needs to be done on the **Server** and **CLient**
 
 Server:
-```
+
+```bash
 sudo apt install usbip hwdata usbutils
 modprobe usbip_host
 echo 'usbip_host' >> /etc/modules
@@ -314,8 +320,9 @@ echo 'usbip_host' >> /etc/modules
 nano /lib/systemd/system/usbipd.service
 ```
 
-The file usbipd.service should contain. 
-```
+The file usbipd.service should contain.
+
+```systemctl
 [Unit]
 Description=usbip host daemon
 After=network.target
@@ -330,18 +337,22 @@ ExecStop=/bin/sh -c "/usr/sbin/usbip unbind --$(/usr/sbin/usbip list -p -l | gre
 WantedBy=multi-user.target
 
 ```
+
 Only change the #usbid=16d6:0007# if necessary.
 Save the file and execute:
-```
+
+```bash
 # reload systemd, enable, then start the service
 sudo systemctl --system daemon-reload
 sudo systemctl enable usbipd.service
 sudo systemctl start usbipd.service
 ```
+
 The server setup is now complete, move over to the client
 
 Client:
-```
+
+```bash
 sudo apt install usbip hwdata usbutils
 modprobe vhci-hcd
 echo 'vhci-hcd' >> /etc/modules
@@ -351,7 +362,8 @@ nano /lib/systemd/system/usbip.service
 ```
 
 Much like we did on the server, we’re going to need to modify the ExecStart and ExecStop lines below to search for the correct USB device ID that’s being presented by your USB/IP server. Likewise, change the IP 192.168.0.10 to match your server.
-```
+
+```systemctl
 [Unit]
 Description=usbip client
 After=network.target
@@ -368,7 +380,7 @@ WantedBy=multi-user.target
 
 Save that file, then run the following commands in your shell:
 
-```
+```bash
 # reload systemd, enable, then start the service
 sudo systemctl --system daemon-reload
 sudo systemctl enable usbip.service
@@ -377,12 +389,14 @@ sudo systemctl start usbip.service
 
 You should now be able to access the USB device on the client as if the device was plugged in locally, ```(ls -l /dev/hidraw0)``` and you have an auto-starting systemd service to control things.)
 
-Thanks to [derushadigital.com](https://derushadigital.com/other%20projects/2019/02/19/RPi-USBIP-ZWave.html) 
+Thanks to [derushadigital.com](https://derushadigital.com/other%20projects/2019/02/19/RPi-USBIP-ZWave.html)
 
 For Docker users we need to add the following to the docker_compose file to enable homeassistant to use this device:
 
+```
     devices:
       - /dev/hidraw0
+```
 
 Restart your homeassistant docker and you are able to complete the repo configuration from within homeassistant using the virtual /dev/hidraw0.
 
@@ -390,18 +404,29 @@ Restart your homeassistant docker and you are able to complete the repo configur
 
 Additional logging can be enabled in configuration.yaml
 
-```
+```yaml
 logger:
  logs:
    custom_components.jablotron80: debug
 ```
+
 Raw data send by cable can be seen in logs by setting above and uncommentting following lines in jablotron.py (around line number )
+
+```python
+   #UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
+   #if LOGGER.isEnabledFor(logging.DEBUG):
+   #  formatted_data = " ".join(["%02x" % c for c in data])
+   #  LOGGER.debug(f'Received raw data {formatted_data}')
 ```
-			#UNCOMMENT THESE LINES TO SEE RAW DATA (produces a lot of logs)
-			#if LOGGER.isEnabledFor(logging.DEBUG):
-			#	formatted_data = " ".join(["%02x" % c for c in data])
-			#	LOGGER.debug(f'Received raw data {formatted_data}')
+
+## Development
+
+Linting can be run locally for example with
+
+```bash
+docker run --rm   -v "$PWD:/src"   -w /src   pyfound/black:latest_release   black --verbose --line-length 110 ./custom_components/jablotron80
 ```
+
 ## Credits
 
 Thanks to [kukulich](https://github.com/kukulich/home-assistant-jablotron100), [fwpt](https://github.com/fwpt/HASS-Jablotron80-T/tree/master/custom_components/Jablotron80) and [mattsaxon](https://github.com/mattsaxon/HASS-Jablotron80) for figuring out Jablotron functionality and Home Assistant essentials.
