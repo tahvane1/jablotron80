@@ -32,10 +32,11 @@ class JablotronEntity(Entity):
     def available(self) -> bool:
         # return self._cu.led_power
 
-        if hasattr(self._object, "available"):
-            return self._object.available
-        else:
-            return True
+        # #97: an entity is available only while the central unit's connection
+        # is alive AND the underlying object reports itself available.
+        return self._cu.connection_alive and (
+            self._object.available if hasattr(self._object, "available") else True
+        )
 
     @property
     def device_info(self) -> Optional[Dict[str, Any]]:
