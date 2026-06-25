@@ -20,9 +20,7 @@ _loop = None  # global variable to store event loop
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
-
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-
 
 if __name__ == "__main__":
     from const import (
@@ -966,7 +964,10 @@ class JablotronKeyPress:
 
     @staticmethod
     def get_beep_option(code):
-        return JablotronKeyPress._BEEP_OPTIONS[code]
+        # #44: _BEEP_OPTIONS does not cover every code the panel can emit (e.g.
+        # 6). Look up defensively so an unmapped beep code degrades to "Unknown"
+        # instead of raising KeyError and breaking message parsing.
+        return JablotronKeyPress._BEEP_OPTIONS.get(code, "Unknown")
 
 
 class JablotronMessage:
