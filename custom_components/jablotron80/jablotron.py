@@ -16,11 +16,15 @@ expected_warning_level = logging.WARN
 verbose_connection_logging = False
 _loop = None  # global variable to store event loop
 
+# #165/#97: how long the packet loop waits before retrying after a failed
+# reconnect, so a dropped USB/serial link is retried (not abandoned) and the
+# integration recovers automatically once the device returns.
+RECONNECT_BACKOFF_SECONDS = 5
+
 
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
-
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 if __name__ == "__main__":
@@ -665,6 +669,13 @@ class JablotronConnection:
         self._connection = None
         self._messages = asyncio.Event()
         self.update_devices = False
+        # #97: track when we last received data so a watchdog can detect a
+        # silently dead connection (the HID read blocks without a timeout).
+        self._last_data_time = time.monotonic()
+
+    @property
+    def seconds_since_last_data(self) -> float:
+        return time.monotonic() - self._last_data_time
 
     def get_record(self) -> List[bytearray]:
         records = []
@@ -686,11 +697,14 @@ class JablotronConnection:
         else:
             LOGGER.info("No need to disconnect; not connected")
 
-    async def reconnect(self):
+    async def reconnect(self) -> bool:
         LOGGER.warning("connection failed, reconnecting")
         await asyncio.sleep(1)
         await self.disconnect()
         await self.connect()
+        # #165/#97: report whether the reconnect actually succeeded so callers
+        # (the packet loop) can back off and retry instead of assuming success.
+        return self.is_connected()
 
     def shutdown(self) -> None:
         self._stop.set()
@@ -708,6 +722,10 @@ class JablotronConnection:
         return await self._cmd_q.get()
 
     async def _forward_records(self, records: List[bytearray]) -> None:
+        # #97: any data at all means the connection is alive; record the time so
+        # the central-unit watchdog can mark entities unavailable when it stops.
+        if records:
+            self._last_data_time = time.monotonic()
         await self._output_q.put(records)
         # self._log_detail(f"Forwarding {len(records)} records")
         self._messages.set()
@@ -734,8 +752,17 @@ class JablotronConnection:
         while not self._stop.is_set() or not self._cmd_q.empty():
             try:
                 if not self.is_connected():
-                    LOGGER.error("Not connected to JA80, abort")
-                    return
+                    # #165/#97: do NOT exit the loop on a transient disconnect.
+                    # Keep trying to reconnect with backoff so the integration
+                    # recovers automatically when the device returns. `continue`
+                    # re-enters the while loop (re-checking the stop condition and
+                    # is_connected), and crucially skips the _read_data /
+                    # _forward_records(records) path below so `records` is never
+                    # referenced before assignment on this branch.
+                    LOGGER.warning("Not connected to JA80, attempting to reconnect")
+                    if not await self.reconnect():
+                        await asyncio.sleep(RECONNECT_BACKOFF_SECONDS)
+                    continue
 
                 try:
                     records = await self._read_data()
@@ -816,11 +843,18 @@ class JablotronConnectionHID(JablotronConnection):
         LOGGER.info(f"Connecting to JA80 via HID using {self._device}...")
         loop = asyncio.get_running_loop()
 
-        self._connection = await loop.run_in_executor(None, open, self._device, "w+b", 0)
+        # #165/#97: tolerate a failed open so the reconnect loop can keep
+        # retrying instead of the packet loop dying. On failure we leave
+        # _connection as None (is_connected() stays False) and return.
+        try:
+            self._connection = await loop.run_in_executor(None, open, self._device, "w+b", 0)
 
-        LOGGER.debug("Sending startup message")
-        await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
-        LOGGER.debug("Successfully sent startup message")
+            LOGGER.debug("Sending startup message")
+            await asyncio.to_thread(self._connection.write, b"\x00\x00\x01\x01")
+            LOGGER.debug("Successfully sent startup message")
+        except OSError as ex:
+            LOGGER.warning(f"Failed to connect to JA80 ({ex})")
+            self._connection = None
 
     def _get_cmd(self, code: bytes) -> bytes:
         return b"\x00\x02\x01" + code
@@ -887,7 +921,14 @@ class JablotronConnectionSerial(JablotronConnection):
                 elif "unreachable" in ex_msg:
                     LOGGER.info("Remote serial host is currently unreachable, retrying")
                 else:
-                    raise
+                    # #165/#97: tolerate an unexpected open failure instead of
+                    # raising, so the packet loop's reconnect-with-backoff keeps
+                    # retrying. Leave _connection None (is_connected() False) and
+                    # return; the in-loop retries above still cover the known
+                    # transient remote errors.
+                    LOGGER.warning(f"Failed to connect to JA80 ({ex})")
+                    self._connection = None
+                    return
 
     async def _read_data(self, max_package_sections: int = 15) -> List[bytearray]:
         ret_val = []
@@ -965,7 +1006,10 @@ class JablotronKeyPress:
 
     @staticmethod
     def get_beep_option(code):
-        return JablotronKeyPress._BEEP_OPTIONS[code]
+        # #44: _BEEP_OPTIONS does not cover every code the panel can emit (e.g.
+        # 6). Look up defensively so an unmapped beep code degrades to "Unknown"
+        # instead of raising KeyError and breaking message parsing.
+        return JablotronKeyPress._BEEP_OPTIONS.get(code, "Unknown")
 
 
 class JablotronMessage:
@@ -1383,6 +1427,12 @@ class JA80CentralUnit(object):
 
     _ZONE_UNSPLIT = 1
 
+    # #97: if no data has arrived from the panel for this long the connection is
+    # considered stale and all entities are marked unavailable. The watchdog
+    # checks at the (shorter) interval below.
+    CONNECTION_DATA_TIMEOUT_SECONDS = 30
+    CONNECTION_WATCHDOG_INTERVAL_SECONDS = 10
+
     def _create_led(self, id_: int, name: str, type: str) -> JablotronLed:
         led = JablotronLed(id_)
         led.name = f"{CENTRAL_UNIT_MODEL} {name}"
@@ -1401,6 +1451,9 @@ class JA80CentralUnit(object):
         self._options: Dict[str, Any] = options
         self._settings = JablotronSettings()
         self._connection = JablotronConnection.factory(config[CABLE_MODEL], config[CONFIGURATION_SERIAL_PORT])
+        # #97: tracks the last published connection-alive state so the watchdog
+        # only refreshes/logs on an edge (alive -> stale or stale -> alive).
+        self._connection_was_alive = True
         try:
             self._max_number_of_wired_devices = config[CONFIGURATION_NUMBER_OF_WIRED_DEVICES]
         except KeyError:
@@ -1505,6 +1558,54 @@ class JA80CentralUnit(object):
         except:
             pass
 
+    @property
+    def connection_alive(self) -> bool:
+        # #97: the connection is alive only if data has arrived recently. The
+        # HID read blocks indefinitely, so a dead link produces no exception -
+        # silence is the only signal we have.
+        return self._connection.seconds_since_last_data < self.CONNECTION_DATA_TIMEOUT_SECONDS
+
+    async def _refresh_all_entities(self) -> None:
+        # #97: re-publish every entity-backed object so Home Assistant re-reads
+        # `available` (which now depends on connection_alive). The objects are
+        # @dataclass instances and therefore unhashable, so we de-duplicate by
+        # identity via a dict keyed on id(); the central device in particular
+        # appears both as `central_device` and as `_devices[0]`.
+        candidates = [
+            self.central_device,
+            *self._devices.values(),
+            *self._zones.values(),
+            *self._codes.values(),
+            *self._leds.values(),
+            self._statustext,
+            self._alert,
+            self._query,
+            self._rf_level,
+        ]
+        objects = {id(obj): obj for obj in candidates if obj is not None}
+        for obj in objects.values():
+            try:
+                await obj.publish_updates()
+            except Exception as ex:
+                LOGGER.debug(f"Failed to refresh entity {obj}: {ex}")
+
+    async def _connection_watchdog(self) -> None:
+        # #97: periodically check whether the panel is still talking to us and,
+        # on a transition, refresh all entities so their availability flips.
+        while not self._stop.is_set():
+            await asyncio.sleep(self.CONNECTION_WATCHDOG_INTERVAL_SECONDS)
+            alive = self.connection_alive
+            if alive != self._connection_was_alive:
+                self._connection_was_alive = alive
+                if alive:
+                    LOGGER.info("Connection to JA80 recovered, marking entities available")
+                else:
+                    LOGGER.warning(
+                        "No data from JA80 for over "
+                        f"{self.CONNECTION_DATA_TIMEOUT_SECONDS}s, marking entities unavailable"
+                    )
+                await self._refresh_all_entities()
+
     async def initialize(self) -> None:
         global _loop
 
@@ -1518,6 +1619,7 @@ class JA80CentralUnit(object):
         _loop = asyncio.get_event_loop()
         _loop.create_task(self.processing_loop())
         asyncio.create_task(self._connection.read_send_packet_loop())
+        asyncio.create_task(self._connection_watchdog())
         await asyncio.wait_for(self._havestate.wait(), 20)
         LOGGER.info(f"initialization done.")
 

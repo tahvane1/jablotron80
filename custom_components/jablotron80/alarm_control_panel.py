@@ -291,7 +291,10 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         # return self._cu.led_power
         # when running on battery power the led in off (well flashing) and the sytem is still working see issue#85
         # we should enhance this to be based on the data flowing on the serial line
-        return True
+        # #97: availability now follows the serial data flow. connection_alive is
+        # True only while data has arrived recently; the watchdog refreshes the
+        # zones this panel is registered on, so this flips with the connection.
+        return self._cu.connection_alive
 
     @property
     def device_info(self) -> Optional[Dict[str, Any]]:
