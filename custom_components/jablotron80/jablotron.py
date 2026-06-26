@@ -1984,6 +1984,13 @@ class JA80CentralUnit(object):
         # NEVER activates a device; it only turns off detectors the panel has
         # silently stopped reporting (e.g. a closed door whose "?" query
         # reconciliation never ran because the detail-query response overflowed).
+        #
+        # #208 follow-up fix: only sweep while DISARMED. When armed (or arming /
+        # entry-delay), the panel stops cycling the detail-query, so an open
+        # detector is no longer re-reported even though it is still physically
+        # open - sweeping then would falsely clear genuinely-open detectors.
+        if not JablotronState.is_disarmed_state(self._last_state):
+            return []
         now = time.monotonic()
         deactivated = []
         for device in self._active_devices.values():

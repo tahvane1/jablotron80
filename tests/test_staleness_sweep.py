@@ -109,6 +109,7 @@ def test_sweep_deactivates_only_the_stale_device(event_loop_for_setters):
     is True``, and keep device 6 in ``_active_devices`` so it can re-activate.
     """
     unit = _build_unit()
+    unit._last_state = jablotron.JablotronState.DISARMED
 
     unit._activate_source(DEVICE_GOES_STALE)
     unit._activate_source(DEVICE_STAYS_FRESH)
@@ -143,6 +144,7 @@ def test_sweep_does_not_deactivate_fresh_or_untracked(event_loop_for_setters):
     sweep. The sweep returns an empty list and changes nothing.
     """
     unit = _build_unit()
+    unit._last_state = jablotron.JablotronState.DISARMED
 
     unit._activate_source(DEVICE_GOES_STALE)
     unit._activate_source(DEVICE_STAYS_FRESH)
@@ -158,6 +160,34 @@ def test_sweep_does_not_deactivate_fresh_or_untracked(event_loop_for_setters):
     assert deactivated == []
     assert dev6.active is True
     assert dev22.active is True
+
+
+def test_sweep_skips_when_armed(event_loop_for_setters):
+    """#208 follow-up: the sweep must never deactivate while the system is armed.
+
+    When armed (or arming / entry-delay) the panel stops cycling the
+    detail-query, so an open detector is no longer re-reported even though it is
+    still open. A stale timestamp then does NOT mean "closed", so the sweep must
+    do nothing; once disarmed, the same stale device is swept again.
+    """
+    unit = _build_unit()
+    unit._activate_source(DEVICE_GOES_STALE)
+    dev6 = unit.get_device(DEVICE_GOES_STALE)
+
+    # Back-date past the timeout: this device WOULD be swept while disarmed.
+    unit._device_last_active[DEVICE_GOES_STALE] = time.monotonic() - (
+        DEVICE_STALE_TIMEOUT_SECONDS + 30
+    )
+
+    # Armed -> sweep is a no-op, the (still-open) detector stays active.
+    unit._last_state = jablotron.JablotronState.ARMED_ABC
+    assert unit._sweep_stale_devices() == []
+    assert dev6.active is True
+
+    # Disarmed -> the same stale detector is now swept off.
+    unit._last_state = jablotron.JablotronState.DISARMED
+    assert unit._sweep_stale_devices() == [dev6]
+    assert dev6.active is False
 
 
 def test_active_tracked_devices_lists_active_with_timestamp(event_loop_for_setters):
