@@ -672,6 +672,10 @@ class JablotronConnection:
         # #97: track when we last received data so a watchdog can detect a
         # silently dead connection (the HID read blocks without a timeout).
         self._last_data_time = time.monotonic()
+        # #153/#167 (heifisch): de-duplicate the repeated detail query so it
+        # doesn't pile up behind itself and block disarm.
+        self._cmd_list = []
+        self._send_cmd = None
 
     @property
     def seconds_since_last_data(self) -> float:
@@ -713,13 +717,25 @@ class JablotronConnection:
         return self._connection is not None
 
     async def add_command(self, command: JablotronCommand) -> None:
+        # #153/#167 (heifisch): de-duplicate ONLY the automatic "Details" detail
+        # query so repeated background queries don't pile up behind each other and
+        # block disarm. User/functional commands (arm, disarm, settings) are never
+        # de-duplicated, so a deliberately repeated arm/disarm sequence still goes
+        # through every time.
+        if command.name == "Details" and (command in self._cmd_list or command == self._send_cmd):
+            return
         LOGGER.debug(f"Adding command {command}")
+        self._cmd_list.append(command)
         await self._cmd_q.put(command)
 
     async def _get_command(self) -> Union[JablotronCommand, None]:
         if self._cmd_q.empty():
             return None
-        return await self._cmd_q.get()
+        cmd = await self._cmd_q.get()
+        if self._cmd_list:
+            self._cmd_list.pop(0)
+        self._send_cmd = cmd  # mark in flight for de-duplication
+        return cmd
 
     async def _forward_records(self, records: List[bytearray]) -> None:
         # #97: any data at all means the connection is alive; record the time so
@@ -775,7 +791,9 @@ class JablotronConnection:
                 if send_cmd is not None:
                     accepted = False
                     confirmed = False
-                    retries = 2
+                    # #153 (heifisch): more attempts so the detail query gets acked on flaky
+                    # comms; reconciliation only runs once a "Details" command is confirmed.
+                    retries = 10
 
                     while retries >= 0 and not (accepted and confirmed):
                         level = logging.INFO
@@ -821,6 +839,7 @@ class JablotronConnection:
                         retries -= 1
 
                     self._cmd_q.task_done()
+                    self._send_cmd = None
 
             except Exception:
                 LOGGER.exception("Unexpected error in packet loop")
@@ -1503,9 +1522,11 @@ class JA80CentralUnit(object):
         self._query.type = "button"
 
         self._active_devices = {}
+        self._active_devices_tmp = {}
         self._active_codes = {}
         self._codes = {}
         self._device_query_pending = False
+        self._force_query = False
         self._last_state = None
         self._mode = None
 
@@ -1859,18 +1880,12 @@ class JA80CentralUnit(object):
             return object.zone
 
     def _clear_triggers(self) -> None:
-        for device in self._devices.values():
-            # if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-            #    device.deactivate()
-            # else:
+        # #153 fix (heifisch): deactivate only currently-active sources; the persistent
+        # _active_devices/_active_codes registries stay populated for reconciliation.
+        for device in self._active_devices.values():
             device.active = False
-        self._active_devices.clear()
-        for code in self._codes.values():
-            # if self.system_mode == JA80CentralUnit.SYSTEM_MODE_UNSPLIT:
-            #    device.deactivate()
-            # else:
+        for code in self._active_codes.values():
             code.active = False
-        self._active_codes.clear()
 
     def _clear_source(self, source_id: bytes) -> None:
         source = self._get_source(source_id)
@@ -1890,6 +1905,7 @@ class JA80CentralUnit(object):
         source = self._get_source(source_id)
         if isinstance(source, JablotronDevice):
             self._activate_device(source)
+            self._activate_device_tmp(source)
         elif isinstance(source, JablotronCode):
             self._activate_code(source)
         else:
@@ -1914,12 +1930,15 @@ class JA80CentralUnit(object):
                 zone.code_activated(source)
 
     def _update_device(self):
-        for device in self._devices.values():
-            if device.device_id in self._active_devices:
+        # #153 fix (heifisch): reconcile against the set found in the current query round.
+        # A device in the persistent set but absent from this round (i.e. it closed) is
+        # turned off independently of other still-open detectors.
+        for device in self._active_devices.values():
+            if device.device_id in self._active_devices_tmp:
                 device.active = True
             else:
                 device.active = False
-        self._active_devices.clear()
+        self._active_devices_tmp.clear()
 
     def _activate_device(self, source):
         if isinstance(source, JablotronDevice):
@@ -1928,6 +1947,13 @@ class JA80CentralUnit(object):
             zone = self._get_zone_via_object(source)
             if not zone is None:
                 zone.device_activated(source)
+
+    def _activate_device_tmp(self, source):
+        # #153 fix (heifisch): record the device in the current query round so
+        # _update_device() can deactivate devices that are no longer reported.
+        if isinstance(source, JablotronDevice):
+            source.active = True
+            self._active_devices_tmp[source.device_id] = source
 
     def _fault_source(self, source_id: bytes) -> None:
         source = self._get_source(source_id)
@@ -2164,7 +2190,7 @@ class JA80CentralUnit(object):
             self.status = JA80CentralUnit.STATUS_NORMAL
             self._call_zones(function_name="disarm")
 
-            if activity == 0x00:  # and not self.led_alarm:
+            if activity == 0x00 and not self.led_alarm:
                 # clear active statuses
                 self._clear_triggers()
 
@@ -2291,8 +2317,13 @@ class JA80CentralUnit(object):
             # something is active
             if detail == 0x00:
                 # don't send query if we already have "triggered detector" displayed
-                if activity_name not in self.statustext.message or activity_name == self.statustext.message:
+                if (
+                    activity_name not in self.statustext.message
+                    or activity_name == self.statustext.message
+                    or self._force_query
+                ):
                     await self._send_device_query()
+                    self._force_query = False
                 else:
                     log = False
             else:
@@ -2322,6 +2353,9 @@ class JA80CentralUnit(object):
             else:
                 self._activate_source(detail)
                 self._confirm_device_query()
+            # #153 fix (heifisch): force a re-query on the next single-detector report so
+            # the active set is re-enumerated and closed detectors get reconciled off.
+            self._force_query = True
 
         else:
             warn = True
