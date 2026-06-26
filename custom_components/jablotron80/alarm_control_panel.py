@@ -280,7 +280,10 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
         elif zone.status == JablotronZone.STATUS_DISARMING:
             return AlarmControlPanelState.DISARMING
 
-        return AlarmControlPanelState.UNKOWN
+        # #203: no mapped state for this zone status. Return None ("unknown") -
+        # the previous `AlarmControlPanelState.UNKOWN` was a typo (no such enum
+        # member) that raised AttributeError and broke the entity.
+        return None
 
     @property
     def should_poll(self) -> bool:
