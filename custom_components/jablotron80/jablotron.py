@@ -1978,6 +1978,20 @@ class JA80CentralUnit(object):
             source.active = True
             self._active_devices_tmp[source.device_id] = source
 
+    def _refresh_active_detectors_last_seen(self) -> None:
+        # #208 follow-up: the panel still reports "triggered detector", but we
+        # suppress the keypad query (the detector is already shown). Refresh the
+        # known-active detectors' last-seen time so the staleness sweep does not
+        # falsely clear a still-open single detector. On close the panel stops
+        # reporting "triggered", the timestamp goes stale, and the sweep clears
+        # it as intended.
+        refresh_mono = time.monotonic()
+        refresh_wall = datetime.datetime.now(datetime.timezone.utc)
+        for device in self._active_devices.values():
+            if device.active is True:
+                self._device_last_active[device.device_id] = refresh_mono
+                self._device_last_active_wall[device.device_id] = refresh_wall
+
     def _sweep_stale_devices(self) -> list:
         # #153 follow-up: ack-independent safety net. Deactivate any active device
         # not re-reported active for longer than DEVICE_STALE_TIMEOUT_SECONDS. This
@@ -2407,6 +2421,10 @@ class JA80CentralUnit(object):
                     self._force_query = False
                 else:
                     log = False
+                    # #208 follow-up: keep still-open detectors fresh while the
+                    # query is suppressed, so the staleness sweep does not
+                    # falsely clear a genuinely-open single detector.
+                    self._refresh_active_detectors_last_seen()
             else:
                 self._activate_source(detail)
                 self._confirm_device_query()
