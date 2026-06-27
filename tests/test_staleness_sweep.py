@@ -215,3 +215,57 @@ def test_active_tracked_devices_lists_active_with_timestamp(event_loop_for_sette
     # An active detector without a recorded timestamp also drops out.
     del unit._device_last_active[DEVICE_GOES_STALE]
     assert unit._active_tracked_devices() == []
+
+
+def test_refresh_keeps_active_detector_fresh(event_loop_for_setters):
+    """#208 follow-up: refreshing active detectors prevents a false stale-clear.
+
+    While the panel keeps reporting "triggered detector" but the keypad query is
+    suppressed (the detector is already shown), a single still-open detector must
+    have its last-seen time refreshed - otherwise the sweep would falsely clear
+    it. ``_refresh_active_detectors_last_seen`` is what the suppressed-0x10 path
+    calls; here we exercise it directly.
+    """
+    unit = _build_unit()
+    unit._last_state = jablotron.JablotronState.DISARMED
+    unit._activate_source(DEVICE_GOES_STALE)
+    dev6 = unit.get_device(DEVICE_GOES_STALE)
+
+    # Back-date past the timeout: without a refresh the sweep WOULD clear it.
+    unit._device_last_active[DEVICE_GOES_STALE] = time.monotonic() - (
+        DEVICE_STALE_TIMEOUT_SECONDS + 30
+    )
+
+    before = time.monotonic()
+    unit._refresh_active_detectors_last_seen()
+    after = time.monotonic()
+
+    # Monotonic timestamp refreshed into the just-now window.
+    ts = unit._device_last_active[DEVICE_GOES_STALE]
+    assert before <= ts <= after
+    # Wall-clock parallel dict refreshed too (drives last_reported_active).
+    assert DEVICE_GOES_STALE in unit._device_last_active_wall
+    # The detector is fresh again -> the sweep must NOT clear it.
+    assert unit._sweep_stale_devices() == []
+    assert dev6.active is True
+
+
+def test_refresh_ignores_inactive_detectors(event_loop_for_setters):
+    """Only active detectors are refreshed; an inactive one is left untouched.
+
+    A detector still tracked in ``_active_devices`` but already turned off must
+    not have its timestamp refreshed (otherwise it could never go stale/clear).
+    """
+    unit = _build_unit()
+    unit._activate_source(DEVICE_GOES_STALE)
+    dev6 = unit.get_device(DEVICE_GOES_STALE)
+    dev6.active = False  # detector reported closed
+
+    # Old timestamp; the refresh must not touch an inactive (but still tracked)
+    # device.
+    stale_ts = time.monotonic() - (DEVICE_STALE_TIMEOUT_SECONDS + 30)
+    unit._device_last_active[DEVICE_GOES_STALE] = stale_ts
+
+    unit._refresh_active_detectors_last_seen()
+
+    assert unit._device_last_active[DEVICE_GOES_STALE] == stale_ts
