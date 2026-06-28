@@ -892,12 +892,21 @@ class JablotronConnectionHID(JablotronConnection):
         read_buffer = []
         ret_val = []
 
+        # #165: a concurrent disconnect/shutdown can set self._connection to None
+        # while this read loop is in flight; bail out cleanly instead of crashing
+        # on None.read ("Unexpected error in packet loop").
+        if self._connection is None:
+            return []
+
         for _ in range(max_package_sections):
             data = b""
             while data == b"":
                 try:
                     data = await asyncio.to_thread(self._connection.read, 64)
-                except OSError:
+                except (OSError, AttributeError, ValueError):
+                    # #165: None.read -> AttributeError; a closed underlying file ->
+                    # ValueError "I/O operation on closed file". Both occur on a
+                    # concurrent disconnect/shutdown - bail cleanly and reconnect.
                     await self.reconnect()
                     return []
 
@@ -963,11 +972,23 @@ class JablotronConnectionSerial(JablotronConnection):
         ret_val = []
         data = b""
 
+        # #165: bail out cleanly if a concurrent disconnect/shutdown set the
+        # connection to None while this read loop is in flight.
+        if self._connection is None:
+            return []
+
         while data == b"":
-            data = await asyncio.to_thread(self._connection.read_until, b"\xff")
+            try:
+                data = await asyncio.to_thread(self._connection.read_until, b"\xff")
+            except (OSError, AttributeError, ValueError):
+                # #165: also catch a closed-file ValueError, not just None.read.
+                await self.reconnect()
+                return []
 
             if data == b"":
                 await self.reconnect()
+                if self._connection is None:
+                    return []
                 await asyncio.to_thread(
                     self._connection.read_until, b"\xff"
                 )  # discard first potentially corrupt record
