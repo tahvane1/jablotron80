@@ -806,7 +806,6 @@ class JablotronConnection:
                     retries = 10
 
                     while retries >= 0 and not (accepted and confirmed):
-                        level = logging.INFO
                         for i in range(len(send_cmd.code)):
                             accepted_prefix = (
                                 send_cmd.accepted_prefix if i == len(send_cmd.code) - 1 else b"\xa0\xff"
@@ -823,8 +822,7 @@ class JablotronConnection:
                                 LOGGER.debug(f"keypress accepted, sequence:{i}")
                                 accepted = True
                             else:
-                                if retries == 0:
-                                    level = logging.WARN
+                                level = self._no_ack_log_level(send_cmd.name, retries)
                                 LOGGER.log(level, f"no accepted message for sequence:{i} received")
                                 accepted = False
                                 break
@@ -864,6 +862,20 @@ class JablotronConnection:
                 if record[: len(prefix)] == prefix:
                     return True
         return False
+
+    @staticmethod
+    def _no_ack_log_level(command_name: str, retries: int) -> int:
+        # The repeating background "Details" detail-query is EXPECTED not to be
+        # acked on most rounds: the JA-80 panel acks roughly one keypress in six,
+        # instantly or not at all. Reconciliation runs off the rounds that DO ack
+        # and the staleness sweep covers the rest, so a failed "Details" round is
+        # normal operation, not a fault - it must never reach WARN (otherwise the
+        # log fills with ~2-3 false warnings per minute). For real commands
+        # (arm/disarm, settings, esc) a missing ack on the FINAL retry IS
+        # meaningful and still escalates to WARN.
+        if retries == 0 and command_name != "Details":
+            return logging.WARN
+        return logging.INFO
 
 
 class JablotronConnectionHID(JablotronConnection):
