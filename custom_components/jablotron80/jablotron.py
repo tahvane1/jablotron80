@@ -31,6 +31,14 @@ RECONNECT_BACKOFF_SECONDS = 5
 DEVICE_STALE_TIMEOUT_SECONDS = 120
 STALE_SWEEP_INTERVAL_SECONDS = 10
 
+# #168: minimum spacing between background detail ("?") queries. Each query is an
+# ESC keypress on the shared bus; firing it on every detector cycle (~1-2s) keeps
+# the bus busy and cancels a keypad arm/bypass before the user can finish. Once the
+# open set is enumerated, stay quiet this long so the bus is free to arm. Opening is
+# still pushed by the panel instantly; only close-reconciliation lags (the staleness
+# sweep backs it up).
+DETAIL_QUERY_MIN_INTERVAL_SECONDS = 20
+
 
 from typing import Any, Dict, Optional, Union, Callable
 from homeassistant import config_entries
@@ -841,6 +849,17 @@ class JablotronConnection:
                                         LOGGER.warning(f"no completion message found for command {send_cmd}")
                                     send_cmd.confirm(False)
                                     continue
+                            else:
+                                # #168: a command with no completion handshake (the
+                                # background "Details" query and the arm/disarm key
+                                # sequences) is done the moment it is accepted - there is
+                                # nothing further to wait for. Mark it confirmed so the
+                                # loop exits now instead of re-sending the same keypress(es)
+                                # for every remaining retry (which floods the bus and, for
+                                # arm/disarm, re-enters the PIN ~11x - the #168 contention).
+                                # The retry budget is untouched for the not-yet-accepted
+                                # case: there `accepted` is False, so the loop keeps trying.
+                                confirmed = True
 
                             send_cmd.confirm(True)
                             if send_cmd.name == "Details":
@@ -1544,6 +1563,8 @@ class JA80CentralUnit(object):
         self._codes = {}
         self._device_query_pending = False
         self._force_query = False
+        # #168: monotonic time of the last detail query, for the send throttle.
+        self._last_device_query = 0.0
         self._last_state = None
         self._mode = None
 
@@ -2233,8 +2254,16 @@ class JA80CentralUnit(object):
         self.central_device.last_event = log
 
     async def _send_device_query(self) -> None:
-        if not self._device_query_pending:
-            await self.send_detail_command()
+        if self._device_query_pending:
+            return
+        # #168: throttle - do not re-query within DETAIL_QUERY_MIN_INTERVAL_SECONDS so
+        # the shared bus stays free between queries and the user can arm/bypass at the
+        # keypad without the query's ESC keypress cancelling it.
+        now = time.monotonic()
+        if now - self._last_device_query < DETAIL_QUERY_MIN_INTERVAL_SECONDS:
+            return
+        self._last_device_query = now
+        await self.send_detail_command()
 
     def _confirm_device_query(self) -> None:
         self._device_query_pending = False
