@@ -104,6 +104,15 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
             return True
 
     async def async_alarm_disarm(self, code=None) -> None:
+        # #181: do not re-issue a disarm when the panel is already disarmed or
+        # mid-disarming. The master code toggles arm/disarm, so a redundant disarm
+        # keypress (e.g. an impatient second click) can flip it straight back into
+        # arming.
+        if self.alarm_state in (
+            AlarmControlPanelState.DISARMED,
+            AlarmControlPanelState.DISARMING,
+        ):
+            return
         if not self.code_disarm_required:
             code = self._cu._master_code
         if code == None:
