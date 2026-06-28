@@ -903,7 +903,10 @@ class JablotronConnectionHID(JablotronConnection):
             while data == b"":
                 try:
                     data = await asyncio.to_thread(self._connection.read, 64)
-                except (OSError, AttributeError):
+                except (OSError, AttributeError, ValueError):
+                    # #165: None.read -> AttributeError; a closed underlying file ->
+                    # ValueError "I/O operation on closed file". Both occur on a
+                    # concurrent disconnect/shutdown - bail cleanly and reconnect.
                     await self.reconnect()
                     return []
 
@@ -977,7 +980,8 @@ class JablotronConnectionSerial(JablotronConnection):
         while data == b"":
             try:
                 data = await asyncio.to_thread(self._connection.read_until, b"\xff")
-            except (OSError, AttributeError):
+            except (OSError, AttributeError, ValueError):
+                # #165: also catch a closed-file ValueError, not just None.read.
                 await self.reconnect()
                 return []
 
