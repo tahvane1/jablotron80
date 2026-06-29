@@ -6,6 +6,9 @@ import sys
 LOGGER = logging.getLogger(__package__)
 
 DOMAIN = "jablotron80"
+# #83/#98 follow-up: HA event fired when a code is used (arm/disarm), described
+# for the logbook in logbook.py.
+EVENT_CODE_USED = "jablotron_code_used"
 NAME = "Jablotron 80"
 MANUFACTURER = "Jablotron"
 CENTRAL_UNIT_MODEL = "JA-80K"
