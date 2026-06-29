@@ -1570,6 +1570,21 @@ class JA80CentralUnit(object):
         self._query.name = f"{CENTRAL_UNIT_MODEL} Query Button"
         self._query.type = "button"
 
+        # #151 read-only: the panel's own clock (day/month/hour/minute) as reported
+        # in event records, plus its drift vs HA time at that event. Both update ONLY
+        # when an event arrives (arm/disarm/alarm/...), not continuously. None until
+        # the first event so the sensors read "unknown" rather than a bogus value.
+        self._panel_time = JablotronSensor(5)
+        self._panel_time.name = f"{CENTRAL_UNIT_MODEL} Panel time"
+        self._panel_time.manufacturer = MANUFACTURER
+        self._panel_time.type = "panel_time"
+        self._panel_time._value = None
+        self._panel_time_drift = JablotronSensor(6)
+        self._panel_time_drift.name = f"{CENTRAL_UNIT_MODEL} Panel time drift"
+        self._panel_time_drift.manufacturer = MANUFACTURER
+        self._panel_time_drift.type = "panel_time_drift"
+        self._panel_time_drift._value = None
+
         self._active_devices = {}
         self._active_devices_tmp = {}
         # #153 follow-up: device_id -> time.monotonic() of last active report,
@@ -1815,6 +1830,14 @@ class JA80CentralUnit(object):
     @property
     def query(self) -> JablotronButton:
         return self._query
+
+    @property
+    def panel_time(self) -> JablotronSensor:
+        return self._panel_time
+
+    @property
+    def panel_time_drift(self) -> JablotronSensor:
+        return self._panel_time_drift
 
     @property
     def system_status(self) -> str:
@@ -2117,6 +2140,8 @@ class JA80CentralUnit(object):
 
     def _process_event(self, data: bytearray, packet_data: str) -> None:
         date_time_obj = self._get_timestamp(data[1:5])  # type: datetime.datetime
+        # #151 read-only: update the panel-clock + drift sensors from this event.
+        self._update_panel_clock(date_time_obj)
         event_type = data[5]
         event_name = "Unknown"  # default name to Unknown if we don't know what it is
         warn = False  # by defalt we will log an info message, but for important items we will install warn
@@ -2551,6 +2576,21 @@ class JA80CentralUnit(object):
         minutes = f"{data[3]:02x}"
         date_time_str = f"{self._year}-{month}-{day} {hours}:{minutes}"
         return datetime.datetime.strptime(date_time_str, "%Y-%m-%d %H:%M")
+
+    def _update_panel_clock(self, panel_dt) -> None:
+        # #151 read-only: surface the panel's own clock and its drift vs HA time.
+        # panel_dt is naive local time (minute resolution; year assumed). Make it
+        # tz-aware in the local zone and record the signed drift (panel - now) in
+        # whole seconds. Guarded so it never breaks event processing.
+        if panel_dt is None:
+            return
+        try:
+            local_tz = datetime.datetime.now().astimezone().tzinfo
+            aware = panel_dt.replace(tzinfo=local_tz)
+            self._panel_time.value = aware
+            self._panel_time_drift.value = round((aware - datetime.datetime.now(local_tz)).total_seconds())
+        except Exception:
+            pass
 
     def _process_settings(self, data: bytearray, packet_data: str) -> None:
         setting_type_1 = data[1]
