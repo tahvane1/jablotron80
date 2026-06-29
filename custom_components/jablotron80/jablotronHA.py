@@ -10,7 +10,7 @@ from .const import (
     CENTRAL_UNIT_MODEL,
     DEVICES,
 )
-from .jablotron import JA80CentralUnit, JablotronDevice, JablotronZone, JablotronCommon
+from .jablotron import JA80CentralUnit, JablotronDevice, JablotronZone, JablotronCommon, JablotronCode
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
@@ -105,6 +105,13 @@ class JablotronEntity(Entity):
             last_mono = self._cu._device_last_active.get(device_id)
             if last_mono is not None and self._object.active:
                 attr["seconds_since_reported"] = round(time.monotonic() - last_mono)
+        # #83: surface when a code was last used (arm/disarm) as a non-breaking
+        # `last_used` attribute on the code entities, alongside the existing
+        # active/inactive state.
+        if isinstance(self._object, JablotronCode):
+            last_used = self._cu._code_last_used_wall.get(self._object._id)
+            if last_used is not None:
+                attr["last_used"] = last_used
         return attr
 
     @property
