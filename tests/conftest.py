@@ -71,6 +71,8 @@ def _install_homeassistant_stubs() -> None:
         CONFIG = "config"
 
     ha_const.EntityCategory = EntityCategory
+    ha_const.ATTR_CODE = "code"
+    ha_const.ATTR_CODE_FORMAT = "code_format"
 
     # homeassistant.config_entries  ->  empty module object is sufficient
     ha_config_entries = types.ModuleType("homeassistant.config_entries")
@@ -103,6 +105,39 @@ def _install_homeassistant_stubs() -> None:
         return mod
 
     ha_comp_alarm = _platform_module("alarm_control_panel", "alarm_control_panel")
+
+    # alarm_control_panel symbols referenced by alarm_control_panel.py. Enough to
+    # import the entity and exercise async_alarm_* in tests; nothing drives real HA.
+    class AlarmControlPanelState(str, enum.Enum):
+        DISARMED = "disarmed"
+        ARMING = "arming"
+        DISARMING = "disarming"
+        ARMED_HOME = "armed_home"
+        ARMED_AWAY = "armed_away"
+        ARMED_NIGHT = "armed_night"
+        PENDING = "pending"
+        TRIGGERED = "triggered"
+
+    class AlarmControlPanelEntityFeature(enum.IntFlag):
+        ARM_HOME = 1
+        ARM_AWAY = 2
+        ARM_NIGHT = 4
+        TRIGGER = 8
+
+    class CodeFormat(str, enum.Enum):
+        TEXT = "text"
+        NUMBER = "number"
+
+    class AlarmControlPanelEntity:  # noqa: D401 - dummy base
+        """Dummy AlarmControlPanelEntity base used so the entity can subclass it."""
+
+    ha_comp_alarm.AlarmControlPanelState = AlarmControlPanelState
+    ha_comp_alarm.AlarmControlPanelEntityFeature = AlarmControlPanelEntityFeature
+    ha_comp_alarm.CodeFormat = CodeFormat
+    ha_comp_alarm.AlarmControlPanelEntity = AlarmControlPanelEntity
+    ha_comp_alarm.ATTR_CHANGED_BY = "changed_by"
+    ha_comp_alarm.ATTR_CODE_ARM_REQUIRED = "code_arm_required"
+
     ha_comp_binary = _platform_module("binary_sensor", "binary_sensor")
     ha_comp_sensor = _platform_module("sensor", "sensor")
     ha_comp_button = _platform_module("button", "button")
