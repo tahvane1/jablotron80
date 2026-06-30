@@ -617,12 +617,6 @@ class JablotronZone(JablotronCommon):
 
     @check_active
     def entering(self, by: Optional[JablotronDevice]) -> None:
-        # #181: if this zone is currently being disarmed, do not flip it into
-        # entry-delay. A disarm sets the zone to DISARMING; a stray entry-delay
-        # report arriving in that window would otherwise surface a spurious
-        # "alarm pending" right after the disarm.
-        if self.status == JablotronZone.STATUS_DISARMING:
-            return
         if not by is None:
             self.by = by
         self.status = JablotronZone.STATUS_ENTRY_DELAY
