@@ -3,7 +3,7 @@
         "step": {
             "user": {
                 "title": "Jablotron 80",
-                "description": "Zadejte master kód ústředny a počet drátových zařízení. Bezdrátová zařízení budou nalezena automaticky.",
+                "description": "Zadejte master kód ústředny. Pro nastavení zařízení zaškrtněte příslušné pole a vyberte počet drátových zařízení. Bezdrátová zařízení budou nalezena automaticky.",
                 "data": {
                     "serial_port": "Sériový port",
                     "password": "Master kód",
@@ -186,7 +186,7 @@
     "options": {
         "step": {
             "init": {
-                "title": "Nastavení",
+                "title": "Možnosti",
                 "data": {
                     "require_code_to_arm": "Vyžadovat kód při zajištění",
                     "require_code_to_disarm": "Vyžadovat kód při odjištění",
