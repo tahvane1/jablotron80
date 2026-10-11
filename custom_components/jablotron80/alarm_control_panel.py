@@ -18,6 +18,8 @@ from homeassistant.const import (
 from .const import (
     CONFIGURATION_REQUIRE_CODE_TO_ARM,
     CONFIGURATION_REQUIRE_CODE_TO_DISARM,
+    CONFIGURATION_CODE_MODE,
+    CODE_MODE_PERSONAL,
 )
 
 from typing import Any, Dict, List, Optional
@@ -98,6 +100,9 @@ class Jablotron80AlarmControl(JablotronEntity, AlarmControlPanelEntity):
 
     @property
     def code_disarm_required(self) -> bool:
+        # Saved personal PINs are resolved only by the authenticated account API.
+        if (self._cu._options or {}).get(CONFIGURATION_CODE_MODE) == CODE_MODE_PERSONAL:
+            return True
         if CONFIGURATION_REQUIRE_CODE_TO_DISARM in self._cu._options:
             return self._cu._options[CONFIGURATION_REQUIRE_CODE_TO_DISARM]
         else:

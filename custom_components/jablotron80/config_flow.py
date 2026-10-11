@@ -16,6 +16,9 @@ from .jablotron import (
     JablotronCode,
 )
 from .const import (
+    CONFIGURATION_CODE_MODE,
+    CODE_MODE_COMMON,
+    CODE_MODE_PERSONAL,
     CONFIGURATION_SERIAL_PORT,
     CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
     CONFIGURATION_PASSWORD,
@@ -268,6 +271,10 @@ class JablotronOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONFIGURATION_CODE_MODE,
+                        default=self._config_entry.options.get(CONFIGURATION_CODE_MODE, CODE_MODE_COMMON),
+                    ): vol.In([CODE_MODE_COMMON, CODE_MODE_PERSONAL]),
                     vol.Optional(
                         CONFIGURATION_REQUIRE_CODE_TO_DISARM,
                         default=self._config_entry.options.get(

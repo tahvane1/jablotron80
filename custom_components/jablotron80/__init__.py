@@ -42,6 +42,9 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    from .user_code_api import async_setup_user_codes
+
+    await async_setup_user_codes(hass)
     # Store an instance of the "connecting" class that does the work of speaking
     # with your actual devices.
     # hass.data[DOMAIN][entry.entry_id] = hub.Hub(hass, entry.data["host"])

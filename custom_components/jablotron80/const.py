@@ -86,3 +86,7 @@ DEVICES = {
 }
 
 DEVICE_CONTROL_PANEL = "control_panel"
+
+CONFIGURATION_CODE_MODE = "code_mode"
+CODE_MODE_COMMON = "common"
+CODE_MODE_PERSONAL = "personal"

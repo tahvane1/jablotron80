@@ -3064,7 +3064,12 @@ class JA80CentralUnit(object):
         return False
 
     async def send_keypress_sequence(
-        self, key_sequence: str, accepted_prefix: bytes, complete_prefix: bytes = None
+        self,
+        key_sequence: str,
+        accepted_prefix: bytes,
+        complete_prefix: bytes = None,
+        *,
+        max_retries: int = 2,
     ) -> None:
 
         value = b""
@@ -3084,6 +3089,7 @@ class JA80CentralUnit(object):
                 code=value,
                 accepted_prefix=accepted_prefix + b"\xff",
                 complete_prefix=complete_prefix,
+                max_retries=max_retries,
             )
         )
 
@@ -3098,8 +3104,8 @@ class JA80CentralUnit(object):
         else:
             await self.send_keypress_sequence({"A": "*2", "B": "*3", "C": "*1"}[zone] + code, b"\xa1")
 
-    async def disarm(self, code: str, zone: str = None) -> None:
-        await self.send_keypress_sequence(code, b"\xa2")
+    async def disarm(self, code: str, zone: str = None, *, max_retries: int = 2) -> None:
+        await self.send_keypress_sequence(code, b"\xa2", max_retries=max_retries)
         if JablotronState.is_alarm_state(self._last_state):
             # confirm alarm
             await self.send_detail_command()

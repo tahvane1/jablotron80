@@ -431,31 +431,9 @@ docker run --rm   -v "$PWD:/src"   -w /src   pyfound/black:latest_release   blac
 
 Thanks to [kukulich](https://github.com/kukulich/home-assistant-jablotron100), [fwpt](https://github.com/fwpt/HASS-Jablotron80-T/tree/master/custom_components/Jablotron80) and [mattsaxon](https://github.com/mattsaxon/HASS-Jablotron80) for figuring out Jablotron functionality and Home Assistant essentials.
 
-### Alarm-only operation
 
-In integration options, disable **Query detector activity** to suppress automatic
-queries for active detector details. These queries emulate keypad interaction and
-can cause keypad beeps or activity displays. The default is enabled to preserve
-existing installations. This option does not disable sounds or displays generated
-by the alarm panel itself.
 
-With automatic queries disabled:
+### Account-scoped disarm codes
 
-- Alarm state, including cumulative A/AB/ABC status, and arm/disarm commands remain
-  available. Incoming alarm, tamper, fault and low-battery reports are still processed.
-- Detector entities remain present, and reports identifying a specific detector can
-  still update them. However, the panel sometimes reports activity without identifying
-  the detector. Without a detail query, the integration cannot resolve that activity
-  or reliably enumerate all active detectors.
-- Door/window, motion, smoke and other detector entities may show incomplete or stale
-  states. An inactive entity is not confirmation that a door is physically closed,
-  that no smoke is present, or that a detector is healthy. The existing disarmed-mode
-  timeout also clears previously active detectors after 120 seconds without another
-  active report; this is inferred inactivity, not an explicit closed/clear report.
-- The **Query** button remains available for a deliberate, one-time detail query.
-  A manual query can cause keypad sounds or display activity and does not guarantee
-  continued freshness after the query. Explicit detail commands used by alarm
-  operations, such as acknowledging an alarm after disarming, are also unaffected.
-
-Use this setting for alarm status and control when continuous detector monitoring
-is not needed. This change does not alter the panel's own detector or alarm operation.
+See [USER-CODES.md](USER-CODES.md) for the common/personal mode option,
+optional dashboard card, installation, and security limits.
