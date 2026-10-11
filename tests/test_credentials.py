@@ -165,3 +165,20 @@ def test_raw_logs_do_not_reveal_panel_code_table_or_keypresses(monkeypatch, capl
         JablotronMessage.get_message_type_from_record(table, format_packet(table))
     assert format_packet(table) not in caplog.text
     assert '<raw packet omitted>' in caplog.text
+
+
+def test_encrypted_common_mode_requires_key_even_for_runtime_master(setup, key):
+    m, _, cu, _ = setup
+    cu._options = {
+        'code_mode': 'common', 'require_code_to_disarm': False,
+        'encrypt_codes': True, 'encryption_key_file': key,
+    }
+    cu._master_code = '4321'
+    run(m.async_disarm(user('alice'), ALARM))
+    cu.disarm.assert_awaited_once_with('4321', max_retries=0)
+    cu.disarm.reset_mock()
+    m._attempts.clear()
+    os.unlink(key)
+    with pytest.raises(CredentialError):
+        run(m.async_disarm(user('alice'), ALARM))
+    cu.disarm.assert_not_awaited()

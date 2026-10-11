@@ -109,3 +109,38 @@ def test_default_path_comes_from_ha_config_and_is_not_docker_specific(flow):
     assert legacy['encrypt_codes'] is False
     assert legacy['require_code_to_disarm'] is True
     assert legacy['require_code_to_arm'] is True
+
+
+@pytest.mark.parametrize('mode', ['common', 'personal'])
+@pytest.mark.parametrize('encrypted', [False, True])
+def test_code_mode_and_encryption_can_be_selected_independently(flow, mode, encrypted):
+    f, manager, store, entry, updates, tmp = flow
+    key_path = str(tmp / 'mode-independent.key')
+
+    async def scenario():
+        # Retained personal codes must migrate even when common mode is selected.
+        await manager.async_save(user('alice'), ALARM, '0123')
+        result = await f.async_step_init({
+            'code_mode': mode,
+            'encrypt_codes': encrypted,
+            'encryption_key_file': key_path,
+            'create_encryption_key': encrypted,
+        })
+        assert result['type'] == 'create_entry'
+        assert entry.options['code_mode'] == mode
+        assert entry.options['encrypt_codes'] is encrypted
+        assert decoded_config(entry.data, entry.entry_id)['password'] == '4321'
+        assert (BUNDLE in entry.data) is encrypted
+        record = store.data['codes'][entry.entry_id]['alice']
+        if encrypted:
+            from custom_components.jablotron80.credentials import decode
+            assert decode(record, [entry.entry_id, 'user', 'alice']) == '0123'
+            assert '0123' not in str(store.data)
+            assert '4321' not in str(entry.data)
+        else:
+            assert record == '0123'
+            assert entry.data['password'] == '4321'
+        assert '0123' not in str(result)
+        assert '4321' not in str(result)
+
+    run(scenario())
