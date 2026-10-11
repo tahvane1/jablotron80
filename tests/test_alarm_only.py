@@ -90,3 +90,48 @@ def test_disarm_and_explicit_query_remain_available(event_loop_for_setters):
     command = loop.run_until_complete(unit._connection._get_command())
     assert command.name == "Details"
 
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_manual_query_bypasses_disabled_automatic_queries(pending, event_loop_for_setters):
+    unit = make_unit({CONFIGURATION_QUERY_DETECTOR_ACTIVITY: False})
+    unit._device_query_pending = pending
+    loop = event_loop_for_setters
+    loop.run_until_complete(unit._send_device_query())
+    assert unit._connection._cmd_q.empty()
+    loop.run_until_complete(unit._send_device_query(manual=True))
+    if pending:
+        assert unit._connection._cmd_q.empty()
+    else:
+        command = loop.run_until_complete(unit._connection._get_command())
+        assert command.name == "Details"
+        assert command.code == b"\x8e"
+
+
+def test_query_button_sends_details_with_automatic_queries_disabled(monkeypatch, event_loop_for_setters):
+    import importlib
+    import sys
+    import types
+
+    for name, attributes in {
+        "homeassistant.components.button": {"ButtonEntity": type("ButtonEntity", (), {})},
+        "homeassistant.helpers.entity": {"Entity": type("Entity", (), {})},
+        "homeassistant.helpers.typing": {"StateType": object},
+        "homeassistant.helpers.restore_state": {"RestoreEntity": type("RestoreEntity", (), {})},
+        "homeassistant.helpers.dispatcher": {"async_dispatcher_connect": lambda *args, **kwargs: None},
+    }.items():
+        module = sys.modules.get(name)
+        if module is None:
+            module = types.ModuleType(name)
+            monkeypatch.setitem(sys.modules, name, module)
+        for attribute, value in attributes.items():
+            if not hasattr(module, attribute):
+                monkeypatch.setattr(module, attribute, value, raising=False)
+    button_class = importlib.import_module("custom_components.jablotron80.button").JablotronQueryButtonEntity
+    unit = make_unit({CONFIGURATION_QUERY_DETECTOR_ACTIVITY: False})
+    button = button_class(unit.query, unit)
+    loop = event_loop_for_setters
+    loop.run_until_complete(button.async_press())
+    command = loop.run_until_complete(unit._connection._get_command())
+    assert command.name == "Details"
+    assert command.code == b"\x8e"

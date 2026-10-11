@@ -186,13 +186,13 @@
 		"step": {
 			"init": {
 				"title": "Options",
-				"description": "Disable detector queries for alarm-only operation. Detector states may be stale; alarm state and commands remain available.",
+				"description": "Disable automatic detector queries for alarm-only operation. Detector states may be incomplete or stale; inactive does not confirm closed or clear. Alarm state and commands remain available. The manual Query button still works and may beep on the keypad.",
 				"data": {
 					"require_code_to_arm": "Require code to arm",
 					"require_code_to_disarm": "Require code to disarm",
 					"quieten_expected_warnings": "Quieten expected warnings",
 					"verbose_connection_logging": "Verbose connection logging",
-					"query_detector_activity": "Query detector activity (may beep on keypad)"
+					"query_detector_activity": "Automatically query detector activity (may beep on keypad)"
 				}
 			}
 		}

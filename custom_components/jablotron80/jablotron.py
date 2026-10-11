@@ -2390,11 +2390,12 @@ class JA80CentralUnit(object):
 
         self.central_device.last_event = log
 
-    async def _send_device_query(self) -> None:
+    async def _send_device_query(self, *, manual: bool = False) -> None:
         # The background detector query emulates ? / ESC on the shared bus.
-        # Alarm-only users can suppress it without blocking explicit commands
-        # or the state packets that report A / AB / ABC and disarmed.
-        if not (self._options or {}).get(
+        # Alarm-only users can suppress automatic queries while allowing a
+        # deliberate manual refresh and explicit commands.
+        # State packets still report A / AB / ABC and disarmed.
+        if not manual and not (self._options or {}).get(
             CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
             DEFAULT_CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
         ):

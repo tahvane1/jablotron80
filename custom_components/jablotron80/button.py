@@ -23,6 +23,5 @@ class JablotronQueryButtonEntity(JablotronEntity, ButtonEntity):
         super().__init__(cu, button)
 
     async def async_press(self) -> None:
-
-        await self._cu._send_device_query()
-        """Handle the button press."""
+        """Request detector details even when automatic queries are disabled."""
+        await self._cu._send_device_query(manual=True)
