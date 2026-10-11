@@ -46,10 +46,12 @@ from .const import (
     CONFIGURATION_REQUIRE_CODE_TO_DISARM,
     CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
     CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
+    CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
     DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_ARM,
     DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_DISARM,
     DEFAULT_CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
     DEFAULT_CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
+    DEFAULT_CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
 )
 
 
@@ -285,6 +287,13 @@ class JablotronOptionsFlow(config_entries.OptionsFlow):
                         default=self._config_entry.options.get(
                             CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
                             DEFAULT_CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
+                        default=self._config_entry.options.get(
+                            CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
+                            DEFAULT_CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
                         ),
                     ): bool,
                     vol.Optional(
