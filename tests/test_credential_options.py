@@ -100,3 +100,12 @@ def test_default_path_comes_from_ha_config_and_is_not_docker_specific(flow):
     values = form['data_schema']({})
     assert values['encryption_key_file'] == str(tmp / '.jablotron80.key')
     assert values['encrypt_codes'] is False
+    # Existing entries must not silently opt into account mode or bypass PIN prompts.
+    assert values['code_mode'] == 'personal'
+    entry = f._config_entry
+    entry.options = {}
+    legacy = run(f.async_step_init())['data_schema']({})
+    assert legacy['code_mode'] == 'common'
+    assert legacy['encrypt_codes'] is False
+    assert legacy['require_code_to_disarm'] is True
+    assert legacy['require_code_to_arm'] is True

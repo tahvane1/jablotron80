@@ -1,6 +1,6 @@
 # Optional encrypted code storage
 
-This change depends on account-scoped codes. Encryption is an independent option:
+Account-scoped codes and encryption are provided together. Encryption is an independent option:
 `common` and `personal` modes both support encryption enabled or disabled.
 Defaults remain common mode and unencrypted storage for compatibility.
 
@@ -11,6 +11,7 @@ bind panel and account identity to prevent copying a token into another record.
 Raw serial debug logs now honor the existing HIDE_CODE/HIDE_KEY_PRESS flags
 (default enabled), including code-table packets; parser error logs omit raw records.
 Do not disable these flags or add external raw bus logging.
+The master PIN remains stored for configuration and existing panel operations; encryption does not remove its privileges or replace it with a user PIN. This relates to issue #43 but does not implement its request to never store the master PIN.
 HA decrypts credentials in memory when needed. No plaintext PIN is returned to the
 frontend; encryption status contains only a boolean.
 
@@ -19,7 +20,7 @@ frontend; encryption status contains only a boolean.
 1. Install the updated integration and card and restart HA.
 2. Open integration options. Select the code mode independently of encryption.
 3. Enable **Encrypt stored codes**. Enter an absolute key-file path as seen by the
-   HA process. For first-time setup, enable **Create key file if missing**.
+   HA process. For first-time setup, enable **Create encryption key file if missing**.
 4. Save. The key is generated with 32 random bytes and permissions 0600, using
    exclusive creation. An existing key is validated and never replaced. Existing
    credentials are migrated before applying settings. Migration never controls
@@ -95,7 +96,7 @@ cover legacy migration, randomized tokens, every imported code, owner/panel bind
 wrong/missing key, tampering, permissions, exclusive generation, key rotation,
 failed writes, mixed-format recovery, account-scoped disarm, and disabling encryption.
 Run with pytest, pyserial, crccheck, voluptuous and cryptography installed.
-Live HA startup and migration must be checked before enabling on a production alarm.
+The combined deployment was exercised on JA83/JA-82T with HA 2026.9.1 in Docker; user-operated arming and personal-code disarming succeeded after enabling encryption. The isolated PR branch uses the original account-code card and must still be checked against a running HA instance before release. Tests do not establish full HA API compatibility.
 
 Fernet reference: https://cryptography.io/en/latest/fernet/
 HA 2026.9.1 supplies cryptography as a Core dependency:
