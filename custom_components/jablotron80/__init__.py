@@ -52,7 +52,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # This creates each HA object for each platform your device requires.
     # It's done by calling the `async_setup_entry` function in each platform module.
 
-    cu = JA80CentralUnit(hass, entry.data, entry.options)
+    from .credentials import async_prepare_entry, decoded_config, CredentialError
+    from .user_codes import DATA_USER_CODES, UserCodeError
+    from homeassistant.exceptions import ConfigEntryNotReady
+
+    manager = hass.data[DOMAIN][DATA_USER_CODES]
+    try:
+        data = await async_prepare_entry(hass, entry, entry.options, manager)
+        config = await hass.async_add_executor_job(decoded_config, data, entry.entry_id)
+        if data != dict(entry.data):
+            hass.config_entries.async_update_entry(entry, data=data)
+    except (CredentialError, UserCodeError, OSError):
+        raise ConfigEntryNotReady(
+            "Kódy nelze bezpečně načíst nebo převést. Ověř šifrovací klíč a úložiště."
+        ) from None
+    cu = JA80CentralUnit(hass, config, entry.options)
     await cu.initialize()
 
     device_registry = dr.async_get(hass)

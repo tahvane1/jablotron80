@@ -12,7 +12,9 @@ from .const import (
     CODE_MODE_COMMON,
     CODE_MODE_PERSONAL,
     CONFIGURATION_REQUIRE_CODE_TO_DISARM,
+    CONFIGURATION_ENCRYPT_CODES,
 )
+from .credentials import decode, encode, read_key
 
 DATA_USER_CODES = "user_codes"
 
@@ -70,7 +72,12 @@ class UserCodeManager:
             if mode == CODE_MODE_PERSONAL
             else not (cu._options or {}).get(CONFIGURATION_REQUIRE_CODE_TO_DISARM, True)
         )
-        return {"saved": saved, "mode": mode, "automatic": automatic}
+        return {
+            "saved": saved,
+            "mode": mode,
+            "automatic": automatic,
+            "encrypted": bool((cu._options or {}).get(CONFIGURATION_ENCRYPT_CODES, False)),
+        }
 
     async def async_save(self, user, entity_id, code):
         entry_id, cu = self._resolve(user, entity_id)
@@ -80,7 +87,9 @@ class UserCodeManager:
             raise UserCodeError("Kód musí mít přesně čtyři číslice.")
         async with self._write_lock:
             updated = deepcopy(self._codes)
-            updated.setdefault(entry_id, {})[user.id] = code
+            updated.setdefault(entry_id, {})[user.id] = await self.hass.async_add_executor_job(
+                encode, code, [entry_id, "user", user.id], cu._options or {}
+            )
             await self.store.async_save({"codes": updated})
             self._codes = updated
 
@@ -98,10 +107,18 @@ class UserCodeManager:
             # Recheck authorization and connection after waiting for the lock.
             _, cu = self._resolve(user, entity_id)
             if self._mode(cu) == CODE_MODE_PERSONAL:
-                code = self._codes.get(entry_id, {}).get(user.id)
+                code = await self.hass.async_add_executor_job(
+                    decode, self._codes.get(entry_id, {}).get(user.id), [entry_id, "user", user.id]
+                )
             else:
                 if (cu._options or {}).get(CONFIGURATION_REQUIRE_CODE_TO_DISARM, True):
                     raise UserCodeError("Nastavení vyžaduje ruční zadání kódu.")
+                if (cu._options or {}).get(CONFIGURATION_ENCRYPT_CODES, False):
+                    from .const import CONFIGURATION_ENCRYPTION_KEY_FILE
+
+                    await self.hass.async_add_executor_job(
+                        read_key, cu._options.get(CONFIGURATION_ENCRYPTION_KEY_FILE, "")
+                    )
                 code = cu._master_code
             if not isinstance(code, str) or re.fullmatch(r"[0-9]{4}", code) is None:
                 raise UserCodeError("Nemáš uložený osobní kód. Použij ruční PIN.")
@@ -133,3 +150,32 @@ class UserCodeManager:
             # A rejected PIN must not be automatically retried by the serial layer.
             await cu.disarm(code, max_retries=0)
             return {"sent": True}
+
+    async def async_validate_entry(self, entry_id):
+        if not self.storage_available:
+            raise UserCodeError("Uložiště kódů není dostupné; migraci nelze provést.")
+        for uid, value in self._codes.get(entry_id, {}).items():
+            code = await self.hass.async_add_executor_job(decode, value, [entry_id, "user", uid])
+            if not isinstance(code, str) or re.fullmatch(r"[0-9]{4}", code) is None:
+                raise UserCodeError("Uložený osobní kód není platný; migrace byla zastavena.")
+
+    async def async_migrate(self, entry_id, options):
+        # Per-record key paths let a restart recover from an interrupted multi-file
+        # migration. Old and new records remain independently decryptable.
+        async with self._write_lock:
+            await self.async_validate_entry(entry_id)
+            updated = deepcopy(self._codes)
+            for uid, value in updated.get(entry_id, {}).items():
+                context = [entry_id, "user", uid]
+                code = await self.hass.async_add_executor_job(decode, value, context)
+                encrypted = await self.hass.async_add_executor_job(encode, code, context, options)
+                if (
+                    isinstance(value, dict)
+                    and isinstance(encrypted, dict)
+                    and value["key_file"] == encrypted["key_file"]
+                ):
+                    encrypted = value
+                updated[entry_id][uid] = encrypted
+            if updated != self._codes:
+                await self.store.async_save({"codes": updated})
+                self._codes = updated

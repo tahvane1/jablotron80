@@ -62,7 +62,7 @@ class JablotronUserCodeCard extends HTMLElement {
             </div>
             <p id="save-message" role="status" aria-live="polite"></p>
           </form>
-          <p>Uložený kód se nezobrazuje. Platnost se ověří až při odjištění. Kód je v chráněném souboru na serveru, přístupném správci serveru a v zálohách.</p>
+          <p id="storage-info"></p>
         </details>
       </ha-card>`;
     const root = this.shadowRoot;
@@ -80,13 +80,14 @@ class JablotronUserCodeCard extends HTMLElement {
     if (!account || !this._hass) return;
     try {
       const result = await this._hass.callWS({type: 'jablotron80/user_code/status', entity_id: this._config.entity});
-      if (account === this._account) { this._saved = result.saved; this._mode = result.mode || 'personal'; this._automatic = result.automatic ?? result.saved; this._update(); }
+      if (account === this._account) { this._saved = result.saved; this._encrypted = !!result.encrypted; this._mode = result.mode || 'personal'; this._automatic = result.automatic ?? result.saved; this._update(); }
     } catch (err) { if (account === this._account) { this._saved = null; this._error(err); this._update(); } }
   }
   _update() {
     if (!this._built || !this._hass || !this._config) return;
     const state = this._hass.states[this._config.entity]?.state;
     const common = this._mode === 'common';
+    this.shadowRoot.querySelector('#storage-info').textContent = this._encrypted ? 'Kód se ukládá šifrovaně. Platnost ústředna ověří až při odjištění.' : 'Kód se ukládá bez šifrování do chráněného souboru HA. Správce serveru a zálohy k němu mají přístup.';
     this.shadowRoot.querySelector('#personal').hidden = common;
     const automatic = common ? this._automatic : this._saved;
     this.shadowRoot.querySelector('#status').textContent = this._saved === null ? 'Ověřuji osobní nastavení…' : this._saved ? 'Můj kód je uložený. Odjištění nevyžaduje jeho opakované zadání.' : 'Nemáš uložený kód. Odjištění bude s ručním PINem.';

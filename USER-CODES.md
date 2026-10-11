@@ -35,8 +35,7 @@ The Czech card wording explicitly identifies an existing disarm code.
   disarm WebSocket messages contain no PIN. No PIN is added to dashboard configuration,
   entities, service-call events, automation traces, or the audit event.
 * Personal PINs use private, atomic HA Store writes to `.storage/jablotron80.user_codes`
-  with permissions 0600. This feature alone stores plaintext; encryption is a separate
-  change. Protect server access and backups, and do not log HTTP request bodies.
+  with permissions 0600. Storage is plaintext unless encryption is enabled; see [ENCRYPTION.md](ENCRYPTION.md). Protect server access and backups, and do not log HTTP request bodies.
 * Disarm requests serialize per panel, wait at least 15 seconds between attempts,
   and allow at most three attempts per five minutes. Limits reset on HA restart.
   Saved-code commands disable automatic serial retries. The native manual controls

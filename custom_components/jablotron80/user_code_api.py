@@ -9,6 +9,7 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
+from .credentials import CredentialError
 from .const import DOMAIN
 from .user_codes import DATA_USER_CODES, UserCodeError, UserCodeManager
 
@@ -41,7 +42,7 @@ class UserCodeView(HomeAssistantView):
             else:
                 raise UserCodeError("Neplatná operace.")
             return self.json({"saved": operation == "save"})
-        except UserCodeError as err:
+        except (UserCodeError, CredentialError) as err:
             return self.json({"message": str(err)}, status_code=400)
         except Exception:
             # Never format an exception containing a request body or PIN.
@@ -60,7 +61,7 @@ async def ws_status(hass, connection, msg):
     try:
         user = await hass.auth.async_get_user(connection.user.id)
         connection.send_result(msg["id"], manager.status(user, msg["entity_id"]))
-    except UserCodeError as err:
+    except (UserCodeError, CredentialError) as err:
         connection.send_error(msg["id"], "user_code_error", str(err))
 
 
@@ -76,7 +77,7 @@ async def ws_disarm(hass, connection, msg):
     try:
         user = await hass.auth.async_get_user(connection.user.id)
         result = await manager.async_disarm(user, msg["entity_id"])
-    except UserCodeError as err:
+    except (UserCodeError, CredentialError) as err:
         connection.send_error(msg["id"], "user_code_error", str(err))
         return
     except Exception:

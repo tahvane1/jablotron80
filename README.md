@@ -437,3 +437,8 @@ Thanks to [kukulich](https://github.com/kukulich/home-assistant-jablotron100), [
 
 See [USER-CODES.md](USER-CODES.md) for the common/personal mode option,
 optional dashboard card, installation, and security limits.
+
+### Encrypted code storage
+
+See [ENCRYPTION.md](ENCRYPTION.md) for optional encryption in either code mode,
+key provisioning on HA OS/Core/Docker, migration, backups and rollback.

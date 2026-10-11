@@ -34,6 +34,7 @@ def setup():
                'alarm_control_panel.second': SimpleNamespace(platform=DOMAIN, config_entry_id='panel2')}
     hass = SimpleNamespace(data={DOMAIN: {'panel1': {DATA_JABLOTRON: cu}, 'panel2': {DATA_JABLOTRON: cu}}},
                            states=SimpleNamespace(get=lambda e: SimpleNamespace(state='armed_home')))
+    hass.async_add_executor_job = AsyncMock(side_effect=lambda fn, *args: fn(*args))
     store = MemoryStore()
     manager = UserCodeManager(hass, store, SimpleNamespace(async_get=entries.get), 'control')
     return manager, store, cu, hass
