@@ -57,6 +57,8 @@ else:
         CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
         CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
         CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
+        CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
+        DEFAULT_CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
         MIN_NUMBER_OF_WIRED_DEVICES,
         CONFIGURATION_PASSWORD,
         CENTRAL_UNIT_MODEL,
@@ -2388,7 +2390,16 @@ class JA80CentralUnit(object):
 
         self.central_device.last_event = log
 
-    async def _send_device_query(self) -> None:
+    async def _send_device_query(self, *, manual: bool = False) -> None:
+        # The background detector query emulates ? / ESC on the shared bus.
+        # Alarm-only users can suppress automatic queries while allowing a
+        # deliberate manual refresh and explicit commands.
+        # State packets still report A / AB / ABC and disarmed.
+        if not manual and not (self._options or {}).get(
+            CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
+            DEFAULT_CONFIGURATION_QUERY_DETECTOR_ACTIVITY,
+        ):
+            return
         if not self._device_query_pending:
             await self.send_detail_command()
 
