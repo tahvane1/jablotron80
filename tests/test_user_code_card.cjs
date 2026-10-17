@@ -77,5 +77,16 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
   editor._input.value='0123';await editor._save();await pause();assert.equal(button._saved,true);
   await editor._remove();await pause();assert.equal(button._saved,false);
   editor.disconnectedCallback();button.disconnectedCallback();assert.equal(listeners.size,0);
+  // A credential change during a pending status read must queue a fresh read.
+  editor.connectedCallback();await pause();
+  const observer=card('jablotron-disarm-card',shared);observer.connectedCallback();await pause();
+  let completeStatus;let first=true;
+  shared.callWS=async ()=>first?(first=false,await new Promise(resolve=>{completeStatus=resolve;})):{saved:stored,mode:'personal',encrypted:true};
+  const staleRead=observer._load();editor._input.value='0123';await editor._save();
+  completeStatus({saved:false,mode:'personal',encrypted:true});await staleRead;await pause();
+  assert.equal(observer._saved,true,'credential change during status refresh must not be lost');
+  observer.disconnectedCallback();editor.disconnectedCallback();assert.equal(listeners.size,0);
+  // Native HTML validation must not prevent our validator from clearing bad input.
+  assert.match(manage.shadowRoot.innerHTML,/<form[^>]*novalidate/);
   console.log('Bundled frontend: separated controls, save/remove, PIN clearing, translations, stale-response isolation and secret-free disarm OK.');
 })().catch(err=>{console.error(err);process.exitCode=1;});

@@ -52,9 +52,13 @@ const TEXT = {
 
 class JablotronAccountCard extends HTMLElement {
   constructor(management) {
-    super(); this._management = management; this._revision = 0;
+    super(); this._management = management; this._revision = 0; this._changeSource = Symbol();
     this._onCodeChanged = event => {
-      if (event.detail?.entity === this._config?.entity && event.detail?.account === this._hass?.user?.id) this._load();
+      if (event.detail?.source === this._changeSource) return;
+      if (event.detail?.entity === this._config?.entity && event.detail?.account === this._hass?.user?.id) {
+        if (this._busy) this._refreshPending = true;
+        else this._load();
+      }
     };
   }
   _t(key) { return (TEXT[this._hass?.language?.split('-')[0]] || TEXT.en)[key]; }
@@ -82,7 +86,7 @@ class JablotronAccountCard extends HTMLElement {
     if (this._built && this._hass?.user?.id && !this._loaded) { this._loaded = true; this._load(); }
   }
   _reset() {
-    this._revision++; this._loaded = false; this._busy = false; this._saved = null;
+    this._revision++; this._refreshPending = false; this._loaded = false; this._busy = false; this._saved = null;
     this._mode = null; this._encrypted = null; this._automatic = false; this._notice = null;
     if (this._input) this._input.value = '';
     this._update();
@@ -101,7 +105,7 @@ class JablotronAccountCard extends HTMLElement {
         #message:empty { display:none; } #remove { color:var(--error-color); }
       </style>
       <ha-card><h3 id="title"></h3><p id="status" role="status" aria-live="polite"></p>
-      ${this._management ? `<p id="intro"></p><form autocomplete="off">
+      ${this._management ? `<p id="intro"></p><form autocomplete="off" novalidate>
         <label id="label" for="pin"></label>
         <input id="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required />
         <div class="actions"><button id="save" type="submit"></button><button id="remove" type="button"></button></div>
@@ -153,7 +157,7 @@ class JablotronAccountCard extends HTMLElement {
     } catch {
       if (revision === this._revision) { this._saved = null; this._notice = 'error'; }
     } finally {
-      if (revision === this._revision) { this._busy = false; this._update(); }
+      this._finish(revision);
     }
   }
   async _write(operation, code) {
@@ -165,12 +169,18 @@ class JablotronAccountCard extends HTMLElement {
       await hass.callApi('POST', 'jablotron80/user_code', body);
       if (revision !== this._revision) return;
       this._saved = operation === 'save'; this._notice = operation === 'save' ? 'stored' : 'removed';
-      window.dispatchEvent(new CustomEvent('jablotron-user-code-changed', {detail:{entity:body.entity_id, account:hass.user.id}}));
+      window.dispatchEvent(new CustomEvent('jablotron-user-code-changed', {detail:{entity:body.entity_id, account:hass.user.id, source:this._changeSource}}));
     } catch {
       if (revision === this._revision) this._notice = 'error';
     } finally {
-      if (revision === this._revision) { this._input.value = ''; this._busy = false; this._update(); }
+      if (revision === this._revision) this._input.value = '';
+      this._finish(revision);
     }
+  }
+  _finish(revision) {
+    if (revision !== this._revision) return;
+    this._busy = false; this._update();
+    if (this._refreshPending) { this._refreshPending = false; this._load(); }
   }
   async _save() {
     if (this._busy || !this._management || this._mode !== 'personal' || this._saved === null) return;
@@ -196,7 +206,7 @@ class JablotronAccountCard extends HTMLElement {
     } catch {
       if (revision === this._revision) this._notice = 'error';
     } finally {
-      if (revision === this._revision) { this._busy = false; this._update(); }
+      this._finish(revision);
     }
   }
 }
