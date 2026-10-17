@@ -18,7 +18,7 @@ const TEXT = {
   },
   cs: {
     manage: 'Můj kód Jablotronu', control: 'Odjištění Jablotronu',
-    intro: 'Ulož existující PIN ústředny pro svůj přihlášený účet Home Assistant. Uložení kód v ústředně nemění ani neověřuje.',
+    intro: 'Ulož existující PIN ústředny pro svůj přihlášený účet Home Assistant. Uložený kód v ústředně se tím nemění; jeho platnost se ověří až při odjištění.',
     label: 'Můj PIN ústředny (4 číslice)', save: 'Uložit můj kód', remove: 'Zapomenout můj kód',
     retry: 'Zkusit znovu', loadError: 'Nastavení účtu se nepodařilo načíst.', checking: 'Ověřuji nastavení účtu…', saved: 'Tvůj kód je uložený.',
     missing: 'Tento účet nemá uložený kód.', common: 'Osobní kódy jsou v nastavení integrace vypnuté.',
