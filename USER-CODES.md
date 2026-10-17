@@ -156,23 +156,17 @@ resubmits a PIN or a disarm command. Changes made by the management card update
 other bundled cards on the same page automatically. Reload the page after changes
 made in a different browser session.
 
-### Updating and migrating from the prototype
+### Updating
 
-After an integration update, restart HA and reload each browser/app frontend so the
-new module is loaded. The asset is served without long-lived cache headers. An
-already open browser still runs its previously loaded module until refreshed.
+After an integration update, restart Home Assistant and reload each browser or app
+frontend to load the updated JavaScript module. An already open frontend continues
+running the previously loaded module until refreshed.
 
-The management element is named `jablotron-user-code-manager`, distinct from the
-prototype's `jablotron-user-code-card`. You may keep an existing compact prototype
-resource while adding the bundled module: its element registration is not replaced.
-The module URL retains its file name `jablotron-user-code-card.js`; the YAML card
-type is `custom:jablotron-user-code-manager`.
+The resource URL is `/jablotron80/frontend/jablotron-user-code-card.js`. The card
+types are `custom:jablotron-user-code-manager` and `custom:jablotron-disarm-card`.
 
-To migrate completely, replace management cards with the new type and add the
-separate disarm card where needed. Remove the old `/local/...` resource only after
-checking that no dashboards still use the prototype. The old file in `www` is not
-removed automatically. Dashboard YAML, resource choices, existing PINs and encryption
-keys are not changed automatically.
+Updates do not automatically add cards or change dashboard layouts and resource
+registration.
 
 ## Security and limits
 
