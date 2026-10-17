@@ -143,9 +143,7 @@ locally (Czech, English or French, with English fallback) and show a generic
 translated message for unknown codes, network failures or older API responses.
 They never display arbitrary exception text. Configuration/options-flow errors
 continue to use HA translation keys in `strings.json` and `translations/*.json`.
-Clients should branch on error codes, not message text. This replaces the
-prototype's Czech API messages and generic WebSocket `user_code_error` code; API
-success responses, stored credentials and encryption formats are unchanged.
+Clients should branch on error codes, not message text.
 
 The form clears the PIN immediately
 on submission, after invalid input, account/entity changes, and when removed from
