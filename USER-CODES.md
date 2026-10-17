@@ -140,8 +140,18 @@ entity: alarm_control_panel.your_jablotron_panel
 ```
 
 Card labels follow HA's language (Czech, English or French; English fallback).
-Fixed backend error messages remain Czech; the cards show a local translated error
-instead of displaying arbitrary exception text. The form clears the PIN immediately
+Backend errors and technical logs use fixed English messages, matching upstream.
+Expected HTTP failures include a stable `code` and an English `message`; WebSocket
+failures use the same identifier in `error.code`. Cards translate known codes
+locally (Czech, English or French, with English fallback) and show a generic
+translated message for unknown codes, network failures or older API responses.
+They never display arbitrary exception text. Configuration/options-flow errors
+continue to use HA translation keys in `strings.json` and `translations/*.json`.
+Clients should branch on error codes, not message text. This replaces the
+prototype's Czech API messages and generic WebSocket `user_code_error` code; API
+success responses, stored credentials and encryption formats are unchanged.
+
+The form clears the PIN immediately
 on submission, after invalid input, account/entity changes, and when removed from
 the page. It never pre-fills a saved PIN. Saving confirms storage only. A disarm API
 success confirms submission, not panel acceptance; check the alarm's actual state.

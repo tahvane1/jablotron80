@@ -9,6 +9,7 @@ import stat
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from .errors import CodeOperationError
 from .const import (
     CONFIGURATION_PASSWORD,
     CONFIGURATION_CODES,
@@ -20,7 +21,7 @@ BUNDLE = "encrypted_credentials"
 FORMAT = "jablotron80-fernet-v1"
 
 
-class CredentialError(Exception):
+class CredentialError(CodeOperationError):
     """Fixed, secret-free error suitable for config flows and logs."""
 
 
@@ -35,15 +36,13 @@ def read_key(path):
             key = key_file.read(256).strip()
         return Fernet(key)
     except (OSError, ValueError, TypeError):
-        raise CredentialError(
-            "Klíč není dostupný nebo platný. Soubor musí mít oprávnění 0600 nebo 0400."
-        ) from None
+        raise CredentialError("key_unavailable") from None
 
 
 def create_key(path):
     """Exclusive creation; never replace a lost key with a new key silently."""
     if not isinstance(path, str) or not Path(path).is_absolute():
-        raise CredentialError("Zadej absolutní cestu k souboru klíče.")
+        raise CredentialError("key_path_invalid")
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as target:
@@ -53,7 +52,7 @@ def create_key(path):
     except FileExistsError:
         read_key(path)
     except OSError:
-        raise CredentialError("Klíč nelze vytvořit. Zkontroluj cestu a oprávnění HA.") from None
+        raise CredentialError("key_creation_failed") from None
 
 
 def decode(value, context):
@@ -69,9 +68,7 @@ def decode(value, context):
     except CredentialError:
         raise
     except (InvalidToken, ValueError, TypeError, KeyError, AttributeError):
-        raise CredentialError(
-            "Kódy nelze dešifrovat. Ověř původní klíč; nebude použit náhradní kód."
-        ) from None
+        raise CredentialError("decryption_failed") from None
 
 
 def encode(value, context, options):
@@ -87,7 +84,7 @@ def decoded_config(data, entry_id):
     if BUNDLE in result:
         bundle = decode(result.pop(BUNDLE), [entry_id, "panel"])
         if not isinstance(bundle, dict) or CONFIGURATION_PASSWORD not in bundle:
-            raise CredentialError("Uložené kódy ústředny nejsou platné.")
+            raise CredentialError("stored_credentials_invalid")
         result.update(bundle)
     return result
 

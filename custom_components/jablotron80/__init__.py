@@ -66,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.config_entries.async_update_entry(entry, data=data)
     except (CredentialError, UserCodeError, OSError):
         raise ConfigEntryNotReady(
-            "Kódy nelze bezpečně načíst nebo převést. Ověř šifrovací klíč a úložiště."
+            "Could not safely load or migrate codes. Check the encryption key and code storage."
         ) from None
     cu = JA80CentralUnit(hass, config, entry.options)
     await cu.initialize()

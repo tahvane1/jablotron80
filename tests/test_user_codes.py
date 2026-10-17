@@ -85,7 +85,7 @@ def test_restart_persists_account_and_panel_scopes(setup):
 @pytest.mark.parametrize('code', [None, 1234, '123', '12345', 'abcd', '１２３４', '1234\n'])
 def test_reject_invalid_pin_without_echoing_it(setup, code):
     m, store, cu, _ = setup
-    with pytest.raises(UserCodeError, match='čtyři číslice'):
+    with pytest.raises(UserCodeError, match='four digits'):
         run(m.async_save(user('alice'), ALARM, code))
     assert store.data is None
     cu.disarm.assert_not_awaited()
@@ -105,7 +105,7 @@ def test_permission_checks_apply_to_all_operations(setup, caller):
 def test_no_master_fallback_for_account_without_code(setup):
     m, store, cu, _ = setup
     cu._master_code = '9999'
-    with pytest.raises(UserCodeError, match='ruční PIN'):
+    with pytest.raises(UserCodeError, match='manual PIN'):
         run(m.async_disarm(user('alice'), ALARM))
     cu.disarm.assert_not_awaited()
 
@@ -168,7 +168,7 @@ def test_global_attempt_budget_expires(setup, monkeypatch):
         for _ in range(3):
             await m.async_disarm(user('alice'), ALARM)
             now[0] += 16
-        with pytest.raises(UserCodeError, match='Příliš mnoho'):
+        with pytest.raises(UserCodeError, match='Too many'):
             await m.async_disarm(user('alice'), ALARM)
         now[0] += 301
         await m.async_disarm(user('alice'), ALARM)
@@ -208,7 +208,7 @@ def test_internal_disarmed_state_prevents_stale_ui_toggle(setup):
 def test_storage_failure_blocks_saved_pin_only(setup):
     m, store, cu, _ = setup
     m.storage_available = False
-    with pytest.raises(UserCodeError, match='Uložiště'):
+    with pytest.raises(UserCodeError, match='storage'):
         run(m.async_save(user('alice'), ALARM, '1234'))
     assert store.data is None
     cu.disarm.assert_not_awaited()
@@ -220,7 +220,7 @@ def test_legacy_default_is_common_and_obeys_manual_requirement(setup):
     cu._master_code = '4321'
     assert m.status(user('alice'), ALARM)['mode'] == 'common'
     assert not m.status(user('alice'), ALARM)['automatic']
-    with pytest.raises(UserCodeError, match='ruční'):
+    with pytest.raises(UserCodeError, match='manual'):
         run(m.async_disarm(user('alice'), ALARM))
     cu.disarm.assert_not_awaited()
 
@@ -232,7 +232,7 @@ def test_common_mode_uses_master_only_when_explicitly_allowed(setup):
     assert m.status(user('alice'), ALARM)['automatic']
     run(m.async_disarm(user('alice'), ALARM))
     cu.disarm.assert_awaited_once_with('4321', max_retries=0)
-    with pytest.raises(UserCodeError, match='zapnuté'):
+    with pytest.raises(UserCodeError, match='disabled'):
         run(m.async_save(user('alice'), ALARM, '1234'))
 
 

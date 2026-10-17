@@ -85,6 +85,8 @@ def test_storage_error_cannot_echo_secret(api, setup):
     store.async_save = AsyncMock(side_effect=OSError('secret 0123'))
     response = run(api.UserCodeView(m).post(Request({'entity_id': ALARM, 'operation': 'save', 'code': '0123'}, alice)))
     assert response['status'] == 500
+    assert response['body']['code'] == 'operation_failed'
+    assert response['body']['message'].isascii()
     assert '0123' not in str(response)
 
 
@@ -117,3 +119,45 @@ def test_ws_disarm_audit_is_secret_free(api, setup):
     assert responses == [(1, {'sent': True})]
     assert events == [(('jablotron80_saved_code_disarm_requested', {'entity_id': ALARM}), {'context': 'alice-context'})]
     assert '0123' not in str(events) + str(responses)
+
+
+@pytest.mark.parametrize("error_type, code", [
+    ("user", "permission_denied"),
+    ("user", "rate_limited"),
+    ("credential", "key_unavailable"),
+    ("credential", "decryption_failed"),
+])
+def test_expected_api_errors_have_stable_codes_and_english_messages(api, setup, error_type, code):
+    from custom_components.jablotron80.credentials import CredentialError
+    from custom_components.jablotron80.user_codes import UserCodeError
+    from custom_components.jablotron80.errors import CODE_ERROR_MESSAGES
+
+    m, store, cu, hass, alice = prepare(setup)
+    error = (CredentialError if error_type == "credential" else UserCodeError)(code)
+    m.async_save = AsyncMock(side_effect=error)
+    response = run(api.UserCodeView(m).post(Request(
+        {"entity_id": ALARM, "operation": "save", "code": "0123"}, alice)))
+    assert response == {"status": 400, "body": {"code": code, "message": CODE_ERROR_MESSAGES[code]}}
+    assert response["body"]["message"].isascii()
+    assert "0123" not in str(response)
+    for handler in ["ws_status", "ws_disarm"]:
+        errors = []
+        connection = SimpleNamespace(user=alice, send_error=lambda *args: errors.append(args),
+                                     send_result=lambda *args: pytest.fail("Unexpected successful response"))
+        m.status = lambda *args: (_ for _ in ()).throw(error)
+        m.async_disarm = AsyncMock(side_effect=error)
+        run(getattr(api, handler)(hass, connection, {"id": 1, "entity_id": ALARM}))
+        assert errors == [(1, code, CODE_ERROR_MESSAGES[code])]
+
+
+@pytest.mark.parametrize("handler", ["ws_status", "ws_disarm"])
+def test_unexpected_websocket_failure_never_exposes_exception_text(api, setup, handler):
+    m, store, cu, hass, alice = prepare(setup)
+    errors = []
+    connection = SimpleNamespace(user=alice, send_error=lambda *args: errors.append(args),
+                                     send_result=lambda *args: pytest.fail("Unexpected successful response"))
+    hass.auth.async_get_user.side_effect = RuntimeError("secret 0123")
+    run(getattr(api, handler)(hass, connection, {"id": 1, "entity_id": ALARM}))
+    assert errors[0][1] == "operation_failed"
+    assert errors[0][2].isascii()
+    assert "0123" not in str(errors)

@@ -103,5 +103,32 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
     if(type==='jablotron-disarm-card'){await c._disarm();assert.equal(retry.hidden,true,'disarm failure must not expose a retry action');}
     c.hass={...network,user:null};assert.equal(retry.hidden,true);
   }
+  // HTTP and WS use different error envelopes. Translate only known identifiers.
+  for (const language of ['en', 'cs-CZ', 'fr', 'de']) {
+    const localized=client();localized.language=language;
+    const c=card('jablotron-user-code-manager',localized);await pause();
+    localized.callApi=async ()=>{throw {body:{code:'permission_denied',message:'secret 0123'}};};
+    c._input.value='0123';await c._save();
+    assert.equal(c._notice,'api_permission_denied');assert.equal(c._input.value,'');
+    const text=c.shadowRoot.querySelector('#message').textContent;
+    assert.ok(text);assert.equal(text.includes('0123'),false);
+    if(language==='de')assert.equal(text,'You do not have permission to control this alarm.');
+    if(language==='cs-CZ')assert.match(text,/oprávnění/);
+    if(language==='fr')assert.match(text,/droit/);
+    localized.callWS=async ()=>{throw {code:'key_unavailable',message:'secret 0123'};};
+    await c._load();assert.equal(c._notice,'api_key_unavailable');
+    assert.equal(c.shadowRoot.querySelector('#message').textContent.includes('0123'),false);
+    assert.equal(c.shadowRoot.querySelector('#retry').hidden,false);
+    assert.equal(c._errorNotice({code:'unknown_error',message:'secret 0123'}),'error');
+    assert.equal(c._errorNotice({message:'Old API error: secret 0123'}),'error');
+    assert.equal(c._errorNotice({code:'__proto__'}),'error');
+    const disarmClient=client();disarmClient.language=language;
+    disarmClient.callWS=async ()=>({saved:true,mode:'personal',encrypted:true});
+    const d=card('jablotron-disarm-card',disarmClient);await pause();
+    disarmClient.callWS=async ()=>{throw {code:'rate_limited',message:'secret 0123'};};
+    await d._disarm();assert.equal(d._notice,'api_rate_limited');
+    assert.equal(d.shadowRoot.querySelector('#message').textContent.includes('0123'),false);
+    assert.equal(d.shadowRoot.querySelector('#retry').hidden,true);
+  }
   console.log('Bundled frontend: separated controls, save/remove, PIN clearing, translations, stale-response isolation and secret-free disarm OK.');
 })().catch(err=>{console.error(err);process.exitCode=1;});

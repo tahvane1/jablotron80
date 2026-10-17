@@ -5,6 +5,7 @@ from copy import deepcopy
 import re
 import time
 
+from .errors import CodeOperationError
 from .const import (
     DATA_JABLOTRON,
     DOMAIN,
@@ -19,7 +20,7 @@ from .credentials import decode, encode, read_key
 DATA_USER_CODES = "user_codes"
 
 
-class UserCodeError(Exception):
+class UserCodeError(CodeOperationError):
     """An error whose fixed message is safe to return to a client."""
 
 
@@ -39,24 +40,24 @@ class UserCodeManager:
         data = await self.store.async_load()
         if data is not None:
             if not isinstance(data, dict) or not isinstance(data.get("codes"), dict):
-                raise UserCodeError("Uložiště osobních kódů není platné.")
+                raise UserCodeError("storage_invalid")
             self._codes = data["codes"]
 
     def _resolve(self, user, entity_id):
         # The caller supplies an authenticated User, never a user_id from input.
         if user is None or not user.is_active or user.system_generated:
-            raise UserCodeError("Je nutné přihlášení uživatelským účtem HA.")
+            raise UserCodeError("authentication_required")
         if not user.permissions.check_entity(entity_id, self.control_policy):
-            raise UserCodeError("Nemáš oprávnění ovládat tento alarm.")
+            raise UserCodeError("permission_denied")
         entry = self.registry.async_get(entity_id)
         if entry is None or entry.platform != DOMAIN or not entity_id.startswith("alarm_control_panel."):
-            raise UserCodeError("Tento alarm nepatří integraci Jablotron 80.")
+            raise UserCodeError("invalid_entity")
         runtime = self.hass.data.get(DOMAIN, {}).get(entry.config_entry_id)
         if not isinstance(runtime, dict) or DATA_JABLOTRON not in runtime:
-            raise UserCodeError("Integrace alarmu není načtená.")
+            raise UserCodeError("integration_unavailable")
         cu = runtime[DATA_JABLOTRON]
         if not self.storage_available and self._mode(cu) == CODE_MODE_PERSONAL:
-            raise UserCodeError("Uložiště osobních kódů není dostupné. Použij ruční PIN.")
+            raise UserCodeError("storage_unavailable")
         return entry.config_entry_id, cu
 
     @staticmethod
@@ -82,9 +83,9 @@ class UserCodeManager:
     async def async_save(self, user, entity_id, code):
         entry_id, cu = self._resolve(user, entity_id)
         if self._mode(cu) != CODE_MODE_PERSONAL:
-            raise UserCodeError("Osobní kódy nejsou v nastavení integrace zapnuté.")
+            raise UserCodeError("personal_codes_disabled")
         if not isinstance(code, str) or re.fullmatch(r"[0-9]{4}", code) is None:
-            raise UserCodeError("Kód musí mít přesně čtyři číslice.")
+            raise UserCodeError("invalid_code")
         async with self._write_lock:
             updated = deepcopy(self._codes)
             updated.setdefault(entry_id, {})[user.id] = await self.hass.async_add_executor_job(
@@ -112,7 +113,7 @@ class UserCodeManager:
                 )
             else:
                 if (cu._options or {}).get(CONFIGURATION_REQUIRE_CODE_TO_DISARM, True):
-                    raise UserCodeError("Nastavení vyžaduje ruční zadání kódu.")
+                    raise UserCodeError("manual_code_required")
                 if (cu._options or {}).get(CONFIGURATION_ENCRYPT_CODES, False):
                     from .const import CONFIGURATION_ENCRYPTION_KEY_FILE
 
@@ -121,10 +122,10 @@ class UserCodeManager:
                     )
                 code = cu._master_code
             if not isinstance(code, str) or re.fullmatch(r"[0-9]{4}", code) is None:
-                raise UserCodeError("Nemáš uložený osobní kód. Použij ruční PIN.")
+                raise UserCodeError("code_missing")
             state = self.hass.states.get(entity_id)
             if state is None or not cu.connection_alive:
-                raise UserCodeError("Ústředna není dostupná.")
+                raise UserCodeError("panel_unavailable")
             if state.state in ("disarmed", "disarming") or (
                 cu.zones and all(z.status == "Disarmed" for z in cu.zones)
             ):
@@ -137,13 +138,13 @@ class UserCodeManager:
                 "pending",
                 "triggered",
             ) or any(z.status == "Service" for z in cu.zones):
-                raise UserCodeError("V tomto stavu nelze odjistit uloženým kódem.")
+                raise UserCodeError("invalid_state")
             now = time.monotonic()
             attempts = [t for t in self._attempts.get(entry_id, []) if now - t < 300]
             if attempts and now - attempts[-1] < 15:
-                raise UserCodeError("Požadavek už byl odeslán. Vyčkej na změnu stavu.")
+                raise UserCodeError("request_pending")
             if len(attempts) >= 3:
-                raise UserCodeError("Příliš mnoho pokusů. Vyčkej pět minut nebo použij klávesnici.")
+                raise UserCodeError("rate_limited")
             attempts.append(now)
             self._attempts[entry_id] = attempts
             # Call the panel directly: no PIN-bearing call_service event/trace.
@@ -153,11 +154,11 @@ class UserCodeManager:
 
     async def async_validate_entry(self, entry_id):
         if not self.storage_available:
-            raise UserCodeError("Uložiště kódů není dostupné; migraci nelze provést.")
+            raise UserCodeError("storage_unavailable")
         for uid, value in self._codes.get(entry_id, {}).items():
             code = await self.hass.async_add_executor_job(decode, value, [entry_id, "user", uid])
             if not isinstance(code, str) or re.fullmatch(r"[0-9]{4}", code) is None:
-                raise UserCodeError("Uložený osobní kód není platný; migrace byla zastavena.")
+                raise UserCodeError("stored_code_invalid")
 
     async def async_migrate(self, entry_id, options):
         # Per-record key paths let a restart recover from an interrupted multi-file

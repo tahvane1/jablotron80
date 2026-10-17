@@ -1,6 +1,29 @@
 /* Optional local UI. PINs are never put in card config, entities or browser storage. */
 const TEXT = {
   en: {
+    "api_storage_invalid": "Personal code storage is invalid.",
+    "api_authentication_required": "Sign in with an active Home Assistant user account.",
+    "api_permission_denied": "You do not have permission to control this alarm.",
+    "api_invalid_entity": "This alarm does not belong to the Jablotron 80 integration.",
+    "api_integration_unavailable": "The alarm integration is not loaded.",
+    "api_storage_unavailable": "Personal code storage is unavailable. Use manual PIN entry.",
+    "api_personal_codes_disabled": "Personal codes are disabled in integration options.",
+    "api_invalid_code": "The code must contain exactly four digits.",
+    "api_manual_code_required": "Integration options require manual PIN entry.",
+    "api_code_missing": "No usable code is available. Use manual PIN entry.",
+    "api_panel_unavailable": "The alarm panel is unavailable.",
+    "api_invalid_state": "The alarm cannot be disarmed with a saved code in its current state.",
+    "api_request_pending": "A request was recently sent. Wait for the alarm state to change.",
+    "api_rate_limited": "Too many attempts. Wait five minutes or use the physical keypad.",
+    "api_stored_code_invalid": "A stored personal code is invalid. Migration was stopped.",
+    "api_key_unavailable": "The encryption key is unavailable or invalid. Use file permissions 0600 or 0400.",
+    "api_key_path_invalid": "Enter an absolute path to the encryption key file.",
+    "api_key_creation_failed": "Could not create the encryption key. Check the path and Home Assistant file permissions.",
+    "api_decryption_failed": "Could not decrypt codes. Check the original key; no fallback code will be used.",
+    "api_stored_credentials_invalid": "Stored panel credentials are invalid.",
+    "api_invalid_request": "Invalid request.",
+    "api_invalid_operation": "Invalid operation.",
+    "api_operation_failed": "The operation failed. Check integration settings and code storage.",
     manage: 'My Jablotron code', control: 'Disarm Jablotron',
     intro: 'Save an existing panel PIN for your signed-in Home Assistant account. This does not program or validate a code in the panel.',
     label: 'My panel PIN (4 digits)', save: 'Save my code', remove: 'Forget my code',
@@ -17,6 +40,29 @@ const TEXT = {
     commonManual: 'Common mode requires manual PIN entry.', config: 'Select a Jablotron alarm_control_panel entity.'
   },
   cs: {
+    "api_storage_invalid": "Uložiště osobních kódů není platné.",
+    "api_authentication_required": "Je nutné přihlášení uživatelským účtem HA.",
+    "api_permission_denied": "Nemáš oprávnění ovládat tento alarm.",
+    "api_invalid_entity": "Tento alarm nepatří integraci Jablotron 80.",
+    "api_integration_unavailable": "Integrace alarmu není načtená.",
+    "api_storage_unavailable": "Uložiště osobních kódů není dostupné. Použij ruční PIN.",
+    "api_personal_codes_disabled": "Osobní kódy nejsou v nastavení integrace zapnuté.",
+    "api_invalid_code": "Kód musí mít přesně čtyři číslice.",
+    "api_manual_code_required": "Nastavení vyžaduje ruční zadání kódu.",
+    "api_code_missing": "Nemáš uložený osobní kód. Použij ruční PIN.",
+    "api_panel_unavailable": "Ústředna není dostupná.",
+    "api_invalid_state": "V tomto stavu nelze odjistit uloženým kódem.",
+    "api_request_pending": "Požadavek už byl odeslán. Vyčkej na změnu stavu.",
+    "api_rate_limited": "Příliš mnoho pokusů. Vyčkej pět minut nebo použij klávesnici.",
+    "api_stored_code_invalid": "Uložený osobní kód není platný; migrace byla zastavena.",
+    "api_key_unavailable": "Klíč není dostupný nebo platný. Soubor musí mít oprávnění 0600 nebo 0400.",
+    "api_key_path_invalid": "Zadej absolutní cestu k souboru klíče.",
+    "api_key_creation_failed": "Klíč nelze vytvořit. Zkontroluj cestu a oprávnění HA.",
+    "api_decryption_failed": "Kódy nelze dešifrovat. Ověř původní klíč; nebude použit náhradní kód.",
+    "api_stored_credentials_invalid": "Uložené kódy ústředny nejsou platné.",
+    "api_invalid_request": "Neplatný požadavek.",
+    "api_invalid_operation": "Neplatná operace.",
+    "api_operation_failed": "Operace se nezdařila. Zkontroluj nastavení integrace a úložiště kódů.",
     manage: 'Můj kód Jablotronu', control: 'Odjištění Jablotronu',
     intro: 'Ulož existující PIN ústředny pro svůj přihlášený účet Home Assistant. Uložený kód v ústředně se tím nemění; jeho platnost se ověří až při odjištění.',
     label: 'Můj PIN ústředny (4 číslice)', save: 'Uložit můj kód', remove: 'Zapomenout můj kód',
@@ -33,6 +79,29 @@ const TEXT = {
     commonManual: 'Společný režim vyžaduje ruční zadání PINu.', config: 'Vyber alarmovou entitu Jablotronu z domény alarm_control_panel.'
   },
   fr: {
+    "api_storage_invalid": "Le stockage des codes personnels est invalide.",
+    "api_authentication_required": "Connectez-vous avec un compte utilisateur Home Assistant actif.",
+    "api_permission_denied": "Vous n’avez pas le droit de contrôler cette alarme.",
+    "api_invalid_entity": "Cette alarme ne fait pas partie de l’intégration Jablotron 80.",
+    "api_integration_unavailable": "L’intégration de l’alarme n’est pas chargée.",
+    "api_storage_unavailable": "Le stockage des codes personnels est indisponible. Saisissez le code manuellement.",
+    "api_personal_codes_disabled": "Les codes personnels sont désactivés dans les options.",
+    "api_invalid_code": "Le code doit contenir exactement quatre chiffres.",
+    "api_manual_code_required": "Les options imposent la saisie manuelle du code.",
+    "api_code_missing": "Aucun code utilisable n’est disponible. Saisissez le code manuellement.",
+    "api_panel_unavailable": "La centrale est indisponible.",
+    "api_invalid_state": "L’état actuel de l’alarme ne permet pas le désarmement avec un code enregistré.",
+    "api_request_pending": "Une demande a été envoyée récemment. Attendez un changement d’état de l’alarme.",
+    "api_rate_limited": "Trop de tentatives. Attendez cinq minutes ou utilisez le clavier physique.",
+    "api_stored_code_invalid": "Un code personnel enregistré est invalide. La migration a été arrêtée.",
+    "api_key_unavailable": "La clé de chiffrement est indisponible ou invalide. Utilisez les permissions 0600 ou 0400.",
+    "api_key_path_invalid": "Saisissez un chemin absolu pour le fichier de clé.",
+    "api_key_creation_failed": "Impossible de créer la clé. Vérifiez le chemin et les permissions de Home Assistant.",
+    "api_decryption_failed": "Impossible de déchiffrer les codes. Vérifiez la clé d’origine ; aucun code de remplacement ne sera utilisé.",
+    "api_stored_credentials_invalid": "Les identifiants enregistrés de la centrale sont invalides.",
+    "api_invalid_request": "Requête invalide.",
+    "api_invalid_operation": "Opération invalide.",
+    "api_operation_failed": "L’opération a échoué. Vérifiez les options et le stockage des codes.",
     manage: 'Mon code Jablotron', control: 'Désarmer Jablotron',
     intro: 'Enregistrez un code existant de la centrale pour votre compte Home Assistant connecté. Cela ne programme ni ne valide le code dans la centrale.',
     label: 'Mon code de la centrale (4 chiffres)', save: 'Enregistrer mon code', remove: 'Oublier mon code',
@@ -61,7 +130,13 @@ class JablotronAccountCard extends HTMLElement {
       }
     };
   }
-  _t(key) { return (TEXT[this._hass?.language?.split('-')[0]] || TEXT.en)[key]; }
+  _t(key) { return (TEXT[this._hass?.language?.split('-')[0]] || TEXT.en)[key] ?? TEXT.en[key]; }
+  _errorNotice(error) {
+    // HA HTTP errors carry the response body; WebSocket errors carry code directly.
+    const code = error?.body?.code ?? error?.code;
+    const key = typeof code === 'string' ? 'api_' + code : '';
+    return Object.hasOwn(TEXT.en, key) ? key : 'error';
+  }
   setConfig(config) {
     if (typeof config?.entity !== 'string' || !config.entity.startsWith('alarm_control_panel.')) throw new Error(this._t('config'));
     const changed = this._config?.entity !== config.entity;
@@ -156,8 +231,8 @@ class JablotronAccountCard extends HTMLElement {
       const result = await hass.callWS({type:'jablotron80/user_code/status', entity_id:entity});
       if (revision !== this._revision) return;
       this._saved = !!result.saved; this._mode = result.mode; this._automatic = !!result.automatic; this._encrypted = !!result.encrypted;
-    } catch {
-      if (revision === this._revision) { this._saved = null; this._loadFailed = true; this._notice = 'error'; }
+    } catch (error) {
+      if (revision === this._revision) { this._saved = null; this._loadFailed = true; this._notice = this._errorNotice(error); }
     } finally {
       this._finish(revision);
     }
@@ -172,8 +247,8 @@ class JablotronAccountCard extends HTMLElement {
       if (revision !== this._revision) return;
       this._saved = operation === 'save'; this._notice = operation === 'save' ? 'stored' : 'removed';
       window.dispatchEvent(new CustomEvent('jablotron-user-code-changed', {detail:{entity:body.entity_id, account:hass.user.id, source:this._changeSource}}));
-    } catch {
-      if (revision === this._revision) this._notice = 'error';
+    } catch (error) {
+      if (revision === this._revision) this._notice = this._errorNotice(error);
     } finally {
       if (revision === this._revision) this._input.value = '';
       this._finish(revision);
@@ -205,8 +280,8 @@ class JablotronAccountCard extends HTMLElement {
     try {
       const result = await hass.callWS({type:'jablotron80/user_code/disarm', entity_id:entity});
       if (revision === this._revision) this._notice = result.sent ? 'sent' : 'idle';
-    } catch {
-      if (revision === this._revision) this._notice = 'error';
+    } catch (error) {
+      if (revision === this._revision) this._notice = this._errorNotice(error);
     } finally {
       this._finish(revision);
     }

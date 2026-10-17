@@ -9,6 +9,7 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
+from .errors import CODE_ERROR_MESSAGES
 from .credentials import CredentialError
 from .const import DOMAIN
 from .user_codes import DATA_USER_CODES, UserCodeError, UserCodeManager
@@ -27,26 +28,26 @@ class UserCodeView(HomeAssistantView):
         try:
             data = await request.json()
             if not isinstance(data, dict):
-                raise UserCodeError("Neplatný požadavek.")
+                raise UserCodeError("invalid_request")
             operation = data.get("operation")
             allowed = (
                 {"entity_id", "operation", "code"} if operation == "save" else {"entity_id", "operation"}
             )
             if set(data) - allowed or not isinstance(data.get("entity_id"), str):
-                raise UserCodeError("Neplatný požadavek.")
+                raise UserCodeError("invalid_request")
             user = await self.manager.hass.auth.async_get_user(request["hass_user"].id)
             if operation == "save":
                 await self.manager.async_save(user, data["entity_id"], data.get("code"))
             elif operation == "remove":
                 await self.manager.async_remove(user, data["entity_id"])
             else:
-                raise UserCodeError("Neplatná operace.")
+                raise UserCodeError("invalid_operation")
             return self.json({"saved": operation == "save"})
         except (UserCodeError, CredentialError) as err:
-            return self.json({"message": str(err)}, status_code=400)
+            return self.json({"code": err.code, "message": str(err)}, status_code=400)
         except Exception:
             # Never format an exception containing a request body or PIN.
-            return self.json({"message": "Osobní kód se nepodařilo uložit."}, status_code=500)
+            return self.json({"code": "operation_failed", "message": CODE_ERROR_MESSAGES["operation_failed"]}, status_code=500)
 
 
 @websocket_api.websocket_command(
@@ -62,7 +63,9 @@ async def ws_status(hass, connection, msg):
         user = await hass.auth.async_get_user(connection.user.id)
         connection.send_result(msg["id"], manager.status(user, msg["entity_id"]))
     except (UserCodeError, CredentialError) as err:
-        connection.send_error(msg["id"], "user_code_error", str(err))
+        connection.send_error(msg["id"], err.code, str(err))
+    except Exception:
+        connection.send_error(msg["id"], "operation_failed", CODE_ERROR_MESSAGES["operation_failed"])
 
 
 @websocket_api.websocket_command(
@@ -78,10 +81,10 @@ async def ws_disarm(hass, connection, msg):
         user = await hass.auth.async_get_user(connection.user.id)
         result = await manager.async_disarm(user, msg["entity_id"])
     except (UserCodeError, CredentialError) as err:
-        connection.send_error(msg["id"], "user_code_error", str(err))
+        connection.send_error(msg["id"], err.code, str(err))
         return
     except Exception:
-        connection.send_error(msg["id"], "user_code_error", "Požadavek se nepodařilo odeslat.")
+        connection.send_error(msg["id"], "operation_failed", CODE_ERROR_MESSAGES["operation_failed"])
         return
     if result["sent"]:
         hass.bus.async_fire(
@@ -104,7 +107,7 @@ async def async_setup_user_codes(hass):
         # Keep the normal alarm integration working, but never overwrite a
         # damaged private store or print its contents in a traceback.
         manager.storage_available = False
-        logging.getLogger(__name__).error("Osobní kódy nelze načíst; použijte ruční PIN.")
+        logging.getLogger(__name__).error("Could not load personal codes; use manual PIN entry.")
     hass.data[DOMAIN][DATA_USER_CODES] = manager
     hass.http.register_view(UserCodeView(manager))
     websocket_api.async_register_command(hass, ws_status)
