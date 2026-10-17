@@ -115,6 +115,7 @@ is required to unload the integration. Panel programming/PIN changes remain manu
 ## Dependencies and references
 
 Fernet reference: https://cryptography.io/en/latest/fernet/
-HA 2026.9.1 supplies cryptography as a Core dependency:
-https://github.com/home-assistant/core/blob/2026.9.1/pyproject.toml
-The integration uses that dependency without imposing a conflicting version pin.
+Fernet is provided by the `cryptography` library, which Home Assistant includes
+as a Core dependency. No additional package installation is required. This
+integration was tested with Home Assistant 2026.9.1; this does not establish the
+minimum supported Home Assistant version.
