@@ -184,8 +184,5 @@ registration.
   retain their existing behavior.
 * Already disarmed/disarming, unavailable, unknown, and service states block sending a
   saved PIN. This matters because a repeated master PIN can toggle arming back on.
-* The previous prototype was exercised with a JA83 and JA82-T on HA 2026.9.1;
-  this branch additionally has account, permission, persistence, API and frontend tests.
-  The test suite uses HA stubs, not a complete running HA environment.
 
 HACS updates from the original repository can overwrite custom changes.
