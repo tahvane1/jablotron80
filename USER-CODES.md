@@ -14,13 +14,11 @@ logged in to an account can use its saved code. The card does not manage HA perm
 
 ## Relationship to upstream issues
 
-Reviewed the 18 open upstream issues and the relevant discussions on 2026-10-17.
-The following describes the account-code/encryption changes relative to the
-current upstream 0.49 and the separate Czech translation PR
-[#227](https://github.com/tahvane1/jablotron80/pull/227). These are scope assessments,
-not claims that the upstream issues can be closed.
+This section explains how the integration addresses related upstream issues and
+which limitations remain. Partial coverage does not mean that an issue is fully
+resolved.
 
-| Upstream issue | Coverage in this branch | Remaining scope |
+| Upstream issue | Supported behavior | Remaining scope |
 | --- | --- | --- |
 | [#43: use a normal user code and never store the master code](https://github.com/tahvane1/jablotron80/issues/43) | **Partial.** Personal mode disarms with the signed-in account's existing panel user PIN, without falling back to the master PIN. Optional encryption protects stored master, imported and personal codes. | The master PIN is still retained and used by existing configuration/arming paths. Encryption does not implement the request to never store it. Personal codes are currently for disarming, not account-specific arming. See [ENCRYPTION.md](ENCRYPTION.md). |
 | [#170: options and disarming without typing the PIN](https://github.com/tahvane1/jablotron80/issues/170) | **The saved-PIN workflow is provided; the overall issue is only partially covered.** The optional disarm card uses the current account's saved PIN, and this guide explains common/personal modes and the existing master-code option. | Common-mode disarming without a prompt already existed; it is not a new fix. The discussion also concerns French labels and hiding arming modes. This branch does not redesign the native alarm dialog or its available modes; dashboard layout remains the user's choice. |
