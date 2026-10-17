@@ -25,27 +25,6 @@ resolved.
 | [#201: installing the control panel in HA](https://github.com/tahvane1/jablotron80/issues/201) | **Partial documentation coverage.** The installation section below gives the exact bundled resource URL and card YAML, and explains the difference between PIN management, saved-code disarming and native alarm controls. | The disarm card provides disarming only; it is not a complete arm/disarm panel. The integration does not create a dashboard automatically. |
 | [#181: alarm starts arming again after disarming](https://github.com/tahvane1/jablotron80/issues/181) | **A mitigation limited to the saved-code API.** It disables automatic PIN retries, serializes requests per panel, applies attempt limits and blocks sending a PIN when HA or the panel already reports disarmed. Tests cover those guards. | Native manual service calls retain their existing retry behavior. A sent command is not confirmation of panel acceptance; stale state, communication faults and the original reporter's conditions still require hardware reproduction. This is not a general fix for #181. |
 
-Related requests that remain outside this feature:
-
-* Issue [#83](https://github.com/tahvane1/jablotron80/issues/83) concerns tracking
-  panel-code use and a service-code entity. Existing code entities already expose
-  a `last_used` attribute for panel-reported code use. The
-  `jablotron80_saved_code_disarm_requested` event identifies a saved-code disarm
-  request and its initiating HA account through the event context, without exposing
-  the PIN. This request event does not confirm panel acceptance or replace the
-  existing panel-reported usage tracking. Account-scoped codes and encryption do
-  not change code entities into timestamp sensors or add a service-code entity.
-* Issues [#214](https://github.com/tahvane1/jablotron80/issues/214),
-  [#202](https://github.com/tahvane1/jablotron80/issues/202),
-  [#168](https://github.com/tahvane1/jablotron80/issues/168) and
-  [#169](https://github.com/tahvane1/jablotron80/issues/169) concern detector queries,
-  keypad interference or sensor reporting. Automatic detector queries can be
-  disabled as described in [Alarm-only operation](README.md#alarm-only-operation).
-  Disabling them reduces query traffic but detector details may be incomplete or
-  stale. Personal codes and encryption do not resolve these issues.
-* Redacting sensitive data in diagnostic logs does not resolve communication
-  failures between Home Assistant and the alarm panel.
-
 ## Defaults and storage
 
 | Code mode | Encryption | Disarming through the optional disarm card |
