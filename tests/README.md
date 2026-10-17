@@ -63,8 +63,12 @@ wrong/missing keys, and disabling encryption. `test_credential_options.py` cover
 options-flow migration, all four code-mode/encryption combinations, unchanged legacy
 defaults, key generation, and failed-write rejection.
 
-The Node test uses a fake card DOM and HA client to check input clearing, account
-switches, save confirmation, secret-free disarm calls, and native manual fallback.
+The Node test uses a fake card DOM and HA client to check separate management/disarm
+controls, immediate PIN clearing, save/remove, language selection, account/entity
+switches, delayed-response isolation, secret-free disarm calls and manual fallback.
+`test_frontend.py` checks single-file static serving, concurrent setup and retry
+after registration failure. Browser rendering and native password-input behavior can
+be checked with a local mock HA client; these checks do not establish HA compatibility.
 These tests do not contact a real alarm or use production PINs. HA API/storage
 interfaces are stubs; passing them does not replace testing startup and UI rendering
 in a running HA instance.

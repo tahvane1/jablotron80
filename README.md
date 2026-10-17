@@ -463,7 +463,8 @@ is not needed. This change does not alter the panel's own detector or alarm oper
 ### Account-scoped disarm codes
 
 See [USER-CODES.md](USER-CODES.md) for the common/personal mode option,
-optional dashboard card, installation, and security limits.
+optional bundled PIN-management and disarm cards, installation, design rationale,
+and security limits. Dashboards remain user-defined.
 
 ### Encrypted code storage
 

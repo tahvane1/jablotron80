@@ -17,7 +17,8 @@ frontend; encryption status contains only a boolean.
 
 ## Enable on any HA installation
 
-1. Install the updated integration and card and restart HA.
+1. Install the updated integration and restart HA. The bundled frontend is optional;
+   see [USER-CODES.md](USER-CODES.md) for resource registration.
 2. Open integration options. Select the code mode independently of encryption.
 3. Enable **Encrypt stored codes**. Enter an absolute key-file path as seen by the
    HA process. For first-time setup, enable **Create encryption key file if missing**.
@@ -96,7 +97,7 @@ cover legacy migration, randomized tokens, every imported code, owner/panel bind
 wrong/missing key, tampering, permissions, exclusive generation, key rotation,
 failed writes, mixed-format recovery, account-scoped disarm, and disabling encryption.
 Run with pytest, pyserial, crccheck, voluptuous and cryptography installed.
-The combined deployment was exercised on JA83/JA-82T with HA 2026.9.1 in Docker; user-operated arming and personal-code disarming succeeded after enabling encryption. The isolated PR branch uses the original account-code card and must still be checked against a running HA instance before release. Tests do not establish full HA API compatibility.
+The combined deployment was exercised on JA83/JA-82T with HA 2026.9.1 in Docker; user-operated arming and personal-code disarming succeeded after enabling encryption. The current branch separates bundled PIN management from disarming and must still be checked against a running HA instance before release. Tests do not establish full HA API compatibility.
 
 Fernet reference: https://cryptography.io/en/latest/fernet/
 HA 2026.9.1 supplies cryptography as a Core dependency:
