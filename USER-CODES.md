@@ -31,15 +31,14 @@ Related requests that remain outside this feature:
   and a service-code entity. The new audit event records a saved-code **request**
   with HA context, not confirmed panel execution. It does not change code entities,
   implement last-seen tracking, or prove who operated a physical keypad.
-* [#214](https://github.com/tahvane1/jablotron80/issues/214),
+* Issues [#214](https://github.com/tahvane1/jablotron80/issues/214),
   [#202](https://github.com/tahvane1/jablotron80/issues/202),
   [#168](https://github.com/tahvane1/jablotron80/issues/168) and
   [#169](https://github.com/tahvane1/jablotron80/issues/169) concern detector queries,
-  keypad interference or sensor reporting. The optional automatic-query setting
-  from merged [PR #225](https://github.com/tahvane1/jablotron80/pull/225) is already
-  in upstream 0.49. It is inherited here, not a new credential-feature fix, and
-  disabling queries trades away fresh detector details. This branch does not
-  implement the experimental throttle discussed in #214.
+  keypad interference or sensor reporting. Automatic detector queries can be
+  disabled as described in [Alarm-only operation](README.md#alarm-only-operation).
+  Disabling them reduces query traffic but detector details may be incomplete or
+  stale. Personal codes and encryption do not resolve these issues.
 * The remaining open issues (#223, #195, #152, #144, #141, #135, #132, #112 and #98)
   concern registry compatibility, discovery/configuration, transport/parser behavior,
   checksums or entity identity. The account-code/encryption feature does not claim
