@@ -11,7 +11,7 @@ bind panel and account identity to prevent copying a token into another record.
 Raw serial debug logs now honor the existing HIDE_CODE/HIDE_KEY_PRESS flags
 (default enabled), including code-table packets; parser error logs omit raw records.
 Do not disable these flags or add external raw bus logging.
-The master PIN remains stored for configuration and existing panel operations; encryption does not remove its privileges or replace it with a user PIN. This relates to issue #43 but does not implement its request to never store the master PIN.
+The master PIN remains stored for configuration and existing panel operations; encryption does not remove its privileges or replace it with a user PIN. This partially addresses the security concern in [upstream #43](https://github.com/tahvane1/jablotron80/issues/43), but does not implement its request to never store the master PIN. See [the upstream issue coverage](USER-CODES.md#relationship-to-upstream-issues) for the exact limits of personal-code disarming and related requests.
 HA decrypts credentials in memory when needed. No plaintext PIN is returned to the
 frontend; encryption status contains only a boolean.
 

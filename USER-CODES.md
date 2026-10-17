@@ -12,6 +12,42 @@ Saving a PIN does not program the panel and does not verify its validity. Supply
 existing four-digit panel user code. Each person needs a separate HA account: anyone
 logged in to an account can use its saved code. The card does not manage HA permissions.
 
+## Relationship to upstream issues
+
+Reviewed the 18 open upstream issues and the relevant discussions on 2026-10-17.
+The following describes the account-code/encryption changes relative to the
+current upstream 0.49 and the separate Czech translation PR
+[#227](https://github.com/tahvane1/jablotron80/pull/227). These are scope assessments,
+not claims that the upstream issues can be closed.
+
+| Upstream issue | Coverage in this branch | Remaining scope |
+| --- | --- | --- |
+| [#43: use a normal user code and never store the master code](https://github.com/tahvane1/jablotron80/issues/43) | **Partial.** Personal mode disarms with the signed-in account's existing panel user PIN, without falling back to the master PIN. Optional encryption protects stored master, imported and personal codes. | The master PIN is still retained and used by existing configuration/arming paths. Encryption does not implement the request to never store it. Personal codes are currently for disarming, not account-specific arming. See [ENCRYPTION.md](ENCRYPTION.md). |
+| [#170: options and disarming without typing the PIN](https://github.com/tahvane1/jablotron80/issues/170) | **The saved-PIN workflow is provided; the overall issue is only partially covered.** The optional disarm card uses the current account's saved PIN, and this guide explains common/personal modes and the existing master-code option. | Common-mode disarming without a prompt already existed; it is not a new fix. The discussion also concerns French labels and hiding arming modes. This branch does not redesign the native alarm dialog or its available modes; dashboard layout remains the user's choice. |
+| [#201: installing the control panel in HA](https://github.com/tahvane1/jablotron80/issues/201) | **Partial documentation coverage.** The installation section below gives the exact bundled resource URL and card YAML, and explains the difference between PIN management, saved-code disarming and native alarm controls. | The new disarm card is not a complete arm/disarm panel. This guide does not establish that the original reporter's installation problem is resolved, and the integration does not create a dashboard automatically. |
+| [#181: alarm starts arming again after disarming](https://github.com/tahvane1/jablotron80/issues/181) | **A mitigation limited to the new saved-code API.** It disables automatic PIN retries, serializes requests per panel, applies attempt limits and blocks sending a PIN when HA or the panel already reports disarmed. Tests cover those guards. | Native manual service calls retain their existing retry behavior. A sent command is not confirmation of panel acceptance; stale state, communication faults and the original reporter's conditions still require hardware reproduction. This is not a general fix for #181. |
+
+Related requests that remain outside this feature:
+
+* [#83](https://github.com/tahvane1/jablotron80/issues/83) asks for last-used timestamps
+  and a service-code entity. The new audit event records a saved-code **request**
+  with HA context, not confirmed panel execution. It does not change code entities,
+  implement last-seen tracking, or prove who operated a physical keypad.
+* [#214](https://github.com/tahvane1/jablotron80/issues/214),
+  [#202](https://github.com/tahvane1/jablotron80/issues/202),
+  [#168](https://github.com/tahvane1/jablotron80/issues/168) and
+  [#169](https://github.com/tahvane1/jablotron80/issues/169) concern detector queries,
+  keypad interference or sensor reporting. The optional automatic-query setting
+  from merged [PR #225](https://github.com/tahvane1/jablotron80/pull/225) is already
+  in upstream 0.49. It is inherited here, not a new credential-feature fix, and
+  disabling queries trades away fresh detector details. This branch does not
+  implement the experimental throttle discussed in #214.
+* The remaining open issues (#223, #195, #152, #144, #141, #135, #132, #112 and #98)
+  concern registry compatibility, discovery/configuration, transport/parser behavior,
+  checksums or entity identity. The account-code/encryption feature does not claim
+  to resolve them. In particular, redacting raw diagnostic payloads protects PINs;
+  it does not repair the communication failures reported in #132 or #195.
+
 ## Defaults and storage
 
 | Code mode | Encryption | Disarming through the optional disarm card |

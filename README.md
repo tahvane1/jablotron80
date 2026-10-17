@@ -465,6 +465,8 @@ is not needed. This change does not alter the panel's own detector or alarm oper
 See [USER-CODES.md](USER-CODES.md) for the common/personal mode option,
 optional bundled PIN-management and disarm cards, installation, design rationale,
 and security limits. Dashboards remain user-defined.
+The [upstream issue coverage](USER-CODES.md#relationship-to-upstream-issues)
+explains which requests these features address and which remain open.
 
 ### Encrypted code storage
 
