@@ -27,13 +27,14 @@ resolved.
 
 Related requests that remain outside this feature:
 
-* Issue [#83](https://github.com/tahvane1/jablotron80/issues/83) requests last-used
-  timestamps for panel codes and a service-code entity. The
+* Issue [#83](https://github.com/tahvane1/jablotron80/issues/83) concerns tracking
+  panel-code use and a service-code entity. Existing code entities already expose
+  a `last_used` attribute for panel-reported code use. The
   `jablotron80_saved_code_disarm_requested` event identifies a saved-code disarm
   request and its initiating HA account through the event context, without exposing
-  the PIN. It does not confirm panel acceptance, track physical keypad use, or
-  provide last-used timestamps or a service-code entity. These requests remain
-  unimplemented.
+  the PIN. This request event does not confirm panel acceptance or replace the
+  existing panel-reported usage tracking. Account-scoped codes and encryption do
+  not change code entities into timestamp sensors or add a service-code entity.
 * Issues [#214](https://github.com/tahvane1/jablotron80/issues/214),
   [#202](https://github.com/tahvane1/jablotron80/issues/202),
   [#168](https://github.com/tahvane1/jablotron80/issues/168) and
