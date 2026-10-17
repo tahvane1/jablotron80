@@ -27,10 +27,13 @@ resolved.
 
 Related requests that remain outside this feature:
 
-* [#83](https://github.com/tahvane1/jablotron80/issues/83) asks for last-used timestamps
-  and a service-code entity. The new audit event records a saved-code **request**
-  with HA context, not confirmed panel execution. It does not change code entities,
-  implement last-seen tracking, or prove who operated a physical keypad.
+* Issue [#83](https://github.com/tahvane1/jablotron80/issues/83) requests last-used
+  timestamps for panel codes and a service-code entity. The
+  `jablotron80_saved_code_disarm_requested` event identifies a saved-code disarm
+  request and its initiating HA account through the event context, without exposing
+  the PIN. It does not confirm panel acceptance, track physical keypad use, or
+  provide last-used timestamps or a service-code entity. These requests remain
+  unimplemented.
 * Issues [#214](https://github.com/tahvane1/jablotron80/issues/214),
   [#202](https://github.com/tahvane1/jablotron80/issues/202),
   [#168](https://github.com/tahvane1/jablotron80/issues/168) and
