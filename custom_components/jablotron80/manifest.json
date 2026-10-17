@@ -3,7 +3,7 @@
 	"name": "Jablotron 80",
 	"codeowners": ["@tahvane1","@mattsaxon"],
 	"config_flow": true,
-	"dependencies": [],
+	"dependencies": ["http", "websocket_api"],
 	"documentation": "https://github.com/tahvane1/jablotron80",
 	"integration_type": "hub",
 	"iot_class": "local_polling",

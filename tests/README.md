@@ -43,11 +43,35 @@ C:\Python314\python.exe -m venv .venv
 .\.venv\Scripts\python.exe -m pytest -v
 ```
 
-Bash equivalent:
+Bash equivalent (including dependencies for the credential tests):
 
 ```bash
-./.venv/Scripts/python.exe -m pytest -v
+python3 -m venv .venv
+.venv/bin/python -m pip install pytest pyserial crccheck voluptuous cryptography
+.venv/bin/python -m pytest -v
+node tests/test_user_code_card.cjs
 ```
+
+## Account-scoped codes and encryption
+
+`test_user_codes.py` and `test_user_code_api.py` exercise authenticated account
+ownership, permissions, validation, persistence, manual fallback, disarm throttling,
+secret-free replies/audit events, and commands without automatic PIN retries.
+`test_credentials.py` uses real Fernet encryption and temporary keys to exercise
+scope binding, master/imported-code protection, key rotation, interrupted migration,
+wrong/missing keys, and disabling encryption. `test_credential_options.py` covers
+options-flow migration, all four code-mode/encryption combinations, unchanged legacy
+defaults, key generation, and failed-write rejection.
+
+The Node test uses a fake card DOM and HA client to check separate management/disarm
+controls, immediate PIN clearing, save/remove, language selection, account/entity
+switches, delayed-response isolation, secret-free disarm calls and manual fallback.
+`test_frontend.py` checks single-file static serving, concurrent setup and retry
+after registration failure. Browser rendering and native password-input behavior can
+be checked with a local mock HA client; these checks do not establish HA compatibility.
+These tests do not contact a real alarm or use production PINs. HA API/storage
+interfaces are stubs; passing them does not replace testing startup and UI rendering
+in a running HA instance.
 
 Home Assistant is deliberately **not** installed; the stubs in `conftest.py`
 provide everything the integration imports at module load time.

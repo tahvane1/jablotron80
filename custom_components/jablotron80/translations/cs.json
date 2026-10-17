@@ -187,13 +187,23 @@
         "step": {
             "init": {
                 "title": "Možnosti",
+                "data_description": {
+                    "code_mode": "Společný režim (common): používá nastavený master kód. Je-li zapnuto vyžadování kódu při odjištění, zadává se PIN ručně. Osobní režim (personal): každý účet HA si uloží vlastní existující PIN ústředny; při odjištění se master kód nepoužije jako náhradní."
+                },
                 "data": {
+                    "encrypt_codes": "Šifrovat uložené kódy",
+                    "encryption_key_file": "Absolutní cesta k souboru šifrovacího klíče (z pohledu HA)",
+                    "create_encryption_key": "Vytvořit soubor šifrovacího klíče, pokud chybí (existující soubor nebude přepsán)",
+                    "code_mode": "Režim kódů: společný (common) / osobní (personal)",
                     "require_code_to_arm": "Vyžadovat kód při zajištění",
                     "require_code_to_disarm": "Vyžadovat kód při odjištění",
                     "quieten_expected_warnings": "Potlačit očekávaná varování",
                     "verbose_connection_logging": "Podrobné protokolování připojení"
                 }
             }
+        },
+        "error": {
+            "credentials_unavailable": "Kódy se nepodařilo načíst, dešifrovat nebo převést. Zkontrolujte původní klíč, absolutní cestu k souboru, oprávnění pouze pro vlastníka a úložiště. Nastavení nebylo použito."
         }
     }
 }

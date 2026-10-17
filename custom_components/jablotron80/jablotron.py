@@ -119,6 +119,14 @@ def format_packet(data):
     return " ".join(["%02x" % c for c in data])
 
 
+def format_log_packet(data):
+    # Raw bus records can contain PIN tables or individual keypad digits. Honor
+    # the existing sensitive-output flags even for verbose connection logging.
+    if JablotronSettings.HIDE_CODE or JablotronSettings.HIDE_KEY_PRESS:
+        return "<raw packet omitted>"
+    return format_packet(data)
+
+
 class JablotronSettings:
     # sleep when no command
     # SERIAL_SLEEP_NO_COMMAND = 0.2
@@ -897,7 +905,7 @@ class JablotronConnection:
             records_tmp = await self._read_data()
             await self._forward_records(records_tmp)
             for record in records_tmp:
-                LOGGER.debug(f"record:{i}:{format_packet(record)}")
+                LOGGER.debug(f"record:{i}:{format_log_packet(record)}")
                 if record[: len(prefix)] == prefix:
                     return True
         return False
@@ -961,13 +969,13 @@ class JablotronConnectionHID(JablotronConnection):
                     await self.reconnect()
                     return []
 
-            self._log_detail(f"Received raw data {format_packet(data)}")
+            self._log_detail(f"Received raw data {format_log_packet(data)}")
 
             if len(data) > 0 and data[0] == 0x82:
                 size = data[1]
                 if size + 2 > len(data):
                     size = len(data) - 2
-                    LOGGER.warning(f"Corrupt packet section: {format_packet(data)}")
+                    LOGGER.warning(f"Corrupt packet section: {format_log_packet(data)}")
 
                 read_buffer.append(data[2 : 2 + int(size)])
 
@@ -977,7 +985,7 @@ class JablotronConnectionHID(JablotronConnection):
                         ret_bytes.append(i)
                         if i == 0xFF:
                             record = bytearray(ret_bytes)
-                            self._log_detail(f"received record: {format_packet(record)}")
+                            self._log_detail(f"received record: {format_log_packet(record)}")
                             ret_val.append(record)
                             ret_bytes.clear()
                     return ret_val
@@ -1044,7 +1052,7 @@ class JablotronConnectionSerial(JablotronConnection):
                     self._connection.read_until, b"\xff"
                 )  # discard first potentially corrupt record
 
-        self._log_detail(f"received record: {format_packet(data)}")
+        self._log_detail(f"received record: {format_log_packet(data)}")
         ret_val.append(data)
         return ret_val
 
@@ -1271,6 +1279,7 @@ class JablotronMessage:
 
     @staticmethod
     def get_message_type_from_record(record, packet_data: bytes) -> str:
+        log_data = format_log_packet(record)
         message_type = None
         try:
             message_type = JablotronMessage.get_message_type(record[0])
@@ -1287,18 +1296,18 @@ class JablotronMessage:
         if message_type is None:
             LOGGER.log(
                 expected_warning_level,
-                f"Unknown message type {hex(record[0])} with data {packet_data} received",
+                f"Unknown message type {hex(record[0])} with data {log_data} received",
             )
         else:
             if not JablotronMessage.check_crc(record):
-                LOGGER.log(expected_warning_level, f"Invalid CRC for {packet_data}")
+                LOGGER.log(expected_warning_level, f"Invalid CRC for {log_data}")
             elif JablotronMessage.validate_length(message_type, record):
-                LOGGER.debug(f"Message of type {message_type} received {packet_data}")
+                LOGGER.debug(f"Message of type {message_type} received {log_data}")
                 return message_type
             else:
                 LOGGER.log(
                     expected_warning_level,
-                    f"Invalid message of type {message_type} received {packet_data}",
+                    f"Invalid message of type {message_type} received {log_data}",
                 )
         return None
 
@@ -3064,7 +3073,12 @@ class JA80CentralUnit(object):
         return False
 
     async def send_keypress_sequence(
-        self, key_sequence: str, accepted_prefix: bytes, complete_prefix: bytes = None
+        self,
+        key_sequence: str,
+        accepted_prefix: bytes,
+        complete_prefix: bytes = None,
+        *,
+        max_retries: int = 2,
     ) -> None:
 
         value = b""
@@ -3084,6 +3098,7 @@ class JA80CentralUnit(object):
                 code=value,
                 accepted_prefix=accepted_prefix + b"\xff",
                 complete_prefix=complete_prefix,
+                max_retries=max_retries,
             )
         )
 
@@ -3098,8 +3113,8 @@ class JA80CentralUnit(object):
         else:
             await self.send_keypress_sequence({"A": "*2", "B": "*3", "C": "*1"}[zone] + code, b"\xa1")
 
-    async def disarm(self, code: str, zone: str = None) -> None:
-        await self.send_keypress_sequence(code, b"\xa2")
+    async def disarm(self, code: str, zone: str = None, *, max_retries: int = 2) -> None:
+        await self.send_keypress_sequence(code, b"\xa2", max_retries=max_retries)
         if JablotronState.is_alarm_state(self._last_state):
             # confirm alarm
             await self.send_detail_command()
@@ -3120,7 +3135,7 @@ class JA80CentralUnit(object):
                 self._connection._messages.clear()  # once all messages are processed, clear flag
 
             except Exception:
-                LOGGER.exception(f"Unexpected error processing record: {record}")
+                LOGGER.error("Unexpected error processing record; raw payload omitted")
 
     # this is just for console testing
     async def status_loop(self) -> None:
