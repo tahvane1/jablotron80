@@ -112,14 +112,7 @@ access to a logged-in HA account. Decrypted codes necessarily exist in HA memory
 Removing the key file does not erase already decrypted runtime memory; restart
 is required to unload the integration. Panel programming/PIN changes remain manual.
 
-## Validation
-
-Tests use real Fernet operations and temporary random keys, plus HA stubs. They
-cover legacy migration, randomized tokens, every imported code, owner/panel binding,
-wrong/missing key, tampering, permissions, exclusive generation, key rotation,
-failed writes, mixed-format recovery, account-scoped disarm, and disabling encryption.
-Run with pytest, pyserial, crccheck, voluptuous and cryptography installed.
-The combined deployment was exercised on JA83/JA-82T with HA 2026.9.1 in Docker; user-operated arming and personal-code disarming succeeded after enabling encryption. The current branch separates bundled PIN management from disarming and must still be checked against a running HA instance before release. Tests do not establish full HA API compatibility.
+## Dependencies and references
 
 Fernet reference: https://cryptography.io/en/latest/fernet/
 HA 2026.9.1 supplies cryptography as a Core dependency:
