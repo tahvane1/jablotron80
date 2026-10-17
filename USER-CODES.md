@@ -37,9 +37,10 @@ resolved.
 The original credentials are in HA's `.storage/core.config_entries`. Personal
 codes are in `.storage/jablotron80.user_codes`. With encryption enabled, the
 plaintext `password` and imported `codes` fields are replaced by an encrypted
-bundle; personal PIN records are encrypted too. Choose encryption explicitly
-when enabling personal codes; changing code mode alone does not enable it.
-Existing master credentials are retained in both code modes.
+bundle; personal PIN records are encrypted too. Encryption and code mode are
+independent settings and can be changed in either order or together. Enabling
+personal mode does not automatically enable encryption. The configured master PIN
+is retained in both code modes and is encrypted when encryption is enabled.
 
 ## Optional frontend, separate from your dashboard
 
