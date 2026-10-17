@@ -31,15 +31,37 @@ The default key path is `hass.config.path(".jablotron80.key")`; there is no requ
 Docker path, environment variable, external vault, or operating-system service.
 HA OS users can use the default config-directory path directly from the UI.
 HA Core users can supply a private file readable by the HA service account.
+Automatically created key files request permissions **0600** (`rw-------`): only
+the owner can read and write; the group and other users have no access. The owner
+is the operating-system user running Home Assistant, not the HA account signed
+in through the browser. The process umask may further restrict these permissions;
+it cannot grant additional access. The parent directory must already exist and
+be writable by HA. Existing key files are validated, never overwritten or
+automatically chmodded.
 A pre-created Fernet key file must have owner-only permissions (0600 or 0400).
 Do not place a key under `www`, and do not paste its contents into a PIN field.
 
 ## Separating the key from configuration backups
 
-A key in the config directory is convenient, but a copy of the entire directory
-contains both ciphertext and key. It does not protect that whole copy. For stronger
-backup isolation, provision a key outside the directory/archive containing HA data
-and back it up separately. HA must still be able to read it after a reboot.
+**Recommended: store the key outside `/config` and back it up separately from
+HA configuration and encrypted code files.** Anyone who obtains both ciphertext
+and its key can decrypt the saved PINs. Keeping both in the same directory backup
+therefore removes this protection if that backup is disclosed. File permissions
+alone do not protect a backup that already includes the key.
+
+The default config-directory path is a convenient setup option, including on HA
+OS, but does not provide this backup separation. An alternative path must be
+persistent and accessible to the HA process after a reboot. Entering a path in
+integration options does not create a Docker mount or grant access to host files.
+On HA OS, only choose a location actually available to Home Assistant Core; do not
+assume that a path visible in an app/add-on is also visible to Core.
+
+Storing the key outside `/config` is not sufficient if a full-system backup or
+snapshot still captures both locations. Check what each backup includes and keep
+the separate key backup private and recoverable. Without the original key,
+encrypted codes cannot be recovered. This separation protects copies made without
+the key; an administrator or compromised HA process able to read both can still
+decrypt them.
 Protect existing backups too: migrating current files does not erase old plaintext
 backups or securely erase filesystem history, snapshots, or SSD blocks.
 
