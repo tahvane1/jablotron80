@@ -184,5 +184,3 @@ registration.
   retain their existing behavior.
 * Already disarmed/disarming, unavailable, unknown, and service states block sending a
   saved PIN. This matters because a repeated master PIN can toggle arming back on.
-
-HACS updates from the original repository can overwrite custom changes.
