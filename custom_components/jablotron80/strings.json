@@ -187,7 +187,10 @@
 		"step": {
 			"init": {
 				"title": "Options",
-				"description": "common: use the configured master code (manual PIN if Require code to disarm is enabled). personal: each HA account saves its own existing panel PIN; no master-code fallback when disarming. Disable automatic detector queries for alarm-only operation. Detector states may be incomplete or stale; inactive does not confirm closed or clear. Alarm state and commands remain available. The manual Query button still works and may beep on the keypad.",
+				"description": "Disable automatic detector queries for alarm-only operation. Detector states may be incomplete or stale; inactive does not confirm closed or clear. Alarm state and commands remain available. The manual Query button still works and may beep on the keypad.",
+				"data_description": {
+					"code_mode": "common: use the configured master code (manual PIN if Require code to disarm is enabled). personal: each HA account saves its own existing panel PIN; no master-code fallback when disarming."
+				},
 				"data": {
 					"encrypt_codes": "Encrypt stored codes",
 					"encryption_key_file": "Absolute path to encryption key file (as seen by HA)",

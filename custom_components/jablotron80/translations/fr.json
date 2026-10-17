@@ -187,7 +187,10 @@
 		"step": {
 			"init": {
 				"title": "Options",
-				"description": "common : utilise le code maître configuré (saisie manuelle du code si « Exiger un code pour désarmer » est activé). personal : chaque compte HA enregistre son propre code existant de la centrale ; aucun recours au code maître lors du désarmement. Désactivez les requêtes automatiques des détecteurs pour utiliser uniquement les fonctions d’alarme. Les états des détecteurs peuvent être incomplets ou obsolètes ; un état inactif ne garantit ni la fermeture ni l’absence de détection. L’état de l’alarme et les commandes restent disponibles. Le bouton de requête manuelle fonctionne toujours et peut provoquer un bip sur le clavier.",
+				"description": "Désactivez les requêtes automatiques des détecteurs pour utiliser uniquement les fonctions d’alarme. Les états des détecteurs peuvent être incomplets ou obsolètes ; un état inactif ne garantit ni la fermeture ni l’absence de détection. L’état de l’alarme et les commandes restent disponibles. Le bouton de requête manuelle fonctionne toujours et peut provoquer un bip sur le clavier.",
+				"data_description": {
+					"code_mode": "common : utilise le code maître configuré (saisie manuelle du code si « Exiger un code pour désarmer » est activé). personal : chaque compte HA enregistre son propre code existant de la centrale ; aucun recours au code maître lors du désarmement."
+				},
 				"data": {
 					"encrypt_codes": "Chiffrer les codes enregistrés",
 					"encryption_key_file": "Chemin absolu du fichier de clé de chiffrement (tel que vu par HA)",
