@@ -183,21 +183,21 @@
 		}
 	},
 	"options": {
-		"error": {"credentials_unavailable": "Could not read, decrypt or migrate codes. Check the original key, absolute file path, owner-only permissions, and storage. Settings were not applied."},
+		"error": {"credentials_unavailable": "Impossible de lire, de déchiffrer ou de migrer les codes. Vérifiez la clé d’origine, le chemin absolu du fichier, les permissions réservées au propriétaire et le stockage. Les paramètres n’ont pas été appliqués."},
 		"step": {
 			"init": {
 				"title": "Options",
-				"description": "common: use the configured master code (manual PIN if Require code to disarm is enabled). personal: each HA account saves its own existing panel PIN; no master-code fallback when disarming. Disable automatic detector queries for alarm-only operation. Detector states may be incomplete or stale; inactive does not confirm closed or clear. Alarm state and commands remain available. The manual Query button still works and may beep on the keypad.",
+				"description": "common : utilise le code maître configuré (saisie manuelle du code si « Exiger un code pour désarmer » est activé). personal : chaque compte HA enregistre son propre code existant de la centrale ; aucun recours au code maître lors du désarmement. Désactivez les requêtes automatiques des détecteurs pour utiliser uniquement les fonctions d’alarme. Les états des détecteurs peuvent être incomplets ou obsolètes ; un état inactif ne garantit ni la fermeture ni l’absence de détection. L’état de l’alarme et les commandes restent disponibles. Le bouton de requête manuelle fonctionne toujours et peut provoquer un bip sur le clavier.",
 				"data": {
-					"encrypt_codes": "Encrypt stored codes",
-					"encryption_key_file": "Absolute path to encryption key file (as seen by HA)",
-					"create_encryption_key": "Create encryption key file if missing (an existing file will not be overwritten)",
-					"code_mode": "Code mode: common / personal",
+					"encrypt_codes": "Chiffrer les codes enregistrés",
+					"encryption_key_file": "Chemin absolu du fichier de clé de chiffrement (tel que vu par HA)",
+					"create_encryption_key": "Créer le fichier de clé de chiffrement s’il est absent (un fichier existant ne sera pas écrasé)",
+					"code_mode": "Mode de code : common / personal",
 					"require_code_to_arm": "Exiger un code pour armer",
 					"require_code_to_disarm": "Exiger un code pour désarmer",
 					"quieten_expected_warnings": "Apaiser les avertissements attendus",
 					"verbose_connection_logging": "Journalisation détaillée des connexions",
-					"query_detector_activity": "Automatically query detector activity (may beep on keypad)"
+					"query_detector_activity": "Interroger automatiquement l’activité des détecteurs (peut provoquer un bip sur le clavier)"
 				}
 			}
 		}

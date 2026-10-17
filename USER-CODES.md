@@ -151,6 +151,10 @@ entity: alarm_control_panel.your_jablotron_panel
 ```
 
 Card labels follow HA's language (Czech, English or French; English fallback).
+French translations are provided for the integration options and bundled cards,
+but have not been manually verified in the Home Assistant UI or reviewed by a
+native French speaker.
+
 Backend errors and technical logs use fixed English messages, matching upstream.
 Expected HTTP failures include a stable `code` and an English `message`; WebSocket
 failures use the same identifier in `error.code`. Cards translate known codes
