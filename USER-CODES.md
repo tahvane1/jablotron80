@@ -87,20 +87,54 @@ expose the integration's directory or private credential files.
 
 ### Install and choose cards
 
+Home Assistant already runs JavaScript in its browser/app frontend. There is no
+separate JavaScript switch to enable and no Node.js, add-on or frontend library to
+install, even if these are your first custom cards. The integration installs and
+serves the module, but does not register it as a dashboard resource or add cards
+for you. A Home Assistant administrator performs the following setup once.
+
+The recommended setup uses the Home Assistant UI:
+
 1. Install/update the integration and restart HA. No file needs to be copied to `www`.
-2. In dashboard resources add this URL as a **JavaScript module**:
-   `/jablotron80/frontend/jablotron-user-code-card.js`.
-   For YAML-managed resources use:
+2. Go to **Settings > Dashboards**, open the top-right menu and select **Resources**.
+3. Select **Add resource**, enter
+   `/jablotron80/frontend/jablotron-user-code-card.js` and choose
+   **JavaScript module**. Register this URL only once; the resource is shared by
+   all dashboards.
+4. Reload the page in each browser/app frontend that will use the cards.
+5. Select `personal` in integration options if you want account codes. Encryption
+   is an independent setting and can be enabled before, after or together with
+   personal mode.
+6. Open your chosen editable dashboard, select **Edit dashboard > Add card > Manual**,
+   and paste one of the card examples below. Replace
+   `alarm_control_panel.your_jablotron_panel` with your actual Jablotron alarm entity.
+   These cards currently use manual YAML configuration; they do not appear as named
+   entries in the community-card picker and have no visual configuration editor.
+   PIN management can be placed on a separate view from the disarm control.
 
-   ```yaml
-   resources:
-     - url: /jablotron80/frontend/jablotron-user-code-card.js
-       type: module
-   ```
+For the standard resource-registration procedure, see the
+[Home Assistant resource documentation](https://contributors.home-assistant.io/frontend/custom-ui/resources/).
 
-3. Select `personal` in integration options if you want account codes. Choose
-   encryption separately; enabling personal mode alone does not enable encryption.
-4. Add either card to your chosen dashboard, or put PIN management on a separate view.
+#### Alternative: resources managed in YAML
+
+Use this alternative if you manage dashboard resources in YAML instead of through
+the UI. In `configuration.yaml`, merge the following into the existing `lovelace`
+section, retaining any other resource entries. This is not dashboard/card YAML:
+
+```yaml
+lovelace:
+  resource_mode: yaml
+  resources:
+    - url: /jablotron80/frontend/jablotron-user-code-card.js
+      type: module
+```
+
+With `resource_mode: yaml`, resources are managed by this configuration rather
+than the UI Resources page. Do not switch an existing UI-managed resource list
+without also preserving its other resources in YAML. Reload resources with the
+`lovelace.reload_resources` action (or restart HA), then reload the browser/app.
+Continue with the integration options and manual card examples described above.
+Switching the dashboard itself to YAML mode is not required.
 
 Management only:
 
