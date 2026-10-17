@@ -9,7 +9,7 @@ Assistant** - `conftest.py` stubs the few `homeassistant.*` modules that
 
 | File | What it protects |
 | --- | --- |
-| `test_reconciliation.py` | The **#153 per-sensor-close** logic: a closed detector turns off independently of another still-open one (`_activate_source` / `_update_device` on `JA80CentralUnit`). This is the most important test on the `fix/153-per-sensor-close` branch. |
+| `test_reconciliation.py` | The **#153 per-sensor-close** logic: a closed detector turns off independently of another still-open one (`_activate_source` / `_update_device` on `JA80CentralUnit`). |
 | `test_state.py` | `JablotronState` status-byte classification helpers (`is_armed_state`, `is_disarmed_state`, `is_alarm_state`, exit/entering delay, maintenance). |
 | `test_keypress.py` | `JablotronKeyPress.get_beep_option`, including upstream **issue #44** (`KeyError: 6` for the missing beep code), captured via `pytest.raises`. |
 
