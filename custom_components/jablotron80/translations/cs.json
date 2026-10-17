@@ -191,8 +191,10 @@
                     "require_code_to_arm": "Vyžadovat kód při zajištění",
                     "require_code_to_disarm": "Vyžadovat kód při odjištění",
                     "quieten_expected_warnings": "Potlačit očekávaná varování",
-                    "verbose_connection_logging": "Podrobné protokolování připojení"
-                }
+                    "verbose_connection_logging": "Podrobné protokolování připojení",
+                    "query_detector_activity": "Automaticky dotazovat aktivitu čidel (může způsobit pípání klávesnice)"
+                },
+                "description": "Pro sledování a ovládání alarmu bez automatického dotazování čidel vypněte příslušnou volbu. Stavy čidel mohou být neúplné nebo zastaralé; neaktivní stav nepotvrzuje zavřené dveře ani nepřítomnost kouře. Stav alarmu a jeho ovládání zůstávají dostupné. Tlačítko ručního dotazu nadále funguje a může způsobit pípání klávesnice."
             }
         }
     }
