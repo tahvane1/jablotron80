@@ -47,7 +47,10 @@ class UserCodeView(HomeAssistantView):
             return self.json({"code": err.code, "message": str(err)}, status_code=400)
         except Exception:
             # Never format an exception containing a request body or PIN.
-            return self.json({"code": "operation_failed", "message": CODE_ERROR_MESSAGES["operation_failed"]}, status_code=500)
+            return self.json(
+                {"code": "operation_failed", "message": CODE_ERROR_MESSAGES["operation_failed"]},
+                status_code=500,
+            )
 
 
 @websocket_api.websocket_command(
