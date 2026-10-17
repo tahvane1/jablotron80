@@ -42,11 +42,8 @@ Related requests that remain outside this feature:
   disabled as described in [Alarm-only operation](README.md#alarm-only-operation).
   Disabling them reduces query traffic but detector details may be incomplete or
   stale. Personal codes and encryption do not resolve these issues.
-* The remaining open issues (#223, #195, #152, #144, #141, #135, #132, #112 and #98)
-  concern registry compatibility, discovery/configuration, transport/parser behavior,
-  checksums or entity identity. The account-code/encryption feature does not claim
-  to resolve them. In particular, redacting raw diagnostic payloads protects PINs;
-  it does not repair the communication failures reported in #132 or #195.
+* Redacting sensitive data in diagnostic logs does not resolve communication
+  failures between Home Assistant and the alarm panel.
 
 ## Defaults and storage
 
