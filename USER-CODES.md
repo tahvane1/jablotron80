@@ -66,8 +66,7 @@ Existing master credentials are retained in both code modes.
 The integration provides alarm entities, panel communication, credential storage
 and authenticated APIs. It does not create or edit dashboards, add cards, or
 register dashboard resources automatically. Each dashboard owner chooses the
-layout and controls. The compact A/AB/ABC prototype and its hold-to-confirm buttons
-are not part of this integration.
+layout and controls.
 
 Two independent, optional cards are bundled in the integration:
 
