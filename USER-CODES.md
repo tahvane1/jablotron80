@@ -38,7 +38,7 @@ are not part of this integration.
 
 Two independent, optional cards are bundled in the integration:
 
-* **My Jablotron code** (`jablotron-user-code-card`) only saves, replaces or forgets
+* **My Jablotron code** (`jablotron-user-code-manager`) only saves, replaces or forgets
   the signed-in account's existing panel PIN. It cannot arm or disarm the alarm.
 * **Disarm Jablotron** (`jablotron-disarm-card`) requests disarming using the saved
   code without a PIN in the request. It opens the native manual-code dialog if no
@@ -92,7 +92,7 @@ expose the integration's directory or private credential files.
 Management only:
 
 ```yaml
-type: custom:jablotron-user-code-card
+type: custom:jablotron-user-code-manager
 entity: alarm_control_panel.your_jablotron_panel
 ```
 
@@ -116,13 +116,17 @@ After an integration update, restart HA and reload each browser/app frontend so 
 new module is loaded. The asset is served without long-lived cache headers. An
 already open browser still runs its previously loaded module until refreshed.
 
-Replace the old `/local/jablotron-user-code-card.js?...` resource with the bundled
-URL; do not load both. The old file in `www` is not removed automatically and may
-be deleted after other dashboards have been checked. The earlier combined
-`jablotron-user-code-card` now displays management only: add the separate disarm card
-if you previously used its disarm button. Dashboard YAML, resource choices, existing
-PINs and encryption keys are not changed automatically. Do not replace unrelated
-custom dashboard controls unless you intend to migrate them.
+The management element is named `jablotron-user-code-manager`, distinct from the
+prototype's `jablotron-user-code-card`. You may keep an existing compact prototype
+resource while adding the bundled module: its element registration is not replaced.
+The module URL retains its file name `jablotron-user-code-card.js`; the YAML card
+type is `custom:jablotron-user-code-manager`.
+
+To migrate completely, replace management cards with the new type and add the
+separate disarm card where needed. Remove the old `/local/...` resource only after
+checking that no dashboards still use the prototype. The old file in `www` is not
+removed automatically. Dashboard YAML, resource choices, existing PINs and encryption
+keys are not changed automatically.
 
 ## Security and limits
 

@@ -32,7 +32,7 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
 (async ()=>{
   const hass=client(), requests=[];
   hass.callApi=async (...args)=>{requests.push(args);return {saved:true};};
-  const manage=card('jablotron-user-code-card',hass); await pause();
+  const manage=card('jablotron-user-code-manager',hass); await pause();
   assert.equal(manage.shadowRoot.querySelector('#disarm'),null);
   assert.equal(manage.shadowRoot.querySelector('#title').textContent,'My Jablotron code');
   manage._input.value='0123';const save=manage._save();assert.equal(manage._input.value,'');await save;
@@ -72,7 +72,7 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
   control.hass=client('bob');await pause();finish({sent:true});await sending;assert.equal(control._notice,null);
   let stored=false;const shared=client();shared.callWS=async ()=>({saved:stored,mode:'personal',encrypted:true});
   shared.callApi=async (_method,_path,body)=>{stored=body.operation==='save';return {saved:stored};};
-  const editor=card('jablotron-user-code-card',shared),button=card('jablotron-disarm-card',shared);
+  const editor=card('jablotron-user-code-manager',shared),button=card('jablotron-disarm-card',shared);
   editor.connectedCallback();button.connectedCallback();await pause();
   editor._input.value='0123';await editor._save();await pause();assert.equal(button._saved,true);
   await editor._remove();await pause();assert.equal(button._saved,false);

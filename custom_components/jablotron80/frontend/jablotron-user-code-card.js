@@ -212,5 +212,5 @@ class JablotronAccountCard extends HTMLElement {
 }
 class JablotronUserCodeCard extends JablotronAccountCard { constructor() { super(true); } }
 class JablotronDisarmCard extends JablotronAccountCard { constructor() { super(false); } }
-if (!customElements.get('jablotron-user-code-card')) customElements.define('jablotron-user-code-card', JablotronUserCodeCard);
+if (!customElements.get('jablotron-user-code-manager')) customElements.define('jablotron-user-code-manager', JablotronUserCodeCard);
 if (!customElements.get('jablotron-disarm-card')) customElements.define('jablotron-disarm-card', JablotronDisarmCard);
