@@ -4,12 +4,12 @@ const TEXT = {
     manage: 'My Jablotron code', control: 'Disarm Jablotron',
     intro: 'Save an existing panel PIN for your signed-in Home Assistant account. This does not program or validate a code in the panel.',
     label: 'My panel PIN (4 digits)', save: 'Save my code', remove: 'Forget my code',
-    refresh: 'Refresh', checking: 'Checking account settings…', saved: 'Your code is saved.',
+    retry: 'Try again', loadError: 'Unable to load account settings.', checking: 'Checking account settings…', saved: 'Your code is saved.',
     missing: 'No code saved for this account.', common: 'Personal codes are disabled in integration options.',
     encrypted: 'Codes are stored encrypted. The panel checks validity only when disarming.',
     plaintext: 'Codes are stored without encryption in a private HA file accessible to the server administrator and backups.',
     stored: 'Code saved. Nothing was sent to the panel.', removed: 'Saved code removed.',
-    invalid: 'Enter exactly four digits.', error: 'Operation failed. Check your permissions, integration settings and code storage, then refresh.',
+    invalid: 'Enter exactly four digits.', error: 'Operation failed. Check your permissions, integration settings and code storage.',
     confirm: 'Forget your saved code? Disarming will require manual entry.',
     disarm: 'Disarm with my code', commonDisarm: 'Disarm with common code', manual: 'Enter PIN manually',
     sent: 'Disarm request submitted. Check the alarm state.', idle: 'Already disarmed or disarming.',
@@ -20,12 +20,12 @@ const TEXT = {
     manage: 'Můj kód Jablotronu', control: 'Odjištění Jablotronu',
     intro: 'Ulož existující PIN ústředny pro svůj přihlášený účet Home Assistant. Uložení kód v ústředně nemění ani neověřuje.',
     label: 'Můj PIN ústředny (4 číslice)', save: 'Uložit můj kód', remove: 'Zapomenout můj kód',
-    refresh: 'Obnovit', checking: 'Ověřuji nastavení účtu…', saved: 'Tvůj kód je uložený.',
+    retry: 'Zkusit znovu', loadError: 'Nastavení účtu se nepodařilo načíst.', checking: 'Ověřuji nastavení účtu…', saved: 'Tvůj kód je uložený.',
     missing: 'Tento účet nemá uložený kód.', common: 'Osobní kódy jsou v nastavení integrace vypnuté.',
     encrypted: 'Kódy se ukládají šifrovaně. Platnost ústředna ověří až při odjištění.',
     plaintext: 'Kódy se ukládají bez šifrování do chráněného souboru HA dostupného správci serveru a v zálohách.',
     stored: 'Kód je uložený. Ústředně nebyl odeslán.', removed: 'Uložený kód byl odstraněn.',
-    invalid: 'Zadej přesně čtyři číslice.', error: 'Operace se nezdařila. Zkontroluj oprávnění, nastavení integrace a úložiště kódů a obnov stav.',
+    invalid: 'Zadej přesně čtyři číslice.', error: 'Operace se nezdařila. Zkontroluj oprávnění, nastavení integrace a úložiště kódů.',
     confirm: 'Zapomenout tvůj uložený kód? Odjištění bude vyžadovat ruční zadání.',
     disarm: 'Odjistit mým kódem', commonDisarm: 'Odjistit společným kódem', manual: 'Zadat PIN ručně',
     sent: 'Požadavek na odjištění byl odeslán. Ověř stav alarmu.', idle: 'Alarm je již odjištěný nebo se odjišťuje.',
@@ -36,12 +36,12 @@ const TEXT = {
     manage: 'Mon code Jablotron', control: 'Désarmer Jablotron',
     intro: 'Enregistrez un code existant de la centrale pour votre compte Home Assistant connecté. Cela ne programme ni ne valide le code dans la centrale.',
     label: 'Mon code de la centrale (4 chiffres)', save: 'Enregistrer mon code', remove: 'Oublier mon code',
-    refresh: 'Actualiser', checking: 'Vérification du compte…', saved: 'Votre code est enregistré.',
+    retry: 'Réessayer', loadError: 'Impossible de charger les paramètres du compte.', checking: 'Vérification du compte…', saved: 'Votre code est enregistré.',
     missing: 'Aucun code enregistré pour ce compte.', common: 'Les codes personnels sont désactivés dans les options de l’intégration.',
     encrypted: 'Les codes sont stockés chiffrés. La centrale vérifie leur validité lors du désarmement.',
     plaintext: 'Les codes sont stockés sans chiffrement dans un fichier privé HA accessible à l’administrateur du serveur et dans les sauvegardes.',
     stored: 'Code enregistré. Rien n’a été envoyé à la centrale.', removed: 'Code enregistré supprimé.',
-    invalid: 'Saisissez exactement quatre chiffres.', error: 'Échec de l’opération. Vérifiez vos droits, les options et le stockage des codes, puis actualisez.',
+    invalid: 'Saisissez exactement quatre chiffres.', error: 'Échec de l’opération. Vérifiez vos droits, les options et le stockage des codes.',
     confirm: 'Oublier votre code enregistré ? Le désarmement nécessitera une saisie manuelle.',
     disarm: 'Désarmer avec mon code', commonDisarm: 'Désarmer avec le code commun', manual: 'Saisir le code manuellement',
     sent: 'Demande de désarmement envoyée. Vérifiez l’état de l’alarme.', idle: 'Alarme déjà désarmée ou en cours de désarmement.',
@@ -86,7 +86,7 @@ class JablotronAccountCard extends HTMLElement {
     if (this._built && this._hass?.user?.id && !this._loaded) { this._loaded = true; this._load(); }
   }
   _reset() {
-    this._revision++; this._refreshPending = false; this._loaded = false; this._busy = false; this._saved = null;
+    this._revision++; this._loadFailed = false; this._refreshPending = false; this._loaded = false; this._busy = false; this._saved = null;
     this._mode = null; this._encrypted = null; this._automatic = false; this._notice = null;
     if (this._input) this._input.value = '';
     this._update();
@@ -110,12 +110,12 @@ class JablotronAccountCard extends HTMLElement {
         <input id="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required />
         <div class="actions"><button id="save" type="submit"></button><button id="remove" type="button"></button></div>
       </form><p id="storage"></p>` : '<div class="actions"><button id="disarm" type="button"></button><button id="manual" type="button"></button></div>'}
-      <p id="message" role="status" aria-live="polite"></p><button id="refresh" type="button"></button></ha-card>`;
+      <p id="message" role="status" aria-live="polite"></p><button id="retry" type="button" hidden></button></ha-card>`;
     this._input = this.shadowRoot.querySelector('#pin');
     const on = (id, fn) => this.shadowRoot.querySelector(id)?.addEventListener('click', fn);
     this.shadowRoot.querySelector('form')?.addEventListener('submit', e => { e.preventDefault(); this._save(); });
     on('#remove', () => this._remove()); on('#disarm', () => this._disarm());
-    on('#manual', () => this._manual()); on('#refresh', () => this._load());
+    on('#manual', () => this._manual()); on('#retry', () => this._load());
     this._built = true;
   }
   _update() {
@@ -124,10 +124,12 @@ class JablotronAccountCard extends HTMLElement {
     const ready = this._saved !== null && !!this._hass?.user?.id;
     const personal = this._mode === 'personal';
     set('#title', this._t(this._management ? 'manage' : 'control'));
-    set('#status', this._t(!ready ? 'checking' : this._management && !personal ? 'common' :
+    set('#status', this._t(!ready ? (this._loadFailed ? 'loadError' : 'checking') : this._management && !personal ? 'common' :
       !personal ? (this._automatic ? 'commonAutomatic' : 'commonManual') : this._saved ? 'saved' : 'missing'));
-    set('#message', this._notice ? this._t(this._notice) : ''); set('#refresh', this._t('refresh'));
-    this.shadowRoot.querySelector('#refresh').disabled = this._busy || !this._hass?.user?.id;
+    set('#message', this._notice ? this._t(this._notice) : ''); set('#retry', this._t('retry'));
+    const retry = this.shadowRoot.querySelector('#retry');
+    retry.hidden = !this._loadFailed || !this._hass?.user?.id;
+    retry.disabled = this._busy;
     if (this._management) {
       for (const key of ['intro', 'label', 'save', 'remove']) set('#' + key, this._t(key));
       set('#storage', ready ? this._t(this._encrypted ? 'encrypted' : 'plaintext') : '');
@@ -149,13 +151,13 @@ class JablotronAccountCard extends HTMLElement {
   async _load() {
     if (!this._config || !this._hass?.user?.id || this._busy) return;
     const revision = this._revision, hass = this._hass, entity = this._config.entity;
-    this._busy = true; this._notice = null; this._update();
+    this._loadFailed = false; this._busy = true; this._notice = null; this._update();
     try {
       const result = await hass.callWS({type:'jablotron80/user_code/status', entity_id:entity});
       if (revision !== this._revision) return;
       this._saved = !!result.saved; this._mode = result.mode; this._automatic = !!result.automatic; this._encrypted = !!result.encrypted;
     } catch {
-      if (revision === this._revision) { this._saved = null; this._notice = 'error'; }
+      if (revision === this._revision) { this._saved = null; this._loadFailed = true; this._notice = 'error'; }
     } finally {
       this._finish(revision);
     }

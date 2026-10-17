@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const classes = new Map();
 const listeners = new Set();
 const browserWindow = {confirm:()=>true,addEventListener:(_name,fn)=>listeners.add(fn),removeEventListener:(_name,fn)=>listeners.delete(fn),dispatchEvent:event=>{for(const fn of listeners)fn(event);}};
-function element() { return {value:'', textContent:'', disabled:false, hidden:false, addEventListener(){}}; }
+function element() { return {value:'', textContent:'', disabled:false, hidden:false, listeners:{}, addEventListener(name,fn){this.listeners[name]=fn;}}; }
 class FakeElement {
   attachShadow() {
     const nodes = new Map();
@@ -44,6 +44,7 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
   hass.callApi=async ()=>{throw {message:'secret 0123'};};
   manage._input.value='0123';await manage._save();assert.equal(manage._input.value,'');
   assert.equal(manage.shadowRoot.querySelector('#message').textContent.includes('0123'),false);
+  assert.equal(manage.shadowRoot.querySelector('#retry').hidden,true,'write failure must not offer a retry that could resend a PIN');
   manage._input.value='12';await manage._save();assert.equal(manage._notice,'invalid');assert.equal(manage._input.value,'');
   // Delayed results must not affect another account or entity, even after switching back.
   let finish;hass.callApi=()=>new Promise(resolve=>{finish=resolve;});
@@ -88,5 +89,19 @@ function card(type,hass) { const c=new (classes.get(type))();c.setConfig({entity
   observer.disconnectedCallback();editor.disconnectedCallback();assert.equal(listeners.size,0);
   // Native HTML validation must not prevent our validator from clearing bad input.
   assert.match(manage.shadowRoot.innerHTML,/<form[^>]*novalidate/);
+  for (const type of ['jablotron-user-code-manager','jablotron-disarm-card']) {
+    const network=client();let healthy=false;const calls=[];
+    network.callWS=async msg=>{calls.push(msg);if(!healthy)throw new Error('offline');return {saved:true,mode:'personal',encrypted:true};};
+    network.callApi=async ()=>{assert.fail('status retry must never save or remove a code');};
+    const c=card(type,network);await pause();const retry=c.shadowRoot.querySelector('#retry');
+    assert.equal(c._saved,null);assert.equal(retry.hidden,false);assert.equal(retry.textContent,'Try again');
+    assert.match(c.shadowRoot.querySelector('#status').textContent,/Unable to load/);
+    assert.equal(c.shadowRoot.innerHTML.includes('id="refresh"'),false);
+    healthy=true;retry.listeners.click();await pause();assert.equal(c._saved,true);assert.equal(retry.hidden,true);
+    assert.equal(calls.length,2);assert.ok(calls.every(msg=>msg.type==='jablotron80/user_code/status'));
+    network.callWS=async ()=>{throw new Error('failed action');};
+    if(type==='jablotron-disarm-card'){await c._disarm();assert.equal(retry.hidden,true,'disarm failure must not expose a retry action');}
+    c.hass={...network,user:null};assert.equal(retry.hidden,true);
+  }
   console.log('Bundled frontend: separated controls, save/remove, PIN clearing, translations, stale-response isolation and secret-free disarm OK.');
 })().catch(err=>{console.error(err);process.exitCode=1;});

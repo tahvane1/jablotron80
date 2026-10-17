@@ -110,6 +110,12 @@ on submission, after invalid input, account/entity changes, and when removed fro
 the page. It never pre-fills a saved PIN. Saving confirms storage only. A disarm API
 success confirms submission, not panel acceptance; check the alarm's actual state.
 
+The cards load account settings automatically. There is no permanent Refresh
+button. If loading fails, **Try again** repeats only the status read; it never
+resubmits a PIN or a disarm command. Changes made by the management card update
+other bundled cards on the same page automatically. Reload the page after changes
+made in a different browser session.
+
 ### Updating and migrating from the prototype
 
 After an integration update, restart HA and reload each browser/app frontend so the
