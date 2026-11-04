@@ -16,6 +16,11 @@ from .jablotron import (
     JablotronCode,
 )
 from .const import (
+    CONFIGURATION_CODE_MODE,
+    CODE_MODE_COMMON,
+    CODE_MODE_PERSONAL,
+    CONFIGURATION_ENCRYPT_CODES,
+    CONFIGURATION_ENCRYPTION_KEY_FILE,
     CONFIGURATION_SERIAL_PORT,
     CONFIGURATION_NUMBER_OF_WIRED_DEVICES,
     CONFIGURATION_PASSWORD,
@@ -261,30 +266,76 @@ class JablotronOptionsFlow(config_entries.OptionsFlow):
         self._config_entry: config_entries.ConfigEntry = config_entry
 
     async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
+        errors = {}
         if user_input is not None:
-            return self.async_create_entry(title=NAME, data=user_input)
+            from .credentials import (
+                CredentialError,
+                decoded_config,
+                create_key,
+                read_key,
+                async_prepare_entry,
+            )
+            from .user_codes import DATA_USER_CODES, UserCodeError
+            from .user_code_api import async_setup_user_codes
 
+            options = dict(user_input)
+            generate = options.pop("create_encryption_key", False)
+            try:
+                await async_setup_user_codes(self.hass)
+                manager = self.hass.data[DOMAIN][DATA_USER_CODES]
+                # Verify all old data before attempting to create a new key.
+                await self.hass.async_add_executor_job(
+                    decoded_config, self._config_entry.data, self._config_entry.entry_id
+                )
+                await manager.async_validate_entry(self._config_entry.entry_id)
+                if options.get(CONFIGURATION_ENCRYPT_CODES, False):
+                    path = options.get(CONFIGURATION_ENCRYPTION_KEY_FILE, "")
+                    await self.hass.async_add_executor_job(create_key if generate else read_key, path)
+                data = await async_prepare_entry(self.hass, self._config_entry, options, manager)
+                # Config and options are updated together after the private-store
+                # write succeeds; no PIN is returned in flow results.
+                self.hass.config_entries.async_update_entry(self._config_entry, data=data, options=options)
+                return self.async_create_entry(title=NAME, data=options)
+            except (CredentialError, UserCodeError, OSError):
+                errors["base"] = "credentials_unavailable"
+        values = user_input if user_input is not None else self._config_entry.options
         return self.async_show_form(
             step_id="init",
+            errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Optional(
+                        CONFIGURATION_ENCRYPT_CODES,
+                        default=values.get(CONFIGURATION_ENCRYPT_CODES, False),
+                    ): bool,
+                    vol.Optional(
+                        CONFIGURATION_ENCRYPTION_KEY_FILE,
+                        default=values.get(
+                            CONFIGURATION_ENCRYPTION_KEY_FILE, self.hass.config.path(".jablotron80.key")
+                        ),
+                    ): str,
+                    vol.Optional("create_encryption_key", default=False): bool,
+                    vol.Optional(
+                        CONFIGURATION_CODE_MODE,
+                        default=values.get(CONFIGURATION_CODE_MODE, CODE_MODE_COMMON),
+                    ): vol.In([CODE_MODE_COMMON, CODE_MODE_PERSONAL]),
+                    vol.Optional(
                         CONFIGURATION_REQUIRE_CODE_TO_DISARM,
-                        default=self._config_entry.options.get(
+                        default=values.get(
                             CONFIGURATION_REQUIRE_CODE_TO_DISARM,
                             DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_DISARM,
                         ),
                     ): bool,
                     vol.Optional(
                         CONFIGURATION_REQUIRE_CODE_TO_ARM,
-                        default=self._config_entry.options.get(
+                        default=values.get(
                             CONFIGURATION_REQUIRE_CODE_TO_ARM,
                             DEFAULT_CONFIGURATION_REQUIRE_CODE_TO_ARM,
                         ),
                     ): bool,
                     vol.Optional(
                         CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
-                        default=self._config_entry.options.get(
+                        default=values.get(
                             CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
                             DEFAULT_CONFIGURATION_QUIETEN_EXPECTED_WARNINGS,
                         ),
@@ -298,7 +349,7 @@ class JablotronOptionsFlow(config_entries.OptionsFlow):
                     ): bool,
                     vol.Optional(
                         CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
-                        default=self._config_entry.options.get(
+                        default=values.get(
                             CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
                             DEFAULT_CONFIGURATION_VERBOSE_CONNECTION_LOGGING,
                         ),

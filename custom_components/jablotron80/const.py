@@ -86,3 +86,10 @@ DEVICES = {
 }
 
 DEVICE_CONTROL_PANEL = "control_panel"
+
+CONFIGURATION_CODE_MODE = "code_mode"
+CODE_MODE_COMMON = "common"
+CODE_MODE_PERSONAL = "personal"
+
+CONFIGURATION_ENCRYPT_CODES = "encrypt_codes"
+CONFIGURATION_ENCRYPTION_KEY_FILE = "encryption_key_file"
