@@ -140,3 +140,42 @@ def test_port_not_open_skips_invalid_read_iteration(event_loop_for_setters, prio
     )
     assert conn._get_command.await_count == (2 if prior_record else 1)
     conn.reconnect.assert_awaited_once_with()
+
+
+
+def test_shutdown_during_failed_serial_open_stops_retrying(event_loop_for_setters, monkeypatch):
+    """The real serial connect loop must not retry after shutdown was requested."""
+    conn = _connection()
+    replacement = Mock()
+    attempts = []
+
+    async def failed_open_then_success(fn, *args, **kwargs):
+        attempts.append(fn)
+        if len(attempts) == 1:
+            conn.shutdown()
+            raise serial.SerialException("Connection refused")
+        return replacement
+
+    monkeypatch.setattr(jablotron.asyncio, "to_thread", failed_open_then_success)
+
+    async def drive():
+        return await asyncio.wait_for(conn.reconnect(), timeout=5)
+
+    assert event_loop_for_setters.run_until_complete(drive()) is False
+    assert attempts == [serial.serial_for_url]
+    assert conn._connection is None
+
+
+def test_disconnected_shutdown_does_not_retry_pending_queue(event_loop_for_setters):
+    """A disconnected packet loop must exit rather than retry forever on shutdown."""
+    conn = _connection()
+    conn._cmd_q.put_nowait(Mock())
+    conn.shutdown()
+    conn.connect = AsyncMock()
+
+    async def drive():
+        await asyncio.wait_for(conn.read_send_packet_loop(), timeout=1)
+
+    event_loop_for_setters.run_until_complete(drive())
+    conn.connect.assert_not_awaited()
+    assert conn._connection is None
