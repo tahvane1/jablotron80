@@ -701,6 +701,8 @@ class JablotronConnection:
         self._output_q = asyncio.Queue()
         self._stop = asyncio.Event()
         self._connection = None
+        # Serial connection lifecycle is shared with the shutdown path.
+        self._lifecycle_lock = asyncio.Lock()
         self._messages = asyncio.Event()
         self.update_devices = False
         # #97: track when we last received data so a watchdog can detect a
@@ -726,23 +728,57 @@ class JablotronConnection:
     def device(self):
         return self._device
 
-    async def disconnect(self) -> None:
-        if self.is_connected():
-            LOGGER.info("Disconnecting from JA80...")
-            await asyncio.to_thread(self._connection.flush)
-            await asyncio.to_thread(self._connection.close)
-            self._connection = None
-        else:
+    async def _disconnect_without_lock(self) -> None:
+        """Release the current port. Call only while holding _lifecycle_lock."""
+        connection = self._connection
+        if connection is None:
             LOGGER.info("No need to disconnect; not connected")
+            return
+
+        LOGGER.info("Disconnecting from JA80...")
+        try:
+            try:
+                await asyncio.to_thread(connection.flush)
+            except Exception as ex:
+                # A failed flush must not prevent closing an invalid port.
+                LOGGER.warning("JA80 flush failed during disconnect (%s)", type(ex).__name__)
+        finally:
+            try:
+                await asyncio.to_thread(connection.close)
+            except Exception as ex:
+                LOGGER.warning("JA80 close failed during disconnect (%s)", type(ex).__name__)
+            finally:
+                if self._connection is connection:
+                    self._connection = None
+
+    async def disconnect(self) -> None:
+        async with self._lifecycle_lock:
+            await self._disconnect_without_lock()
 
     async def reconnect(self) -> bool:
+        if self._stop.is_set():
+            return False
+        # Identify the connection that triggered the reconnection. Another
+        # coroutine may have already replaced it while we were waiting.
+        previous_connection = self._connection
         LOGGER.warning("connection failed, reconnecting")
         await asyncio.sleep(1)
-        await self.disconnect()
-        await self.connect()
-        # #165/#97: report whether the reconnect actually succeeded so callers
-        # (the packet loop) can back off and retry instead of assuming success.
-        return self.is_connected()
+        async with self._lifecycle_lock:
+            if self._stop.is_set():
+                return False
+            if (self._connection is not previous_connection
+                    and self._connection is not None):
+                # Another concurrent reconnect already opened a new port.
+                return True
+            await self._disconnect_without_lock()
+            if self._stop.is_set():
+                return False
+            await self.connect()
+            if self._stop.is_set():
+                # Shutdown may have begun while connect() was in progress.
+                await self._disconnect_without_lock()
+                return False
+            return self.is_connected()
 
     def shutdown(self) -> None:
         self._stop.set()
@@ -818,6 +854,8 @@ class JablotronConnection:
                     records = await self._read_data()
                 except serial.serialutil.PortNotOpenError:
                     await self.reconnect()
+                    # No valid `records` in this iteration; try reading afresh.
+                    continue
 
                 await self._forward_records(records)
                 send_cmd = await self._get_command()
