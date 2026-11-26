@@ -847,6 +847,9 @@ class JablotronConnection:
                     # referenced before assignment on this branch.
                     LOGGER.warning("Not connected to JA80, attempting to reconnect")
                     if not await self.reconnect():
+                        if self._stop.is_set():
+                            # A disconnected port cannot drain queued commands during shutdown.
+                            break
                         await asyncio.sleep(RECONNECT_BACKOFF_SECONDS)
                     continue
 
@@ -1036,7 +1039,7 @@ class JablotronConnectionSerial(JablotronConnection):
     async def connect(self) -> None:
         LOGGER.info(f"Connecting to JA80 via Serial using {self._device}...")
 
-        while self._connection is None:
+        while self._connection is None and not self._stop.is_set():
             try:
                 self._connection = await asyncio.to_thread(
                     serial.serial_for_url,
